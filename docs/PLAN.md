@@ -508,7 +508,8 @@ contract, and automated guards. No fake stubs for later phases.
 - Compiling modules: `score`, `board`, `perft`, `eval`, `search`, `tt`,
   `agents`, `rng`, `cli`.
 - `src/score.rs`: `SCORE_SCALE`, `INF`, `EVAL_BOUND`, and pure
-  `terminal_score(wthor_diff: i32)`. No `Board` dependency yet.
+  `terminal_score(wthor_diff: i32)`. Its doc comments own the objective and the
+  heuristic-bound note. No `Board` dependency yet.
 - `src/rng.rs`: production xorshift64* PRNG with a defined seed-zero rule.
 - `tests/score.rs`: pure conversion, exact range, bounds, negatability, and
   overflow. Do not test `terminal_score(Board)` before Phase 1 delivers it.
@@ -521,8 +522,9 @@ contract, and automated guards. No fake stubs for later phases.
   `rustfmt.toml` and `.rustfmt.toml`. Document the comment rule.
 - `scripts/check.sh` running fmt, clippy, tests, tools tests, and both budget
   tests.
-- Record conventions in `src/lib.rs` doc comments, and mark DESIGN.md sections
-  superseded by this plan.
+- Record cross-cutting conventions in `src/lib.rs` doc comments; the score
+  objective lives in `src/score.rs`. Mark DESIGN.md sections superseded by
+  this plan.
 
 **Tests:** `cargo test` passes; `scripts/check.sh` exits 0; budget test reports
 the actual count.
