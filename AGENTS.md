@@ -8,7 +8,7 @@ We complete one issue at a time. Use the `skis` CLI for all issue operations. Ne
 
 1. Pick the next open issue in the current epic. Record its id and title. If no epic is active, use the lowest-numbered open epic.
 2. Create and switch to branch `{id}-{slug-from-title}` from `main`. Slug: lowercase, alphanumeric words separated by hyphens.
-3. RED phase: write the tests first. Append a description of the work to `docs/prs/{id}.md`: issue id/title, tests written, expected failures, and the intended behaviour. Tell the user it is ready for review. Stop and wait.
+3. RED phase: write the tests first. Append a description of the work to `docs/prs/{id}.md`: issue id/title, tests written, expected failures, and the intended behaviour. Tell the user it is ready for review. Stop and wait. Exception: straight configuration or setup work has no test stage; implement it directly, append notes to `docs/prs/{id}.md`, and ask for review.
 4. The user writes `docs/reviews/{id}.md` and notifies you. Read it, address every concern, and update the RED work as needed.
 5. GREEN phase: implement until the approved tests pass. Append implementation notes to `docs/prs/{id}.md`: what changed, commands run, and results. Tell the user it is ready for review.
 6. The user either approves or updates the review document. Repeat from step 4 until the verdict is `approve`.
