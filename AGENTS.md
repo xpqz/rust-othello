@@ -21,6 +21,7 @@ Do not merge before an `approve` verdict. Do not close an issue before its branc
 
 - `docs/prs/{id}.md` is append-only during the loop; add RED notes, review responses, and GREEN implementation notes.
 - `docs/reviews/{id}.md` is written by the user. Treat it as the review contract.
+- Always add every untracked review artifact to the change set; never leave `docs/reviews/{id}.md` untracked.
 
 ### Definition of done
 
