@@ -1,0 +1,16 @@
+[package]
+name = "othello"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "othello"
+path = "src/lib.rs"
+
+[[bin]]
+name = "othello"
+path = "src/main.rs"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
