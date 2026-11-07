@@ -1,8 +1,6 @@
-pub use othello::rng::Rng;
+#![allow(dead_code)]
 
-pub fn seeded(seed: u64) -> Rng {
-    Rng::new(seed)
-}
+pub type Rng = othello::rng::Rng;
 
 pub fn format_bits(me: u64, opp: u64) -> String {
     let mut out = String::new();
@@ -32,6 +30,19 @@ pub enum Sym {
     FlipV,
     FlipDiag,
     FlipAnti,
+}
+
+impl Sym {
+    pub const ALL: [Sym; 8] = [
+        Sym::Identity,
+        Sym::Rot90,
+        Sym::Rot180,
+        Sym::Rot270,
+        Sym::FlipH,
+        Sym::FlipV,
+        Sym::FlipDiag,
+        Sym::FlipAnti,
+    ];
 }
 
 pub fn transform(bits: u64, sym: Sym) -> u64 {
@@ -85,22 +96,5 @@ impl Naive {
             }
         }
         (me, opp)
-    }
-}
-
-pub struct Factory<F>(F);
-
-impl<F> Factory<F> {
-    pub fn new(make: F) -> Self {
-        Self(make)
-    }
-}
-
-impl<F, T> Factory<F>
-where
-    F: FnMut() -> T,
-{
-    pub fn spawn(&mut self) -> T {
-        (self.0)()
     }
 }
