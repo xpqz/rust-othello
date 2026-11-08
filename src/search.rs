@@ -255,6 +255,26 @@ pub fn solve(board: Board, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> 
     value
 }
 
+pub fn solve_wdl(board: Board, ctx: &mut Ctx) -> Option<i32> {
+    let wdl = solve(board, -1, 1, ctx)?.signum();
+    let flag = match wdl {
+        1 => Bound::Lower,
+        -1 => Bound::Upper,
+        _ => Bound::Exact,
+    };
+    if let Some(table) = ctx.table.as_mut() {
+        table.store(Entry {
+            key: zobrist(board),
+            value: wdl,
+            depth: 0,
+            flag,
+            domain: Domain::Endgame,
+            mv: NO_MOVE,
+        });
+    }
+    Some(wdl)
+}
+
 pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
     let (moves, first, fallback) = root_setup(board, config);
     if depth == 0 {
@@ -264,7 +284,7 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
         return search_inner(board, SearchLimits::depth(depth), config, None);
     }
     let mut ctx = Ctx::new(config);
-    let (best, score) = root(board, moves, depth, first, &mut ctx).unwrap();
+    let (best, score) = root(board, moves, depth, first, -INF, INF, &mut ctx).unwrap();
     SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
 }
 
@@ -301,12 +321,31 @@ fn search_inner(
             nodes: 0,
             max_nodes: limits.max_nodes,
             deadline,
-            table: table.as_deref_mut(),
+            table: None,
             exact: true,
         };
-        let Some((square, score)) = root(board, moves, EXACT_ORDER_DEPTH, fallback, &mut ctx)
-        else {
+        if let Some(table) = table.as_deref_mut() {
+            ctx.set_table(table);
+        }
+        let Some(wdl) = solve_wdl(board, &mut ctx) else {
             return fallback_result;
+        };
+        ctx.exact = true;
+        let (alpha, beta) = match wdl {
+            1 => (0, INF),
+            -1 => (-INF, 0),
+            _ => (-1, 1),
+        };
+        let Some((square, score)) = root(
+            board,
+            moves,
+            EXACT_ORDER_DEPTH,
+            fallback,
+            alpha,
+            beta,
+            &mut ctx,
+        ) else {
+            return SearchResult::new(fallback, wdl, 0, ctx.nodes, SearchStatus::Partial);
         };
         let mut result = SearchResult::new(square, score, 0, ctx.nodes, SearchStatus::Complete);
         result.solved = true;
@@ -327,7 +366,7 @@ fn search_inner(
         if ctx.stop_iteration() {
             break;
         }
-        let Some((square, score)) = root(board, moves, depth, best, &mut ctx) else {
+        let Some((square, score)) = root(board, moves, depth, best, -INF, INF, &mut ctx) else {
             break;
         };
         best = square;
@@ -348,17 +387,25 @@ fn root_setup(board: Board, config: &SearchConfig) -> (u64, u8, SearchResult) {
     (moves, first, fallback)
 }
 
-fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> Option<(u8, i32)> {
+fn root(
+    board: Board,
+    moves: u64,
+    depth: u32,
+    best: u8,
+    mut alpha: i32,
+    beta: i32,
+    ctx: &mut Ctx,
+) -> Option<(u8, i32)> {
     let mut chosen = best;
     let mut score = -INF;
-    let mut alpha = -INF;
     let (order, len) = if ctx.config.ordering {
         ordered_moves(board, moves, depth, Some(best))
     } else {
         natural(moves)
     };
+    let next = if ctx.exact { depth } else { depth - 1 };
     for &square in &order[..len] {
-        let value = -negamax(play(board, square), depth - 1, -INF, -alpha, ctx)?;
+        let value = -negamax(play(board, square), next, -beta, -alpha, ctx)?;
         if value > score {
             score = value;
             chosen = square;

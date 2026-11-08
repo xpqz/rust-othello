@@ -356,17 +356,17 @@ scripts/
 
 | Module | Budget | Notes |
 | --- | ---: | --- |
-| `lib.rs` | 17 | Re-exports and policy only |
-| `score.rs` | 25 | Units, pure conversion, bounds |
-| `board.rs` | 130 | Most care here; plain loops before tricks |
-| `perft.rs` | 20 | Tree walk used by the CLI and tests |
-| `eval.rs` | 120 | Features plus phase-weighted combination |
-| `search.rs` | 345 | Root, ordering, deepening, cancellation, exact mode |
+| `lib.rs` | 11 | Re-exports and policy only |
+| `score.rs` | 10 | Units, pure conversion, bounds |
+| `board.rs` | 115 | Most care here; plain loops before tricks |
+| `perft.rs` | 19 | Tree walk used by the CLI and tests |
+| `eval.rs` | 100 | Features plus phase-weighted combination |
+| `search.rs` | 395 | Root, ordering, deepening, cancellation, WDL, exact widening |
 | `tt.rs` | 110 | Zobrist domain-aware table |
-| `agents.rs` | 50 | Trait/factory and small adapters |
-| `rng.rs` | 10 | Production PRNG |
+| `agents.rs` | 49 | Trait/factory and small adapters |
+| `rng.rs` | 20 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **997** | Leaves 2 lines of estimated headroom; actual engine is 860 |
+| **Total** | **999** | Estimates at the ceiling; actual engine is 909 |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
 engine claim and does not consume the engine headroom.
@@ -870,7 +870,7 @@ reusable endgame bounds and honest completion reporting.
 recorded hardware; completion rate and p90/p99 recorded; full game with solver
 finishes under the CLI time limit; aborted solves report `solved = false`.
 
-**Budget:** `search.rs` <= 345 including exact mode and the trigger;
+**Budget:** `search.rs` <= 395 including WDL and exact widening;
 `tt.rs` unchanged.
 
 ---
@@ -914,7 +914,7 @@ configuration at equal node budget with a valid interval; each retained feature
 has an ablation result; the final configuration is validated on an untouched
 set.
 
-**Budget:** `eval.rs` <= 120.
+**Budget:** `eval.rs` <= 100 (reduced by #91; 25 actual before Phase 7).
 
 ---
 
