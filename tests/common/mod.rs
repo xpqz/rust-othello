@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use othello::agents::Agent;
 use othello::board::{Board, legal_moves, pass, play};
 use othello::rng::Rng;
 
@@ -224,5 +225,22 @@ pub fn playout(rng: &mut Rng, mut visit: impl FnMut(Board)) {
         } else {
             board = pass(board);
         }
+    }
+}
+
+pub fn agent_game(start: Board, first: &mut dyn Agent, second: &mut dyn Agent) -> Board {
+    let mut board = start;
+    let mut turn = false;
+    loop {
+        if legal_moves(board.me, board.opp) == 0 {
+            if legal_moves(board.opp, board.me) == 0 {
+                return board;
+            }
+            board = pass(board);
+        } else {
+            let agent: &mut dyn Agent = if turn { &mut *second } else { &mut *first };
+            board = play(board, agent.choose(board).expect("agent must move"));
+        }
+        turn = !turn;
     }
 }

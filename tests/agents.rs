@@ -5,7 +5,7 @@ use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
 use othello::board::{Board, is_terminal, legal_moves};
 use othello::eval::evaluate;
 use othello::rng::Rng;
-use othello::search::{SearchConfig, SearchLimits};
+use othello::search::{SearchConfig, SearchLimits, search};
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -46,16 +46,26 @@ fn greedy_hand_checked() {
     let mut agent = greedy_agent();
     assert_eq!(agent.choose(Board::START), Some(sq(3, 2)));
     let board = Board {
-        me: at(2, 0) | at(2, 1),
-        opp: at(1, 0) | at(1, 1),
+        me: at(2, 0) | at(6, 0),
+        opp: at(1, 0) | at(3, 0) | at(5, 0),
     };
-    assert_eq!(legal_moves(board.me, board.opp), at(0, 0) | at(0, 1));
-    assert_eq!(agent.choose(board), Some(sq(0, 0)));
+    assert_eq!(legal_moves(board.me, board.opp), at(0, 0) | at(4, 0));
+    assert_eq!(agent.choose(board), Some(sq(4, 0)));
 }
 
 #[test]
 fn search_legal() {
-    let mut agent = search_agent(config(), limits());
+    let cfg = config();
+    let mut agent = search_agent(cfg, limits());
+    for board in [
+        Board::START,
+        Board {
+            me: at(2, 0) | at(2, 1),
+            opp: at(1, 0) | at(1, 1),
+        },
+    ] {
+        assert_eq!(agent.choose(board), Some(search(board, 2, &cfg).best));
+    }
     let mut rng = Rng::new(0x5EA3);
     for _ in 0..20 {
         playout(&mut rng, |board| {
@@ -92,21 +102,34 @@ fn agent_roots() {
 }
 
 #[test]
-fn fresh_state() {
+fn reset_replays() {
     let board = Board::START;
-    let mut first = random_agent(42);
-    let mut second = random_agent(42);
-    let first_choice = first.choose(board);
-    assert_eq!(second.choose(board), first_choice);
-    let _ = first.choose(board);
-    let mut reset = random_agent(42);
-    assert_eq!(reset.choose(board), first_choice);
+    let mut agent = random_agent(42);
+    let first: Vec<_> = (0..8).map(|_| agent.choose(board)).collect();
+    agent.reset();
+    let again: Vec<_> = (0..8).map(|_| agent.choose(board)).collect();
+    assert_eq!(first, again);
 }
 
 #[test]
 fn game_finishes() {
     let mut first = random_agent(1);
     let mut second = random_agent(2);
-    let board = common::agent_game(&mut first, &mut second);
-    assert!(is_terminal(board));
+    assert!(is_terminal(common::agent_game(
+        Board::START,
+        &mut first,
+        &mut second
+    )));
+
+    let pass_start = Board {
+        me: at(1, 1),
+        opp: at(0, 0) | at(2, 0),
+    };
+    let mut first = random_agent(3);
+    let mut second = random_agent(4);
+    assert!(is_terminal(common::agent_game(
+        pass_start,
+        &mut first,
+        &mut second
+    )));
 }

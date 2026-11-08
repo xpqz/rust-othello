@@ -9,6 +9,12 @@ pub struct SearchConfig {
     pub endgame_threshold: u32,
 }
 
+/// Phase 2 limits; time and node limits arrive with cancellation in #83.
+#[derive(Clone, Copy, Debug)]
+pub struct SearchLimits {
+    pub max_depth: u32,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SearchStatus {
     Complete,
