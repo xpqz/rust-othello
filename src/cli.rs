@@ -1,7 +1,7 @@
 use std::io::{self, BufRead};
 use std::time::Instant;
 
-use crate::agents::{Agent, greedy_agent};
+use crate::agents::{Agent, search_agent};
 use crate::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use crate::perft::perft;
 use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_tt};
@@ -152,7 +152,7 @@ fn parse_move(board: Board, text: &str) -> Option<u8> {
 fn play_game() -> Result<(), String> {
     let mut board = Board::START;
     let mut black_to_move = true;
-    let mut agent = greedy_agent();
+    let mut agent = search_agent(SearchConfig::standard(), SearchLimits::new(64, 1000, 0));
     let mut input = io::stdin().lock();
     loop {
         print!("{}", render(board, black_to_move));

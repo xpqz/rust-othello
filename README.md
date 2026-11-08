@@ -24,11 +24,12 @@ cargo run --release -- bench --board 785c68e1f14f0d11:0223171e0e3070a0 \
   --endgame-threshold 12 --time-ms 1000
 ```
 
-`play` is Black (human) against a White greedy agent. It prints the board,
-legal moves, and a readable final score:
+`play` is Black (human) against White using the search engine at 1 s/move:
+the tuned evaluator, 64 MiB TT, and root-only endgame solver. It prints the
+board, legal moves, and a readable final score:
 
 ```text
-Game over. Black 23, White 41.
+Game over. Black 0, White 51.
 ```
 
 `bench` accepts `--depth`, `--time-ms`, `--max-nodes`, `--board me:opp`
@@ -134,4 +135,4 @@ timing benchmarks.
 ## Demo
 
 Scripted and PTY-driven interactive games were both completed against the
-release CLI; both finished `Game over. Black 23, White 41.`
+release CLI; both finished `Game over. Black 0, White 51.`
