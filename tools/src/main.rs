@@ -5,7 +5,8 @@ use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::search::{SearchConfig, SearchLimits};
 use othello_tools::baselines::{PHASE2_DEPTH, phase2_config};
-use othello_tools::harness::{play_game, points};
+use othello_tools::harness::{GameLog, play_game, points};
+use othello_tools::positions;
 use othello_tools::stats::{Interval, RESAMPLES, report_with};
 
 fn main() {
@@ -65,11 +66,15 @@ fn describe(name: &str) -> String {
 
 fn stream(seed: u64, pair: usize, game: u64, side: u64) -> u64 {
     let id = ((pair as u64) << 2) | (game << 1) | side;
-    let mut mix = Rng::new(seed);
-    Rng::new(mix.next_u64() ^ id).next_u64()
+    Rng::new(Rng::new(seed).next_u64() ^ id).next_u64()
 }
 
 fn match_command(args: &[String]) -> Result<(), String> {
+    let mut openings_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../bench/openings_validation.txt"
+    )
+    .to_string();
     let (mut a, mut b, mut pairs, mut seed) = (None, None, 100usize, 1u64);
     let mut index = 0;
     while index < args.len() {
@@ -79,21 +84,70 @@ fn match_command(args: &[String]) -> Result<(), String> {
             "--b" => b = Some(value.clone()),
             "--pairs" => pairs = value.parse().map_err(|_| "invalid pairs")?,
             "--seed" => seed = value.parse().map_err(|_| "invalid seed")?,
+            "--openings" => openings_path = value.clone(),
             flag => return Err(format!("unknown option: {flag}")),
         }
         index += 2;
     }
     let a = a.ok_or("missing --a")?;
     let b = b.ok_or("missing --b")?;
+    let openings = positions::load(&openings_path)?;
+    if openings.is_empty() {
+        return Err("no openings".into());
+    }
+    let depth = |name: &str| match name {
+        "phase2" => PHASE2_DEPTH,
+        other => other
+            .strip_prefix("ab:")
+            .and_then(|depth| depth.parse().ok())
+            .unwrap_or(0),
+    };
     let mut game_points = Vec::with_capacity(pairs);
+    let mut logs = Vec::with_capacity(pairs * 2);
     for pair in 0..pairs {
-        let mut a_black = make_agent(&a, stream(seed, pair, 0, 0))?;
-        let mut b_white = make_agent(&b, stream(seed, pair, 0, 1))?;
-        let first = play_game(&[], &mut *a_black, &mut *b_white)?;
-        let mut b_black = make_agent(&b, stream(seed, pair, 1, 0))?;
-        let mut a_white = make_agent(&a, stream(seed, pair, 1, 1))?;
-        let second = play_game(&[], &mut *b_black, &mut *a_white)?;
+        let opening = &openings[pair % openings.len()];
+        let a_seed = stream(seed, pair, 0, 0);
+        let b_seed = stream(seed, pair, 0, 1);
+        let mut a_black = make_agent(&a, a_seed)?;
+        let mut b_white = make_agent(&b, b_seed)?;
+        let first = play_game(&opening.squares, &mut *a_black, &mut *b_white)?;
+        let b_seed = stream(seed, pair, 1, 0);
+        let a_seed = stream(seed, pair, 1, 1);
+        let mut b_black = make_agent(&b, b_seed)?;
+        let mut a_white = make_agent(&a, a_seed)?;
+        let second = play_game(&opening.squares, &mut *b_black, &mut *a_white)?;
         game_points.push((points(first.score), 1.0 - points(second.score)));
+        let depth = depth(&a).max(depth(&b));
+        logs.push(
+            GameLog {
+                run: 1,
+                pair,
+                game: 0,
+                agent_seeds: (a_seed, b_seed),
+                key: opening.key,
+                opening: opening.line(),
+                black: a.clone(),
+                white: b.clone(),
+                depth,
+                score: first.score,
+            }
+            .line(),
+        );
+        logs.push(
+            GameLog {
+                run: 1,
+                pair,
+                game: 1,
+                agent_seeds: (b_seed, a_seed),
+                key: opening.key,
+                opening: opening.line(),
+                black: b.clone(),
+                white: a.clone(),
+                depth,
+                score: second.score,
+            }
+            .line(),
+        );
     }
     let summary = report_with(&game_points, RESAMPLES, seed);
     let interval = match summary.interval {
@@ -117,5 +171,8 @@ fn match_command(args: &[String]) -> Result<(), String> {
     println!("a {}", describe(&a));
     println!("b {}", describe(&b));
     println!("seed {seed} resamples {RESAMPLES} evaluator-only");
+    for line in logs {
+        println!("{line}");
+    }
     Ok(())
 }

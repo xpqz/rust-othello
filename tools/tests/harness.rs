@@ -1,6 +1,8 @@
 use othello::agents::{Agent, greedy_agent, random_agent};
 use othello::board::Board;
-use othello_tools::harness::{GameResult, pair_score, play_from, play_game, points};
+use othello_tools::harness::{GameLog, GameResult, pair_score, play_from, play_game, points};
+use othello_tools::positions;
+use othello_tools::sym;
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -134,4 +136,85 @@ fn passes_occur() {
         passes += game.passes;
     }
     assert!(passes > 0);
+}
+
+#[test]
+fn openings_parse() {
+    let text = "c4 e3 f2 c5\n# comment\n\nd3 e3 f5 c3\nc4 e3 f2 c5\n";
+    let openings = positions::parse(text).unwrap();
+    assert_eq!(openings.len(), 3);
+    let stats = positions::stats(&openings);
+    assert_eq!(stats.openings, 3);
+    assert_eq!(stats.duplicates, 1);
+    assert_eq!(stats.lengths, vec![(4, 3)]);
+    assert!(positions::parse("c4 e3 f2\n").is_err());
+    assert!(positions::parse("a1 e3 f2 c5\n").is_err());
+    assert!(positions::parse("c4 e3 f2 c5 x9\n").is_err());
+}
+
+#[test]
+fn canonical_d4() {
+    let key = sym::canonical(Board::START);
+    for kind in 0..8 {
+        assert_eq!(sym::canonical(sym::transform(Board::START, kind)), key);
+    }
+}
+
+#[test]
+fn split_overlap() {
+    let openings =
+        positions::parse("c4 e3 f2 c5\nd3 e3 f5 c3\nc4 e3 f4 c3\nf5 f6 d3 g5\n").unwrap();
+    let first = openings[0].clone();
+    let second = openings[1].clone();
+    let third = openings[2].clone();
+    let fourth = openings[3].clone();
+    assert!(
+        positions::check_splits(&[
+            std::slice::from_ref(&first),
+            std::slice::from_ref(&first),
+            std::slice::from_ref(&second)
+        ])
+        .is_err()
+    );
+    assert!(positions::check_splits(&[&[second], &[third], &[fourth]]).is_ok());
+}
+
+#[test]
+fn frozen_sets() {
+    let base = concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/");
+    let tune = positions::load(&format!("{base}openings_tune.txt")).unwrap();
+    let validation = positions::load(&format!("{base}openings_validation.txt")).unwrap();
+    let final_set = positions::load(&format!("{base}openings_final.txt")).unwrap();
+    positions::check_splits(&[&tune, &validation, &final_set]).unwrap();
+    for set in [&tune, &validation, &final_set] {
+        let stats = positions::stats(set);
+        assert_eq!(stats.openings, 4);
+        assert_eq!(stats.duplicates, 0);
+        assert_eq!(stats.lengths, vec![(8, 4)]);
+    }
+}
+
+#[test]
+fn log_line() {
+    let log = GameLog {
+        run: 1,
+        pair: 0,
+        game: 0,
+        agent_seeds: (1, 2),
+        key: (3, 4),
+        opening: "c4 e3 f2 c5".into(),
+        black: "random".into(),
+        white: "greedy".into(),
+        depth: 4,
+        score: 120,
+    };
+    let line = log.line();
+    assert!(line.contains("run 1 pair 0 game 0"), "{line}");
+    assert!(line.contains("seeds (1, 2)"), "{line}");
+    assert!(line.contains("key (3, 4)"), "{line}");
+    assert!(line.contains("opening c4 e3 f2 c5"), "{line}");
+    assert!(
+        line.contains("black random white greedy depth 4 score 120"),
+        "{line}"
+    );
 }

@@ -96,3 +96,37 @@ pub fn pair_score(opening: &[u8], first: &Factory, second: &Factory) -> Result<f
         1.0 - points(play_game(opening, &mut *second_black, &mut *first_white)?.score);
     Ok((first_points + second_points) / 2.0)
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GameLog {
+    pub run: u64,
+    pub pair: usize,
+    pub game: u64,
+    pub agent_seeds: (u64, u64),
+    pub key: (u64, u64),
+    pub opening: String,
+    pub black: String,
+    pub white: String,
+    pub depth: u32,
+    pub score: i32,
+}
+
+impl GameLog {
+    pub fn line(&self) -> String {
+        format!(
+            "run {} pair {} game {} seeds ({}, {}) key ({}, {}) opening {} black {} white {} depth {} score {}",
+            self.run,
+            self.pair,
+            self.game,
+            self.agent_seeds.0,
+            self.agent_seeds.1,
+            self.key.0,
+            self.key.1,
+            self.opening,
+            self.black,
+            self.white,
+            self.depth,
+            self.score
+        )
+    }
+}
