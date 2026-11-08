@@ -115,3 +115,14 @@ pub fn final_score(board: Board) -> i32 {
     let diff = disc_count(board.me) as i32 - disc_count(board.opp) as i32;
     diff + diff.signum() * empty_count(board) as i32
 }
+
+pub fn squares(mut bits: u64) -> impl Iterator<Item = u8> {
+    std::iter::from_fn(move || {
+        if bits == 0 {
+            return None;
+        }
+        let square = bits.trailing_zeros() as u8;
+        bits &= bits - 1;
+        Some(square)
+    })
+}

@@ -1,6 +1,6 @@
 //! Fixed-depth negamax with alpha-beta and the search result contract.
 
-use crate::board::{Board, final_score, legal_moves, pass, play};
+use crate::board::{Board, final_score, legal_moves, pass, play, squares};
 use crate::score::{INF, terminal_score};
 
 #[derive(Clone, Copy, Debug)]
@@ -24,6 +24,19 @@ pub struct SearchResult {
     pub nodes: u64,
     pub status: SearchStatus,
     pub solved: bool,
+}
+
+impl SearchResult {
+    fn new(best: u8, score: i32, depth: u32, nodes: u64, status: SearchStatus) -> Self {
+        Self {
+            best,
+            score,
+            depth,
+            nodes,
+            status,
+            solved: false,
+        }
+    }
 }
 
 pub struct Ctx<'a> {
@@ -50,10 +63,7 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         return Some((ctx.config.eval)(board));
     }
     let mut best = -INF;
-    let mut rest = moves;
-    while rest != 0 {
-        let square = rest.trailing_zeros() as u8;
-        rest &= rest - 1;
+    for square in squares(moves) {
         let value = -negamax(play(board, square), depth - 1, -beta, -alpha, ctx)?;
         best = best.max(value);
         alpha = alpha.max(value);
@@ -69,23 +79,13 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
     assert!(moves != 0, "search requires a legal root move");
     let first = moves.trailing_zeros() as u8;
     if depth == 0 {
-        return SearchResult {
-            best: first,
-            score: (config.eval)(board),
-            depth: 0,
-            nodes: 0,
-            status: SearchStatus::Fallback,
-            solved: false,
-        };
+        return SearchResult::new(first, (config.eval)(board), 0, 0, SearchStatus::Fallback);
     }
     let mut ctx = Ctx::new(config);
     let mut best = first;
     let mut score = -INF;
     let mut alpha = -INF;
-    let mut rest = moves;
-    while rest != 0 {
-        let square = rest.trailing_zeros() as u8;
-        rest &= rest - 1;
+    for square in squares(moves) {
         let value = -negamax(play(board, square), depth - 1, -INF, -alpha, &mut ctx).unwrap();
         if value > score {
             score = value;
@@ -93,12 +93,5 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
         }
         alpha = alpha.max(value);
     }
-    SearchResult {
-        best,
-        score,
-        depth,
-        nodes: ctx.nodes,
-        status: SearchStatus::Complete,
-        solved: false,
-    }
+    SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
 }
