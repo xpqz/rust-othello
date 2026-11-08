@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::board::{Board, empty_count, final_score, legal_moves, pass, play, squares};
 use crate::score::{INF, terminal_score};
-use crate::tt::{Bound, Entry, NO_MOVE, Table, zobrist};
+use crate::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
 #[derive(Clone, Copy, Debug)]
 pub struct SearchConfig {
@@ -86,7 +86,8 @@ pub struct Ctx<'a> {
     pub nodes: u64,
     max_nodes: u64,
     deadline: Option<Instant>,
-    pub(crate) table: Option<&'a mut Table>,
+    table: Option<&'a mut Table>,
+    exact: bool,
 }
 
 impl<'a> Ctx<'a> {
@@ -97,6 +98,7 @@ impl<'a> Ctx<'a> {
             max_nodes: 0,
             deadline: None,
             table: None,
+            exact: false,
         }
     }
 
@@ -105,7 +107,7 @@ impl<'a> Ctx<'a> {
             .is_some_and(|deadline| Instant::now() >= deadline)
     }
 
-    pub(crate) fn stop(&self) -> bool {
+    fn stop(&self) -> bool {
         (self.max_nodes > 0 && self.nodes > self.max_nodes)
             || (self.nodes & 1023 == 0 && self.expired())
     }
@@ -171,6 +173,7 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
     if ctx.stop() {
         return None;
     }
+    let exact = ctx.exact;
     let moves = legal_moves(board.me, board.opp);
     if moves == 0 {
         if legal_moves(board.opp, board.me) == 0 {
@@ -178,25 +181,35 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         }
         return negamax(pass(board), depth, -beta, -alpha, ctx).map(|value| -value);
     }
-    if depth == 0 {
+    if !exact && depth == 0 {
         return Some((ctx.config.eval)(board));
     }
     let key = ctx.table.as_ref().map(|_| zobrist(board));
     let entry = key.and_then(|key| ctx.table.as_ref()?.probe(key)).copied();
-    if let Some(value) = entry.and_then(|entry| entry.cutoff(depth, alpha, beta)) {
-        return Some(value);
+    let cutoff = entry.and_then(|entry| {
+        if exact {
+            entry.endgame_cutoff(alpha, beta)
+        } else {
+            entry.cutoff(depth, alpha, beta)
+        }
+    });
+    if cutoff.is_some() {
+        return cutoff;
     }
     let alpha_orig = alpha;
-    let hint = entry.and_then(|entry| entry.move_hint(depth));
+    let hint = (!exact)
+        .then(|| entry.and_then(|entry| entry.move_hint(depth)))
+        .flatten();
     let mut best = -INF;
     let mut chosen = NO_MOVE;
     let (order, len) = if ctx.config.ordering {
-        ordered_moves(board, moves, depth, hint)
+        ordered_moves(board, moves, if exact { 2 } else { depth }, hint)
     } else {
         natural(moves)
     };
+    let next = if exact { depth } else { depth - 1 };
     for &square in &order[..len] {
-        let value = -negamax(play(board, square), depth - 1, -beta, -alpha, ctx)?;
+        let value = -negamax(play(board, square), next, -beta, -alpha, ctx)?;
         if value > best {
             best = value;
             chosen = square;
@@ -212,9 +225,28 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
             (_, true) => Bound::Lower,
             _ => Bound::Exact,
         };
-        table.store(Entry::heuristic(key, best, depth as u8, flag, chosen));
+        let entry = if exact {
+            Entry {
+                key,
+                value: best,
+                depth: 0,
+                flag,
+                domain: Domain::Endgame,
+                mv: chosen,
+            }
+        } else {
+            Entry::heuristic(key, best, depth as u8, flag, chosen)
+        };
+        table.store(entry);
     }
     Some(best)
+}
+
+pub fn solve(board: Board, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
+    ctx.exact = true;
+    let value = negamax(board, 2, alpha, beta, ctx);
+    ctx.exact = false;
+    value
 }
 
 pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
@@ -264,8 +296,9 @@ fn search_inner(
             max_nodes: limits.max_nodes,
             deadline,
             table: table.as_deref_mut(),
+            exact: true,
         };
-        let Some((square, score)) = crate::solver::root(board, moves, fallback, &mut ctx) else {
+        let Some((square, score)) = root(board, moves, 2, fallback, &mut ctx) else {
             return fallback_result;
         };
         let mut result = SearchResult::new(square, score, 0, ctx.nodes, SearchStatus::Complete);
@@ -282,6 +315,7 @@ fn search_inner(
             max_nodes: limits.max_nodes,
             deadline,
             table: table.as_deref_mut(),
+            exact: false,
         };
         if ctx.stop_iteration() {
             break;
@@ -323,6 +357,18 @@ fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> Option
             chosen = square;
         }
         alpha = alpha.max(value);
+    }
+    if ctx.exact
+        && let Some(table) = ctx.table.as_mut()
+    {
+        table.store(Entry {
+            key: zobrist(board),
+            value: score,
+            depth: 0,
+            flag: Bound::Exact,
+            domain: Domain::Endgame,
+            mv: chosen,
+        });
     }
     Some((chosen, score))
 }

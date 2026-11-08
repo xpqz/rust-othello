@@ -357,18 +357,18 @@ scripts/
 
 | Module | Budget | Notes |
 | --- | ---: | --- |
-| `lib.rs` | 20 | Re-exports and policy only |
+| `lib.rs` | 17 | Re-exports and policy only |
 | `score.rs` | 25 | Units, pure conversion, bounds |
 | `board.rs` | 130 | Most care here; plain loops before tricks |
 | `perft.rs` | 20 | Tree walk used by the CLI and tests |
-| `eval.rs` | 80 | Features plus phase-weighted combination |
-| `search.rs` | 300 | Root, ordering, deepening, cancellation, trigger |
-| `solver.rs` | 80 | Depth-free exact endgame solver |
+| `eval.rs` | 120 | Features plus phase-weighted combination |
+| `search.rs` | 342 | Root, ordering, deepening, cancellation, exact mode |
+| `solver.rs` | 5 | Exact-solver re-export |
 | `tt.rs` | 110 | Zobrist domain-aware table |
 | `agents.rs` | 50 | Trait/factory and small adapters |
 | `rng.rs` | 10 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **995** | Leaves 4 lines of headroom |
+| **Total** | **999** | Estimates at the ceiling; actual engine is 859 |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
 engine claim and does not consume the 4-line engine headroom.
@@ -872,8 +872,8 @@ reusable endgame bounds and honest completion reporting.
 recorded hardware; completion rate and p90/p99 recorded; full game with solver
 finishes under the CLI time limit; aborted solves report `solved = false`.
 
-**Budget:** `solver.rs` <= 80 and `search.rs` <= 300 including the trigger;
-`tt.rs` unchanged. The unused Phase 2 eval allocation funds the solver.
+**Budget:** `search.rs` <= 342 including exact mode and the trigger;
+`solver.rs` <= 5 for the re-export; `tt.rs` unchanged.
 
 ---
 
