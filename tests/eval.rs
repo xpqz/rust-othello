@@ -249,6 +249,7 @@ fn phase_intermediate() {
 
 #[test]
 fn bounded_playouts() {
+    // Debug builds trip evaluate's internal assertion first; release clamps.
     let mut rng = Rng::new(0xB0A7);
     let mut checked = 0;
     for _ in 0..100 {
