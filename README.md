@@ -26,7 +26,7 @@ cargo run --release -- bench --board 785c68e1f14f0d11:0223171e0e3070a0 \
 
 `play` is Black (human) against White using the search engine at 1 s/move:
 the tuned evaluator, 64 MiB TT, and root-only endgame solver. It prints the
-board, legal moves, and a readable final score:
+board, legal moves, automatic forced passes, and a readable final score:
 
 ```text
 Game over. Black 0, White 51.

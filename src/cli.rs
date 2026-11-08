@@ -171,6 +171,9 @@ fn play_game() -> Result<(), String> {
                 let square = agent.choose(board).expect("greedy must move");
                 board = play(board, square);
             }
+        } else if moves == 0 {
+            println!("Black passes");
+            board = pass(board);
         } else {
             let mut line = String::new();
             if input.read_line(&mut line).unwrap_or(0) == 0 {
@@ -179,10 +182,6 @@ fn play_game() -> Result<(), String> {
             let text = line.trim();
             match parse_move(board, text) {
                 Some(square) => board = play(board, square),
-                None if text == "pass" && moves == 0 => {
-                    println!("Black passes");
-                    board = pass(board);
-                }
                 _ => {
                     println!("Illegal move: {text}");
                     continue;

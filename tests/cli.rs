@@ -252,6 +252,7 @@ fn play_complete_game() {
     let mut input = child.stdin.take().unwrap();
     let output = BufReader::new(child.stdout.take().unwrap());
     let mut moves = 0;
+    let mut passes = 0;
     for line in output.lines() {
         let line = line.unwrap();
         if line.starts_with("Game over.") {
@@ -263,16 +264,18 @@ fn play_complete_game() {
             assert!(discs[0] + discs[1] <= 64, "{line}");
             break;
         }
+        if line.contains("Black passes") {
+            passes += 1;
+        }
         if line.starts_with("Black to move.") {
             let legal = line.split("legal:").nth(1).unwrap_or("").trim();
-            if legal.is_empty() {
-                writeln!(input, "pass").unwrap();
-            } else {
+            if !legal.is_empty() {
                 writeln!(input, "{}", legal.split_whitespace().next().unwrap()).unwrap();
                 moves += 1;
             }
         }
     }
     assert!(moves > 0);
+    assert!(passes > 0, "expected at least one automatic Black pass");
     assert!(child.wait().unwrap().success());
 }
