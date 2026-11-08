@@ -311,8 +311,7 @@ src/
   board.rs          Board, masks, shifts, legal moves, flips, play, pass, score
   perft.rs          perft tree walk, shared by the CLI and tests
   eval.rs           hand-built evaluation and feature functions
-  search.rs         negamax, alpha-beta, ordering, iterative deepening, trigger
-  solver.rs         depth-free exact endgame solver
+  search.rs         negamax, alpha-beta, ordering, iterative deepening, exact mode
   tt.rs             Zobrist transposition table with domains
   agents.rs         agent trait/factory, random, greedy, search agents
   rng.rs            production xorshift64* PRNG and seed-zero rule
@@ -362,16 +361,15 @@ scripts/
 | `board.rs` | 130 | Most care here; plain loops before tricks |
 | `perft.rs` | 20 | Tree walk used by the CLI and tests |
 | `eval.rs` | 120 | Features plus phase-weighted combination |
-| `search.rs` | 342 | Root, ordering, deepening, cancellation, exact mode |
-| `solver.rs` | 5 | Exact-solver re-export |
+| `search.rs` | 345 | Root, ordering, deepening, cancellation, exact mode |
 | `tt.rs` | 110 | Zobrist domain-aware table |
 | `agents.rs` | 50 | Trait/factory and small adapters |
 | `rng.rs` | 10 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **999** | Estimates at the ceiling; actual engine is 859 |
+| **Total** | **997** | Leaves 2 lines of estimated headroom; actual engine is 860 |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
-engine claim and does not consume the 4-line engine headroom.
+engine claim and does not consume the engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
 formatted counts. Every later phase records cumulative counts.
@@ -872,8 +870,8 @@ reusable endgame bounds and honest completion reporting.
 recorded hardware; completion rate and p90/p99 recorded; full game with solver
 finishes under the CLI time limit; aborted solves report `solved = false`.
 
-**Budget:** `search.rs` <= 342 including exact mode and the trigger;
-`solver.rs` <= 5 for the re-export; `tt.rs` unchanged.
+**Budget:** `search.rs` <= 345 including exact mode and the trigger;
+`tt.rs` unchanged.
 
 ---
 

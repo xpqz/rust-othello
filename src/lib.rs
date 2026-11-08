@@ -35,5 +35,4 @@ pub mod perft;
 pub mod rng;
 pub mod score;
 pub mod search;
-pub mod solver;
 pub mod tt;

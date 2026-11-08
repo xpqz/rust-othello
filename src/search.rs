@@ -24,6 +24,7 @@ impl SearchConfig {
 }
 
 pub const NO_DEADLINE: u64 = u64::MAX;
+const EXACT_ORDER_DEPTH: u32 = 2;
 
 #[derive(Clone, Copy, Debug)]
 pub struct SearchLimits {
@@ -202,8 +203,9 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         .flatten();
     let mut best = -INF;
     let mut chosen = NO_MOVE;
+    let order_depth = if exact { EXACT_ORDER_DEPTH } else { depth };
     let (order, len) = if ctx.config.ordering {
-        ordered_moves(board, moves, if exact { 2 } else { depth }, hint)
+        ordered_moves(board, moves, order_depth, hint)
     } else {
         natural(moves)
     };
@@ -244,7 +246,7 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
 
 pub fn solve(board: Board, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.exact = true;
-    let value = negamax(board, 2, alpha, beta, ctx);
+    let value = negamax(board, EXACT_ORDER_DEPTH, alpha, beta, ctx);
     ctx.exact = false;
     value
 }
@@ -298,7 +300,8 @@ fn search_inner(
             table: table.as_deref_mut(),
             exact: true,
         };
-        let Some((square, score)) = root(board, moves, 2, fallback, &mut ctx) else {
+        let Some((square, score)) = root(board, moves, EXACT_ORDER_DEPTH, fallback, &mut ctx)
+        else {
             return fallback_result;
         };
         let mut result = SearchResult::new(square, score, 0, ctx.nodes, SearchStatus::Complete);

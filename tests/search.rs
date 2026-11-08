@@ -9,9 +9,8 @@ use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
 use othello::search::{
     Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, ordered_moves, search,
-    search_iterative, search_limited, search_tt,
+    search_iterative, search_limited, search_tt, solve,
 };
-use othello::solver::solve;
 use othello::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
 fn at(file: usize, rank: usize) -> u64 {
