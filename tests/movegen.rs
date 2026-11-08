@@ -185,7 +185,7 @@ fn opening_invariants() {
 
 #[cfg(debug_assertions)]
 #[test]
-#[should_panic]
+#[should_panic(expected = "illegal move")]
 fn play_illegal() {
     let _ = play(Board::START, sq(0, 0));
 }

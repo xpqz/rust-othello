@@ -63,3 +63,63 @@ pub fn legal_moves(me: u64, opp: u64) -> u64 {
     }
     moves
 }
+
+pub fn flips(board: Board, sq: u8) -> u64 {
+    let mut flipped = 0;
+    for dir in Dir::ALL {
+        let mut cursor = shift(1u64 << sq, dir);
+        let mut line = 0;
+        while cursor != 0 && cursor & board.opp != 0 {
+            line |= cursor;
+            cursor = shift(cursor, dir);
+        }
+        if cursor != 0 && cursor & board.me != 0 {
+            flipped |= line;
+        }
+    }
+    flipped
+}
+
+pub fn play(board: Board, sq: u8) -> Board {
+    let bit = 1u64 << sq;
+    debug_assert!(legal_moves(board.me, board.opp) & bit != 0, "illegal move");
+    let flipped = flips(board, sq);
+    debug_assert!(flipped != 0, "move flips no discs");
+    Board {
+        me: board.opp & !flipped,
+        opp: board.me | bit | flipped,
+    }
+}
+
+pub fn pass(board: Board) -> Board {
+    Board {
+        me: board.opp,
+        opp: board.me,
+    }
+}
+
+pub fn is_terminal(board: Board) -> bool {
+    legal_moves(board.me, board.opp) == 0 && legal_moves(board.opp, board.me) == 0
+}
+
+pub fn disc_count(bits: u64) -> u32 {
+    bits.count_ones()
+}
+
+pub fn empty_count(board: Board) -> u32 {
+    64 - (board.me | board.opp).count_ones()
+}
+
+/// WTHOR score from the side to move; meaningful only on terminal boards.
+pub fn final_score(board: Board) -> i32 {
+    let me = disc_count(board.me) as i32;
+    let opp = disc_count(board.opp) as i32;
+    let empty = empty_count(board) as i32;
+    if me > opp {
+        me + empty - opp
+    } else if me < opp {
+        me - opp - empty
+    } else {
+        0
+    }
+}
