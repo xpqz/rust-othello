@@ -1,4 +1,4 @@
-use othello_tools::harness::{Interval, bootstrap_ci, elo_from_score, report};
+use othello_tools::stats::{Interval, bootstrap_ci, elo_from_score, report_with};
 
 fn approx(left: f64, right: f64) {
     assert!((left - right).abs() < 1e-9, "{left} vs {right}");
@@ -25,6 +25,8 @@ fn bootstrap_deterministic() {
             assert!(low <= mean && mean <= high);
             assert!((0.0..=1.0).contains(&low));
             assert!((0.0..=1.0).contains(&high));
+            let half = (40.0f64.ln() / (2.0 * scores.len() as f64)).sqrt();
+            assert!(high - low < 2.0 * half);
         }
         other => panic!("expected bootstrap: {other:?}"),
     }
@@ -56,11 +58,11 @@ fn degeneracy() {
 
 #[test]
 fn report_counts() {
-    let summary = report(&[1.0, 0.0, 0.5], 1_000, 7);
+    let summary = report_with(&[(1.0, 0.5), (0.0, 0.5), (0.5, 0.5)], 1_000, 7);
     assert_eq!(summary.pairs, 3);
     assert_eq!(summary.games, 6);
     assert_eq!(summary.wins, 1);
-    assert_eq!(summary.draws, 1);
+    assert_eq!(summary.draws, 4);
     assert_eq!(summary.losses, 1);
     approx(summary.mean, 0.5);
     assert!(!summary.interval.informative());
