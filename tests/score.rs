@@ -1,3 +1,4 @@
+use othello::board::{Board, final_score};
 use othello::score::{EVAL_BOUND, INF, SCORE_SCALE, terminal_score};
 
 const _: () = assert!(EVAL_BOUND < INF);
@@ -42,4 +43,13 @@ fn window_edges() {
 #[test]
 fn score_types() {
     let _: (i32, i32, i32, fn(i32) -> i32) = (SCORE_SCALE, INF, EVAL_BOUND, terminal_score);
+}
+
+#[test]
+fn terminal_wiring() {
+    let board = Board {
+        me: 0b11,
+        opp: 1 << 63,
+    };
+    assert_eq!(terminal_score(final_score(board)), 6_200);
 }

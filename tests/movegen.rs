@@ -1,7 +1,14 @@
-use othello::board::{Board, Dir, legal_moves, shift};
+use othello::board::{
+    Board, Dir, disc_count, empty_count, final_score, flips, is_terminal, legal_moves, pass, play,
+    shift,
+};
 
 fn bit(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
+}
+
+fn sq(file: usize, rank: usize) -> u8 {
+    (rank * 8 + file) as u8
 }
 
 #[test]
@@ -72,4 +79,58 @@ fn legal_fixtures() {
     assert_eq!(legal_moves(bit(7, 0), bit(0, 1)), 0);
     assert_eq!(legal_moves(bit(0, 0) | bit(2, 0), bit(1, 0)), 0);
     assert_eq!(legal_moves(bit(0, 0), bit(1, 0) | bit(3, 0)), bit(2, 0));
+}
+
+#[test]
+fn start_flips() {
+    let start = Board::START;
+    assert_eq!(flips(start, sq(2, 3)), bit(3, 3));
+    assert_eq!(flips(start, sq(3, 2)), bit(3, 3));
+    assert_eq!(flips(start, sq(4, 5)), bit(4, 4));
+    assert_eq!(flips(start, sq(5, 4)), bit(4, 4));
+}
+
+#[test]
+fn play_start() {
+    let after = play(Board::START, sq(2, 3));
+    assert_eq!(after.me, bit(4, 4));
+    assert_eq!(after.opp, bit(2, 3) | bit(3, 3) | bit(4, 3) | bit(3, 4));
+}
+
+#[test]
+fn counts_start() {
+    let start = Board::START;
+    assert_eq!(disc_count(start.me), 2);
+    assert_eq!(disc_count(start.opp), 2);
+    assert_eq!(empty_count(start), 60);
+
+    let after = play(start, sq(2, 3));
+    assert_eq!(disc_count(after.me), 1);
+    assert_eq!(disc_count(after.opp), 4);
+    assert_eq!(empty_count(after), 59);
+}
+
+#[test]
+fn pass_swaps() {
+    let passed = pass(Board::START);
+    assert_eq!(passed.me, Board::START.opp);
+    assert_eq!(passed.opp, Board::START.me);
+}
+
+#[test]
+fn terminal_board() {
+    let tied = Board {
+        me: bit(0, 0),
+        opp: bit(7, 7),
+    };
+    assert!(is_terminal(tied));
+    assert_eq!(final_score(tied), 0);
+
+    let won = Board {
+        me: bit(0, 0) | bit(1, 0),
+        opp: bit(7, 7),
+    };
+    assert!(is_terminal(won));
+    assert_eq!(final_score(won), 62);
+    assert!(!is_terminal(Board::START));
 }
