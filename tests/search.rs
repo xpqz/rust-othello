@@ -445,10 +445,11 @@ fn ordering_replies() {
 #[test]
 fn ordering_xc_last() {
     let board = Board {
-        me: at(3, 4) | at(4, 4) | at(4, 5) | at(6, 6),
-        opp: at(3, 3) | at(4, 3) | at(5, 3) | at(5, 4) | at(5, 5) | at(5, 6),
+        me: at(3, 3) | at(4, 4),
+        opp: at(2, 1) | at(2, 2) | at(2, 3) | at(4, 3) | at(2, 4) | at(3, 4) | at(2, 5),
     };
     let moves = legal_moves(board.me, board.opp);
     let (order, len) = ordered_moves(board, moves, 1, None);
-    assert_eq!(order[len - 1], sq(6, 7));
+    assert_eq!(len, 7);
+    assert_eq!(order[len - 1], sq(1, 1));
 }
