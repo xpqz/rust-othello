@@ -6,7 +6,7 @@ use othello::rng::Rng;
 use othello::search::{SearchConfig, SearchLimits};
 use othello_tools::baselines::{PHASE2_DEPTH, phase2_config};
 use othello_tools::harness::{play_game, points};
-use othello_tools::stats::{RESAMPLES, report_with};
+use othello_tools::stats::{Interval, RESAMPLES, report_with};
 
 fn main() {
     if let Err(message) = run() {
@@ -64,8 +64,9 @@ fn describe(name: &str) -> String {
 }
 
 fn stream(seed: u64, pair: usize, game: u64, side: u64) -> u64 {
-    let mut rng = Rng::new(seed ^ ((pair as u64) << 3) ^ (game << 2) ^ side);
-    rng.next_u64()
+    let id = ((pair as u64) << 2) | (game << 1) | side;
+    let mut mix = Rng::new(seed);
+    Rng::new(mix.next_u64() ^ id).next_u64()
 }
 
 fn match_command(args: &[String]) -> Result<(), String> {
@@ -95,20 +96,23 @@ fn match_command(args: &[String]) -> Result<(), String> {
         game_points.push((points(first.score), 1.0 - points(second.score)));
     }
     let summary = report_with(&game_points, RESAMPLES, seed);
-    let (low, high) = summary.interval.bounds().unwrap_or((0.0, 1.0));
-    let elo = summary.elo.map_or("none".to_string(), |(low, high)| {
-        format!("[{low:.2}, {high:.2}]")
-    });
+    let interval = match summary.interval {
+        Interval::Insufficient => "insufficient".to_string(),
+        Interval::Uninformative { low, high, .. } => {
+            format!("[{low:.4}, {high:.4}] uninformative")
+        }
+        Interval::Bootstrap { low, high, .. } => format!("[{low:.4}, {high:.4}] bootstrap"),
+    };
+    let elo = if summary.interval.informative() {
+        summary.elo.map_or("none".to_string(), |(low, high)| {
+            format!("[{low:.2}, {high:.2}]")
+        })
+    } else {
+        "none".to_string()
+    };
     println!(
-        "pairs {} games {} W {} D {} L {} mean {:.4} interval [{:.4}, {:.4}] elo {elo}",
-        summary.pairs,
-        summary.games,
-        summary.wins,
-        summary.draws,
-        summary.losses,
-        summary.mean,
-        low,
-        high
+        "pairs {} games {} W {} D {} L {} mean {:.4} interval {interval} elo {elo}",
+        summary.pairs, summary.games, summary.wins, summary.draws, summary.losses, summary.mean
     );
     println!("a {}", describe(&a));
     println!("b {}", describe(&b));

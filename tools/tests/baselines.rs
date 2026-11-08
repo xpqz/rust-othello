@@ -133,3 +133,19 @@ fn unknown_agent_rejected() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("unknown agent"));
 }
+
+#[test]
+fn degenerate_output() {
+    let output = tools(&[
+        "match", "--a", "greedy", "--b", "greedy", "--pairs", "10", "--seed", "1",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("uninformative"), "{text}");
+    assert!(text.contains("elo none"), "{text}");
+    let zero = tools(&[
+        "match", "--a", "greedy", "--b", "greedy", "--pairs", "0", "--seed", "1",
+    ]);
+    assert!(zero.status.success());
+    assert!(String::from_utf8_lossy(&zero.stdout).contains("insufficient"));
+}
