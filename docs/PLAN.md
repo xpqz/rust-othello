@@ -456,7 +456,9 @@ special hooks.
     lines for the engine + CLI, rejects `#[cfg(test)]` in production files, and
     rejects implementation hidden in `include!`, `#[path]`, `build.rs`
     generation, or test-only files. It also rejects `rustfmt.toml` and
-    `.rustfmt.toml`. `tools/tests/budget.rs` enforces the tools 600-line budget.
+    `.rustfmt.toml`. `tools/tests/budget.rs` enforces the tools 600-line budget
+    over `tools/src`; committed one-off data-generation scripts in
+    `tools/examples` are outside that budget.
 12. **CLI.** Validate moves and depth bounds before shifting/indexing, handle
     EOF cleanly, reject malformed input and illegal squares, and define seed
     zero for xorshift. The printer/parser round-trip is exact: parse the printed
