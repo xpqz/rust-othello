@@ -54,6 +54,9 @@ fn printer_roundtrip() {
         let text = render(board, black);
         assert_eq!(parse(&text), Some((board, black)), "{text}");
     }
+    assert_eq!(parse(""), None);
+    let broken = render(Board::START, true).replacen('X', "?", 1);
+    assert_eq!(parse(&broken), None);
 }
 
 #[test]
@@ -65,9 +68,15 @@ fn perft_three() {
 
 #[test]
 fn perft_invalid() {
-    for depth in ["x", "11"] {
-        let output = run(&["perft", depth], "");
-        assert!(!output.status.success(), "{depth}");
+    let cases: [&[&str]; 4] = [
+        &["perft"],
+        &["perft", "x"],
+        &["perft", "-1"],
+        &["perft", "11"],
+    ];
+    for args in cases {
+        let output = run(args, "");
+        assert!(!output.status.success(), "{args:?}");
         assert!(String::from_utf8_lossy(&output.stderr).contains("depth"));
     }
 }
@@ -93,15 +102,20 @@ fn bench_runs() {
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(text.contains("depth 2"), "{text}");
     assert!(text.contains("nodes"), "{text}");
+
+    let output = run(&["bench", "--depth", "x"], "");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("depth"));
 }
 
 #[test]
 fn illegal_input() {
-    let output = run(&["play"], "zz\na1\n");
+    let output = run(&["play"], "zz\na1\na9\na0\ni1\nd3x\npass\n");
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("Illegal move: zz"), "{text}");
-    assert!(text.contains("Illegal move: a1"), "{text}");
+    for input in ["zz", "a1", "a9", "a0", "i1", "d3x", "pass"] {
+        assert!(text.contains(&format!("Illegal move: {input}")), "{text}");
+    }
 }
 
 #[test]
@@ -110,6 +124,7 @@ fn scripted_game() {
     let mut black = true;
     let mut agent = greedy_agent();
     let mut human = Vec::new();
+    let mut white_passes = 0;
     while !is_terminal(board) {
         let moves = legal_moves(board.me, board.opp);
         if black {
@@ -122,6 +137,7 @@ fn scripted_game() {
                 board = play(board, square);
             }
         } else if moves == 0 {
+            white_passes += 1;
             board = pass(board);
         } else {
             let square = agent.choose(board).unwrap();
@@ -138,6 +154,8 @@ fn scripted_game() {
     let output = run(&["play"], &input);
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
+    assert!(white_passes > 0);
+    assert!(text.contains("White passes"), "{text}");
     assert!(
         text.contains(&format!(
             "Game over. Black {black_discs}, White {white_discs}."
