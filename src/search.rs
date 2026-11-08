@@ -11,15 +11,6 @@ pub struct SearchConfig {
     pub endgame_threshold: u32,
 }
 
-impl SearchConfig {
-    pub fn standard() -> Self {
-        Self {
-            eval: crate::eval::evaluate,
-            endgame_threshold: 12,
-        }
-    }
-}
-
 pub const NO_DEADLINE: u64 = u64::MAX;
 
 #[derive(Clone, Copy, Debug)]
@@ -109,6 +100,42 @@ impl<'a> Ctx<'a> {
     }
 }
 
+const CORNERS: u64 = 0x8100_0000_0000_0081;
+const XC: u64 = 0x42c3_0000_0000_c342;
+
+pub fn ordered_moves(b: Board, m: u64, d: u32, p: Option<u8>) -> ([u8; 64], usize) {
+    let mut order = [0u8; 64];
+    let mut keys = [0u32; 64];
+    let mut len = 0;
+    for square in squares(m) {
+        let rank = match (
+            Some(square) == p,
+            CORNERS & (1 << square) != 0,
+            XC & (1 << square) != 0,
+        ) {
+            (true, ..) => 0,
+            (false, true, _) => 1,
+            (false, false, true) => 3,
+            _ => 2,
+        };
+        let count = if d >= 2 {
+            let child = play(b, square);
+            legal_moves(child.me, child.opp).count_ones()
+        } else {
+            0
+        };
+        keys[len] = (rank << 16) | (count << 8) | square as u32;
+        order[len] = square;
+        len += 1;
+    }
+    for index in 0..len {
+        let best = (index..len).min_by_key(|&probe| keys[probe]).unwrap();
+        keys.swap(index, best);
+        order.swap(index, best);
+    }
+    (order, len)
+}
+
 pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.nodes += 1;
     if ctx.stop() {
@@ -125,7 +152,8 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         return Some((ctx.config.eval)(board));
     }
     let mut best = -INF;
-    for square in squares(moves) {
+    let (order, len) = ordered_moves(board, moves, depth, None);
+    for &square in &order[..len] {
         let value = -negamax(play(board, square), depth - 1, -beta, -alpha, ctx)?;
         best = best.max(value);
         alpha = alpha.max(value);
@@ -193,7 +221,8 @@ fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> Option
     let mut chosen = best;
     let mut score = -INF;
     let mut alpha = -INF;
-    for square in std::iter::once(best).chain(squares(moves & !(1u64 << best))) {
+    let (order, len) = ordered_moves(board, moves, depth, Some(best));
+    for &square in &order[..len] {
         let value = -negamax(play(board, square), depth - 1, -INF, -alpha, ctx)?;
         if value > score {
             score = value;

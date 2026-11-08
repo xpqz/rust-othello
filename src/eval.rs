@@ -4,6 +4,7 @@
 
 use crate::board::{Board, disc_count};
 use crate::score::{EVAL_BOUND, SCORE_SCALE};
+use crate::search::SearchConfig;
 
 const WEIGHTS: [[i32; 8]; 8] = [
     [100, -20, 10, 5, 5, 10, -20, 100],
@@ -32,4 +33,13 @@ pub fn evaluate(board: Board) -> i32 {
     }
     debug_assert!(value.abs() <= EVAL_BOUND, "evaluate out of bounds: {value}");
     value.clamp(-EVAL_BOUND, EVAL_BOUND)
+}
+
+impl SearchConfig {
+    pub fn standard() -> Self {
+        Self {
+            eval: evaluate,
+            endgame_threshold: 12,
+        }
+    }
 }
