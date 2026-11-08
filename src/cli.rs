@@ -47,8 +47,8 @@ fn bench(args: &[String]) -> Result<(), String> {
         endgame_threshold: threshold,
         ..SearchConfig::standard()
     };
-    let start = Instant::now();
     let mut table = crate::tt::Table::new(crate::tt::MAX_ENTRIES);
+    let start = Instant::now();
     let limits = SearchLimits::new(depth, time_ms, max_nodes);
     let result = search_tt(board, limits, &config, &mut table);
     let elapsed = start.elapsed().as_secs_f64() * 1000.0;

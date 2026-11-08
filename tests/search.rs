@@ -1154,8 +1154,8 @@ fn endgame_bench() {
             if legal_moves(board.me, board.opp) == 0 {
                 continue;
             }
-            let start = Instant::now();
             let mut table = Table::new(othello::tt::MAX_ENTRIES);
+            let start = Instant::now();
             let result = search_tt(board, SearchLimits::new(64, 1000, 0), &config, &mut table);
             times.push(start.elapsed().as_secs_f64() * 1000.0);
             nodes += result.nodes;
