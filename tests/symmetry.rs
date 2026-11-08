@@ -1,7 +1,7 @@
 mod common;
 
 use common::{Sym, transform};
-use othello::board::{Board, legal_moves, pass, play};
+use othello::board::{Board, legal_moves};
 use othello::rng::Rng;
 
 fn at(file: usize, rank: usize) -> u64 {
@@ -27,14 +27,6 @@ fn inverse(sym: Sym) -> Sym {
         Sym::FlipDiag => Sym::FlipDiag,
         Sym::FlipAnti => Sym::FlipAnti,
     }
-}
-
-fn nth_bit(mut bits: u64, mut k: u32) -> u8 {
-    while k > 0 {
-        bits &= bits - 1;
-        k -= 1;
-    }
-    bits.trailing_zeros() as u8
 }
 
 fn assert_commutes(board: Board) {
@@ -134,22 +126,13 @@ fn legal_moves_commute() {
     let mut positions = 0;
     let mut with_moves = 0;
     for _ in 0..200 {
-        let mut board = Board::START;
-        for _ in 0..60 {
-            let moves = legal_moves(board.me, board.opp);
+        common::playout(&mut rng, |board| {
             assert_commutes(board);
             positions += 1;
-            if moves == 0 {
-                if legal_moves(board.opp, board.me) == 0 {
-                    break;
-                }
-                board = pass(board);
-                continue;
+            if legal_moves(board.me, board.opp) != 0 {
+                with_moves += 1;
             }
-            with_moves += 1;
-            let k = (rng.next_u64() % moves.count_ones() as u64) as u32;
-            board = play(board, nth_bit(moves, k));
-        }
+        });
     }
     assert!(with_moves * 10 >= positions * 9, "{with_moves}/{positions}");
 }
