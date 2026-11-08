@@ -1,8 +1,8 @@
 mod common;
 
 use common::playout;
-use othello::board::{Board, is_terminal, pass};
-use othello::eval::evaluate;
+use othello::board::{Board, is_terminal, legal_moves, pass, play};
+use othello::eval::{evaluate, frontier, mobility};
 use othello::rng::Rng;
 use othello::score::EVAL_BOUND;
 
@@ -78,5 +78,44 @@ fn overflow_clamps() {
             opp: 0,
         }),
         EVAL_BOUND
+    );
+}
+
+#[test]
+fn mobility_unequal_counts() {
+    let board = play(Board::START, 19);
+    let mine = legal_moves(board.me, board.opp).count_ones() as i32;
+    let theirs = legal_moves(board.opp, board.me).count_ones() as i32;
+    assert_ne!(mine, theirs);
+    let value = mobility(board);
+    assert_ne!(value, 0);
+    assert_eq!(value.signum(), (mine - theirs).signum());
+}
+
+#[test]
+fn frontier_swap() {
+    assert_eq!(frontier(Board::START), 0);
+    let mut rng = Rng::new(0xF20A);
+    let mut checked = 0;
+    for _ in 0..20 {
+        playout(&mut rng, |board| {
+            if is_terminal(board) {
+                return;
+            }
+            assert_eq!(frontier(board), -frontier(pass(board)));
+            checked += 1;
+        });
+    }
+    assert!(checked > 0);
+}
+
+#[test]
+fn mobility_formula() {
+    let board = play(Board::START, 19);
+    let mine = legal_moves(board.me, board.opp).count_ones() as i32;
+    let theirs = legal_moves(board.opp, board.me).count_ones() as i32;
+    assert_eq!(
+        mobility(board),
+        (mine - theirs) * 1000 / (mine + theirs + 1)
     );
 }
