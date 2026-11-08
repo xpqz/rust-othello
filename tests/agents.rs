@@ -23,7 +23,7 @@ fn config() -> SearchConfig {
 }
 
 fn limits() -> SearchLimits {
-    SearchLimits { max_depth: 2 }
+    SearchLimits::depth(2)
 }
 
 #[test]

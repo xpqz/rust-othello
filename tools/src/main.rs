@@ -30,9 +30,7 @@ fn make_agent(name: &str, seed: u64) -> Result<Box<dyn Agent>, String> {
         "greedy" => Ok(Box::new(greedy_agent())),
         "phase2" => Ok(Box::new(search_agent(
             phase2_config(),
-            SearchLimits {
-                max_depth: PHASE2_DEPTH,
-            },
+            SearchLimits::depth(PHASE2_DEPTH),
         ))),
         _ => {
             let depth = name
@@ -47,10 +45,7 @@ fn make_agent(name: &str, seed: u64) -> Result<Box<dyn Agent>, String> {
                 eval: evaluate,
                 endgame_threshold: 12,
             };
-            Ok(Box::new(search_agent(
-                config,
-                SearchLimits { max_depth: depth },
-            )))
+            Ok(Box::new(search_agent(config, SearchLimits::depth(depth))))
         }
     }
 }

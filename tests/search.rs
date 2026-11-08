@@ -6,7 +6,7 @@ use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
 use othello::search::{
-    Ctx, SearchConfig, SearchLimits, SearchStatus, negamax, search, search_iterative,
+    Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, search, search_iterative,
     search_limited,
 };
 

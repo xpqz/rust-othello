@@ -1,5 +1,7 @@
 //! Fixed-depth negamax with alpha-beta and the search result contract.
 
+use std::time::{Duration, Instant};
+
 use crate::board::{Board, final_score, legal_moves, pass, play, squares};
 use crate::score::{INF, terminal_score};
 
@@ -9,10 +11,23 @@ pub struct SearchConfig {
     pub endgame_threshold: u32,
 }
 
-/// Phase 2 limits; time and node limits arrive with cancellation in #83.
+pub const NO_DEADLINE: u64 = u64::MAX;
+
 #[derive(Clone, Copy, Debug)]
 pub struct SearchLimits {
     pub max_depth: u32,
+    pub time_ms: u64,
+    pub max_nodes: u64,
+}
+
+impl SearchLimits {
+    pub fn depth(max_depth: u32) -> Self {
+        Self {
+            max_depth,
+            time_ms: NO_DEADLINE,
+            max_nodes: 0,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,16 +63,42 @@ impl SearchResult {
 pub struct Ctx<'a> {
     pub config: &'a SearchConfig,
     pub nodes: u64,
+    max_nodes: u64,
+    deadline: Option<Instant>,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(config: &'a SearchConfig) -> Self {
-        Self { config, nodes: 0 }
+        Self::limited(config, 0, 0, None)
+    }
+
+    fn limited(
+        config: &'a SearchConfig,
+        nodes: u64,
+        max_nodes: u64,
+        deadline: Option<Instant>,
+    ) -> Self {
+        Self {
+            config,
+            nodes,
+            max_nodes,
+            deadline,
+        }
+    }
+
+    fn stop(&self) -> bool {
+        (self.max_nodes > 0 && self.nodes > self.max_nodes)
+            || self
+                .deadline
+                .is_some_and(|deadline| Instant::now() >= deadline)
     }
 }
 
 pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.nodes += 1;
+    if ctx.stop() {
+        return None;
+    }
     let moves = legal_moves(board.me, board.opp);
     if moves == 0 {
         if legal_moves(board.opp, board.me) == 0 {
@@ -86,21 +127,43 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
         return fallback;
     }
     let mut ctx = Ctx::new(config);
-    let (best, score) = root(board, moves, depth, first, &mut ctx);
+    let (best, score) = root(board, moves, depth, first, &mut ctx).unwrap();
     SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
 }
 
 /// Deepens to `max_depth`; on tied root scores it keeps the previous best,
 /// unlike `search`, which keeps the lowest square.
 pub fn search_iterative(board: Board, max_depth: u32, config: &SearchConfig) -> SearchResult {
-    let (moves, mut best, mut result) = root_setup(board, config);
+    search_limited(board, SearchLimits::depth(max_depth), config)
+}
+
+pub fn search_limited(board: Board, limits: SearchLimits, config: &SearchConfig) -> SearchResult {
+    let (moves, fallback, fallback_result) = root_setup(board, config);
+    let deadline = (limits.time_ms != NO_DEADLINE)
+        .then(|| Instant::now() + Duration::from_millis(limits.time_ms));
+    let mut best = fallback;
     let mut nodes = 0;
-    for depth in 1..=max_depth {
-        let mut ctx = Ctx::new(config);
-        let (square, score) = root(board, moves, depth, best, &mut ctx);
+    let mut result = fallback_result;
+    for depth in 1..=limits.max_depth {
+        let mut ctx = Ctx::limited(config, nodes, limits.max_nodes, deadline);
+        if ctx.stop() {
+            break;
+        }
+        let Some((square, score)) = root(board, moves, depth, best, &mut ctx) else {
+            break;
+        };
         best = square;
-        nodes += ctx.nodes;
+        nodes = ctx.nodes;
         result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
+    }
+    if result.depth > 0 && result.depth < limits.max_depth {
+        result = SearchResult::new(
+            result.best,
+            result.score,
+            result.depth,
+            result.nodes,
+            SearchStatus::Partial,
+        );
     }
     result
 }
@@ -113,17 +176,17 @@ fn root_setup(board: Board, config: &SearchConfig) -> (u64, u8, SearchResult) {
     (moves, first, fallback)
 }
 
-fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> (u8, i32) {
+fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> Option<(u8, i32)> {
     let mut chosen = best;
     let mut score = -INF;
     let mut alpha = -INF;
     for square in std::iter::once(best).chain(squares(moves & !(1u64 << best))) {
-        let value = -negamax(play(board, square), depth - 1, -INF, -alpha, ctx).unwrap();
+        let value = -negamax(play(board, square), depth - 1, -INF, -alpha, ctx)?;
         if value > score {
             score = value;
             chosen = square;
         }
         alpha = alpha.max(value);
     }
-    (chosen, score)
+    Some((chosen, score))
 }
