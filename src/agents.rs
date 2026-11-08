@@ -7,28 +7,26 @@ pub trait Agent {
     fn reset(&mut self) {}
 }
 
-pub struct RandomAgent {
-    seed: u64,
-    rng: Rng,
-}
+/// Holds the initial state for `reset` and the live state.
+pub struct RandomAgent(Rng, Rng);
 
 impl Agent for RandomAgent {
     fn choose(&mut self, board: Board) -> Option<u8> {
         let moves = legal_moves(board.me, board.opp);
-        let k = (self.rng.next_u64() % moves.count_ones().max(1) as u64) as usize;
-        (moves != 0).then(|| squares(moves).nth(k).unwrap())
+        (moves != 0).then(|| {
+            let k = (self.1.next_u64() % moves.count_ones() as u64) as usize;
+            squares(moves).nth(k).unwrap()
+        })
     }
 
     fn reset(&mut self) {
-        self.rng = Rng::new(self.seed);
+        self.1 = self.0.clone();
     }
 }
 
 pub fn random_agent(seed: u64) -> RandomAgent {
-    RandomAgent {
-        seed,
-        rng: Rng::new(seed),
-    }
+    let rng = Rng::new(seed);
+    RandomAgent(rng.clone(), rng)
 }
 
 pub struct GreedyAgent;
