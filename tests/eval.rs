@@ -204,3 +204,37 @@ fn disc_weight_endpoints() {
     assert_eq!(disc_weight(36), 50);
     assert_eq!(disc_weight(12), 100);
 }
+
+#[test]
+fn phase_opening_value() {
+    // phase 0: table 100, mobility 0, frontier -1 (x10), risk 0, disc 0.
+    assert_eq!(
+        evaluate(Board {
+            me: at(0, 0),
+            opp: 0
+        }),
+        90
+    );
+}
+
+#[test]
+fn phase_mid_value() {
+    // phase 500: table -138, mobility -461 (650 permille), frontier -10 (x7),
+    // risk 19/68 (850 permille), disc 6 (weight 50) => -166.
+    let board = Board {
+        me: 0x0038_3818_3c4c_8400,
+        opp: 0xe0c0_c000_c000_4040,
+    };
+    assert_eq!(evaluate(board), -166);
+}
+
+#[test]
+fn phase_end_value() {
+    // phase 1000: table 30, mobility -357 (800 permille), frontier -11 (x4),
+    // risk 68/87 (700 permille), disc 8 (weight 100) => 514.
+    let board = Board {
+        me: 0x785c_68e1_f14f_0d11,
+        opp: 0x0223_171e_0e30_70a0,
+    };
+    assert_eq!(evaluate(board), 514);
+}
