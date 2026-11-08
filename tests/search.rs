@@ -420,3 +420,35 @@ fn ordering_start_ties() {
     let (order, len) = ordered_moves(board, moves, 1, Some(sq(5, 4)));
     assert_eq!(&order[..len], &[sq(5, 4), sq(3, 2), sq(2, 3), sq(4, 5)]);
 }
+
+#[test]
+fn ordering_replies() {
+    let board = Board {
+        me: at(3, 2) | at(3, 3) | at(4, 3),
+        opp: at(2, 4) | at(3, 4) | at(4, 4),
+    };
+    let moves = legal_moves(board.me, board.opp);
+    let b6 = sq(1, 5);
+    let c6 = sq(2, 5);
+    let (order, len) = ordered_moves(board, moves, 1, None);
+    let position = |order: &[u8], len: usize, square: u8| {
+        order[..len]
+            .iter()
+            .position(|&item| item == square)
+            .unwrap()
+    };
+    assert!(position(&order, len, b6) < position(&order, len, c6));
+    let (order, len) = ordered_moves(board, moves, 2, None);
+    assert!(position(&order, len, c6) < position(&order, len, b6));
+}
+
+#[test]
+fn ordering_xc_last() {
+    let board = Board {
+        me: at(3, 4) | at(4, 4) | at(4, 5) | at(6, 6),
+        opp: at(3, 3) | at(4, 3) | at(5, 3) | at(5, 4) | at(5, 5) | at(5, 6),
+    };
+    let moves = legal_moves(board.me, board.opp);
+    let (order, len) = ordered_moves(board, moves, 1, None);
+    assert_eq!(order[len - 1], sq(6, 7));
+}
