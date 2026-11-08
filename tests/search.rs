@@ -722,3 +722,23 @@ fn corpus_ordering_nodes() {
     }
     assert!(with * 100 <= without * 60, "{with} vs {without}");
 }
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
+fn corpus_tt_nodes_deep() {
+    let config = config();
+    let (mut cold_nodes, mut tt_nodes) = (0, 0);
+    for (board, _) in corpus() {
+        if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let limits = SearchLimits::depth(8);
+        cold_nodes += search_limited(board, limits, &config).nodes;
+        let mut table = Table::new(1 << 20);
+        tt_nodes += search_tt(board, limits, &config, &mut table).nodes;
+    }
+    assert!(
+        tt_nodes * 100 <= cold_nodes * 80,
+        "{tt_nodes} vs {cold_nodes}"
+    );
+}
