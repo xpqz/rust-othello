@@ -1,8 +1,8 @@
 # tools/search corpus: one position per line as "me opp expected".
 # me/opp are 16-hex-digit side-relative bitboards; expected is centidiscs.
 # Expected values are regression snapshots, not an independent oracle:
-# normal positions use the cold fixed-depth-4 score with the Phase 5 evaluate
-# config; pass roots store the negated depth-4 score of pass(board); terminals
+# normal positions use the cold fixed-depth-4 score with the evaluator in the
+# provenance note below; pass roots store the negated depth-4 score of pass(board); terminals
 # use terminal_score(final_score(board)). Endgame expected values will gain an
 # exact test-side oracle meaning in Phase 6.
 # 12 midgame lines spread over 20-44 discs and 8 endgames over 5-12 empties,

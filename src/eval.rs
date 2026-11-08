@@ -76,8 +76,8 @@ pub fn evaluate(board: Board) -> i32 {
             value -= weight;
         }
     }
-    debug_assert!(value.abs() <= EVAL_BOUND, "evaluate out of bounds: {value}");
     value -= corner_risk(board, board.me);
     value += corner_risk(board, board.opp);
+    debug_assert!(value.abs() <= EVAL_BOUND, "evaluate out of bounds: {value}");
     value.clamp(-EVAL_BOUND, EVAL_BOUND)
 }
