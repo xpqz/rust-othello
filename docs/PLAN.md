@@ -357,16 +357,16 @@ scripts/
 | Module | Budget | Notes |
 | --- | ---: | --- |
 | `lib.rs` | 10 | Re-exports and policy only |
-| `score.rs` | 8 | Units, pure conversion, bounds |
+| `score.rs` | 6 | Units, pure conversion, bounds |
 | `board.rs` | 110 | Most care here; plain loops before tricks |
 | `perft.rs` | 19 | Tree walk used by the CLI and tests |
 | `eval.rs` | 100 | Features plus phase-weighted combination |
-| `search.rs` | 404 | Root, ordering, deepening, cancellation, WDL, exact widening |
+| `search.rs` | 407 | Root, ordering, deepening, cancellation, WDL, exact widening |
 | `tt.rs` | 110 | Zobrist domain-aware table |
-| `agents.rs` | 48 | Trait/factory and small adapters |
+| `agents.rs` | 47 | Trait/factory and small adapters |
 | `rng.rs` | 20 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **999** | Estimates at the ceiling; actual engine is 919 |
+| **Total** | **999** | Estimates at the ceiling; actual engine is 922 |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
 engine claim and does not consume the engine headroom.
@@ -870,7 +870,7 @@ reusable endgame bounds and honest completion reporting.
 recorded hardware; completion rate and p90/p99 recorded; full game with solver
 finishes under the CLI time limit; aborted solves report `solved = false`.
 
-**Budget:** `search.rs` <= 404 including WDL and exact widening;
+**Budget:** `search.rs` <= 407 including WDL and exact widening;
 `tt.rs` unchanged.
 
 ---

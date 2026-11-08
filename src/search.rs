@@ -422,6 +422,9 @@ fn root(
             chosen = square;
         }
         alpha = alpha.max(value);
+        if alpha >= beta {
+            break;
+        }
     }
     if ctx.exact
         && let Some(table) = ctx.table.as_mut()
