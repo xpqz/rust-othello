@@ -1,5 +1,6 @@
 use std::io::Write;
 use std::process::{Command, Output, Stdio};
+use std::time::Instant;
 
 use othello::agents::{Agent, greedy_agent};
 use othello::board::{Board, is_terminal, legal_moves, pass, play};
@@ -269,4 +270,24 @@ fn bench_board_invalid() {
     let output = run(&["bench", "--endgame-threshold", "x"], "");
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("invalid threshold"));
+}
+
+#[test]
+fn play_opponent_is_search() {
+    let start = Instant::now();
+    let output = run(
+        &["play"],
+        "d3
+",
+    );
+    assert!(output.status.success());
+    assert!(
+        start.elapsed().as_millis() >= 500,
+        "White responded too quickly to be the search agent"
+    );
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("Black to move") || text.contains("Game over"),
+        "{text}"
+    );
 }
