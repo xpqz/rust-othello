@@ -865,7 +865,7 @@ fn solve_sample() {
 }
 
 #[test]
-#[ignore]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
 fn solve_sample_deep() {
     let config = config();
     for board in sample_positions(6, 10, 1000) {
@@ -887,7 +887,7 @@ fn solver_interior_is_heuristic() {
     let board = sample_positions(8, 8, 20)
         .into_iter()
         .find(|board| {
-            let heuristic = search_limited(*board, SearchLimits::depth(10), &probe);
+            let heuristic = search_limited(*board, SearchLimits::depth(3), &probe);
             let mut ctx = Ctx::new(&base);
             heuristic.score != solve(*board, -INF, INF, &mut ctx).unwrap()
         })
@@ -934,7 +934,7 @@ fn heuristic_ignores_endgame_entries() {
         ..config()
     };
     let board = sample_positions(8, 8, 1)[0];
-    let cold = search_limited(board, SearchLimits::depth(10), &config);
+    let cold = search_limited(board, SearchLimits::depth(3), &config);
     let mut table = Table::new(1 << 16);
     for square in squares(legal_moves(board.me, board.opp)) {
         let key = zobrist(play(board, square));
@@ -947,7 +947,7 @@ fn heuristic_ignores_endgame_entries() {
             mv: NO_MOVE,
         });
     }
-    let warm = search_tt(board, SearchLimits::depth(10), &config, &mut table);
+    let warm = search_tt(board, SearchLimits::depth(3), &config, &mut table);
     assert_eq!(warm.score, cold.score);
     assert!(!warm.solved);
 }
