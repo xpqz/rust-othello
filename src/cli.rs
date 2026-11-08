@@ -168,7 +168,7 @@ fn play_game() -> Result<(), String> {
                 println!("White passes");
                 board = pass(board);
             } else {
-                let square = agent.choose(board).expect("greedy must move");
+                let square = agent.choose(board).expect("search must move");
                 board = play(board, square);
             }
         } else if moves == 0 {
