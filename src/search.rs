@@ -10,6 +10,7 @@ use crate::tt::{Bound, Entry, NO_MOVE, Table, zobrist};
 pub struct SearchConfig {
     pub eval: fn(Board) -> i32,
     pub endgame_threshold: u32,
+    pub ordering: bool,
 }
 
 impl SearchConfig {
@@ -17,6 +18,7 @@ impl SearchConfig {
         Self {
             eval: crate::eval::evaluate,
             endgame_threshold: 12,
+            ordering: true,
         }
     }
 }
@@ -153,6 +155,16 @@ pub fn ordered_moves(
     (order, len)
 }
 
+fn natural(moves: u64) -> ([u8; 64], usize) {
+    let mut order = [0u8; 64];
+    let mut len = 0;
+    for square in squares(moves) {
+        order[len] = square;
+        len += 1;
+    }
+    (order, len)
+}
+
 pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.nodes += 1;
     if ctx.stop() {
@@ -177,7 +189,11 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
     let hint = entry.and_then(|entry| entry.move_hint(depth));
     let mut best = -INF;
     let mut chosen = NO_MOVE;
-    let (order, len) = ordered_moves(board, moves, depth, hint);
+    let (order, len) = if ctx.config.ordering {
+        ordered_moves(board, moves, depth, hint)
+    } else {
+        natural(moves)
+    };
     for &square in &order[..len] {
         let value = -negamax(play(board, square), depth - 1, -beta, -alpha, ctx)?;
         if value > best {
@@ -276,7 +292,11 @@ fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> Option
     let mut chosen = best;
     let mut score = -INF;
     let mut alpha = -INF;
-    let (order, len) = ordered_moves(board, moves, depth, Some(best));
+    let (order, len) = if ctx.config.ordering {
+        ordered_moves(board, moves, depth, Some(best))
+    } else {
+        natural(moves)
+    };
     for &square in &order[..len] {
         let value = -negamax(play(board, square), depth - 1, -INF, -alpha, ctx)?;
         if value > score {

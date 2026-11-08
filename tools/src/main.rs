@@ -63,15 +63,27 @@ fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), St
     Ok((64, NO_DEADLINE))
 }
 
-fn make_agent(name: &str, seed: u64, nodes: u64) -> Result<Box<dyn Agent>, String> {
+fn make_agent(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<dyn Agent>, String> {
     let (kind, depth, time) = parse_name(name)?;
     let (depth, time) = effective(depth, time, nodes)?;
     let limits = SearchLimits::new(depth, time, nodes);
     match kind {
         "random" => Ok(Box::new(random_agent(seed))),
         "greedy" => Ok(Box::new(greedy_agent())),
-        "phase2" => Ok(Box::new(search_agent(phase2_config(), limits))),
-        _ => Ok(Box::new(search_agent(SearchConfig::standard(), limits))),
+        "phase2" => Ok(Box::new(search_agent(
+            SearchConfig {
+                ordering,
+                ..phase2_config()
+            },
+            limits,
+        ))),
+        _ => Ok(Box::new(search_agent(
+            SearchConfig {
+                ordering,
+                ..SearchConfig::standard()
+            },
+            limits,
+        ))),
     }
 }
 
@@ -108,8 +120,14 @@ fn match_command(args: &[String]) -> Result<(), String> {
     )
     .to_string();
     let (mut a, mut b, mut pairs, mut seed, mut nodes) = (None, None, 100usize, 1u64, 0u64);
+    let mut ordering = true;
     let mut index = 0;
     while index < args.len() {
+        if args[index] == "--no-ordering" {
+            ordering = false;
+            index += 1;
+            continue;
+        }
         let value = args.get(index + 1).ok_or("missing option value")?;
         match args[index].as_str() {
             "--a" => a = Some(value.clone()),
@@ -141,8 +159,8 @@ fn match_command(args: &[String]) -> Result<(), String> {
         {
             let black_seed = stream(seed, pair, game as u64, 0);
             let white_seed = stream(seed, pair, game as u64, 1);
-            let mut black_agent = make_agent(black, black_seed, nodes)?;
-            let mut white_agent = make_agent(white, white_seed, nodes)?;
+            let mut black_agent = make_agent(black, black_seed, nodes, ordering)?;
+            let mut white_agent = make_agent(white, white_seed, nodes, ordering)?;
             let result = play_game(&opening.squares, &mut *black_agent, &mut *white_agent)?;
             pair_points[game] = if game == 0 {
                 points(result.score)
@@ -187,7 +205,7 @@ fn match_command(args: &[String]) -> Result<(), String> {
     );
     println!("a {}", describe(&a, nodes));
     println!("b {}", describe(&b, nodes));
-    println!("seed {seed} resamples {RESAMPLES} evaluator-only nodes {nodes}");
+    println!("seed {seed} resamples {RESAMPLES} evaluator-only nodes {nodes} ordering {ordering}");
     for line in logs {
         println!("{line}");
     }

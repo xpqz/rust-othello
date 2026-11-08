@@ -31,5 +31,6 @@ pub fn phase2_config() -> SearchConfig {
     SearchConfig {
         eval: eval_phase2,
         endgame_threshold: 12,
+        ordering: true,
     }
 }

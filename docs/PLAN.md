@@ -361,15 +361,15 @@ scripts/
 | `board.rs` | 130 | Most care here; plain loops before tricks |
 | `perft.rs` | 20 | Tree walk used by the CLI and tests |
 | `eval.rs` | 120 | Features plus phase-weighted combination |
-| `search.rs` | 260 | Root, ordering, deepening, cancellation, solver |
+| `search.rs` | 290 | Root, ordering, deepening, cancellation, solver |
 | `tt.rs` | 110 | Zobrist domain-aware table |
 | `agents.rs` | 50 | Trait/factory and small adapters |
 | `rng.rs` | 10 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **915** | Leaves 84 lines of headroom |
+| **Total** | **945** | Leaves 54 lines of headroom |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
-engine claim and does not consume the 84-line engine headroom.
+engine claim and does not consume the 54-line engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
 formatted counts. Every later phase records cumulative counts.
@@ -831,7 +831,7 @@ time-to-depth regression; TT cuts nodes by at least 20% without a time
 regression. These are initial targets; record the corpus/hardware baseline and
 adjust the gate if the corpus shows a different scale.
 
-**Budget:** `tt.rs` <= 110, `search.rs` <= 260.
+**Budget:** `tt.rs` <= 110, `search.rs` <= 290.
 
 ---
 
@@ -870,7 +870,7 @@ reusable endgame bounds and honest completion reporting.
 recorded hardware; completion rate and p90/p99 recorded; full game with solver
 finishes under the CLI time limit; aborted solves report `solved = false`.
 
-**Budget:** `search.rs` <= 260 including the solver; `tt.rs` unchanged.
+**Budget:** `search.rs` <= 290 including the solver; `tt.rs` unchanged.
 
 ---
 

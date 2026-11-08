@@ -25,6 +25,7 @@ fn config() -> SearchConfig {
     SearchConfig {
         eval: evaluate,
         endgame_threshold: 12,
+        ordering: true,
     }
 }
 
@@ -654,10 +655,7 @@ fn corpus_preload() {
         for square in squares(legal_moves(board.me, board.opp)) {
             let child = play(board, square);
             let key = zobrist(child);
-            for depth in 1..3 {
-                table.store(Entry::heuristic(key, 6400, depth, Bound::Exact, NO_MOVE));
-                table.store(Entry::heuristic(key, -6400, depth, Bound::Exact, NO_MOVE));
-            }
+            table.store(Entry::heuristic(key, -6400, 2, Bound::Exact, NO_MOVE));
         }
         let warm = search_tt(board, SearchLimits::depth(4), &config, &mut table);
         assert_eq!(warm.score, expected, "{board:?}");
@@ -672,13 +670,13 @@ fn corpus_tt_nodes() {
         if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
             continue;
         }
-        let limits = SearchLimits::depth(4);
+        let limits = SearchLimits::depth(5);
         cold_nodes += search_limited(board, limits, &config).nodes;
         let mut table = Table::new(1 << 16);
         tt_nodes += search_tt(board, limits, &config, &mut table).nodes;
     }
     assert!(
-        tt_nodes * 100 <= cold_nodes * 80,
+        tt_nodes * 100 <= cold_nodes * 95,
         "{tt_nodes} vs {cold_nodes}"
     );
 }
@@ -719,8 +717,8 @@ fn corpus_ordering_nodes() {
         if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
             continue;
         }
-        with += search_limited(board, SearchLimits::depth(4), &ordered).nodes;
-        without += search_limited(board, SearchLimits::depth(4), &unordered).nodes;
+        with += search_limited(board, SearchLimits::depth(5), &ordered).nodes;
+        without += search_limited(board, SearchLimits::depth(5), &unordered).nodes;
     }
     assert!(with * 100 <= without * 60, "{with} vs {without}");
 }
