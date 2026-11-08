@@ -266,3 +266,28 @@ fn malformed_agent_suffixes() {
         assert!(String::from_utf8_lossy(&output.stderr).contains("unknown agent"));
     }
 }
+
+#[test]
+fn node_rule_records_limits() {
+    let output = tools(&[
+        "match", "--a", "ab:2", "--b", "greedy", "--pairs", "1", "--nodes", "100",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("ab:2 (evaluate, depth 64, nodes 100, threshold 12)"),
+        "{text}"
+    );
+
+    let output = tools(&[
+        "match",
+        "--a",
+        "ab:2:1000",
+        "--b",
+        "greedy",
+        "--nodes",
+        "100",
+    ]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("conflicts"));
+}

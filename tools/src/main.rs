@@ -53,15 +53,27 @@ fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
     Ok((kind, depth, time))
 }
 
+fn effective(kind: &str, depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
+    if nodes == 0 {
+        return Ok((depth, time.unwrap_or(NO_DEADLINE)));
+    }
+    if time.is_some() {
+        return Err("time control conflicts with --nodes".into());
+    }
+    Ok((
+        if kind == "phase2" || kind == "ab" {
+            64
+        } else {
+            depth
+        },
+        NO_DEADLINE,
+    ))
+}
+
 fn make_agent(name: &str, seed: u64, nodes: u64) -> Result<Box<dyn Agent>, String> {
     let (kind, depth, time) = parse_name(name)?;
-    let time = time.unwrap_or(NO_DEADLINE);
-    let depth = if nodes > 0 && kind == "phase2" {
-        64
-    } else {
-        depth
-    };
-    let limits = SearchLimits::new(depth, if nodes > 0 { NO_DEADLINE } else { time }, nodes);
+    let (depth, time) = effective(kind, depth, time, nodes)?;
+    let limits = SearchLimits::new(depth, time, nodes);
     match kind {
         "random" => Ok(Box::new(random_agent(seed))),
         "greedy" => Ok(Box::new(greedy_agent())),
@@ -70,14 +82,35 @@ fn make_agent(name: &str, seed: u64, nodes: u64) -> Result<Box<dyn Agent>, Strin
     }
 }
 
-fn describe(name: &str) -> String {
+fn describe(name: &str, nodes: u64) -> String {
     let (kind, depth, time) = parse_name(name).unwrap();
-    let suffix = time.map_or_else(String::new, |time| format!(", time {time}"));
     match kind {
         "random" => "random".into(),
         "greedy" => "greedy (disc-greedy)".into(),
-        "phase2" => format!("phase2 (eval_phase2, depth {PHASE2_DEPTH}{suffix}, threshold 12)"),
-        _ => format!("ab:{depth} (evaluate, depth {depth}{suffix}, threshold 12)"),
+        _ => {
+            let (effective_depth, effective_time) = effective(kind, depth, time, nodes).unwrap();
+            let eval = if kind == "phase2" {
+                "eval_phase2"
+            } else {
+                "evaluate"
+            };
+            let base = if kind == "phase2" {
+                "phase2".to_string()
+            } else {
+                format!("ab:{depth}")
+            };
+            let suffix = if effective_time == NO_DEADLINE {
+                String::new()
+            } else {
+                format!(", time {effective_time}")
+            };
+            let node = if nodes > 0 {
+                format!(", nodes {nodes}")
+            } else {
+                String::new()
+            };
+            format!("{base} ({eval}, depth {effective_depth}{suffix}{node}, threshold 12)")
+        }
     }
 }
 
@@ -169,8 +202,8 @@ fn match_command(args: &[String]) -> Result<(), String> {
         "pairs {} games {} W {} D {} L {} mean {:.4} interval {interval} elo {elo}",
         summary.pairs, summary.games, summary.wins, summary.draws, summary.losses, summary.mean
     );
-    println!("a {}", describe(&a));
-    println!("b {}", describe(&b));
+    println!("a {}", describe(&a, nodes));
+    println!("b {}", describe(&b, nodes));
     println!("seed {seed} resamples {RESAMPLES} evaluator-only nodes {nodes}");
     for line in logs {
         println!("{line}");
