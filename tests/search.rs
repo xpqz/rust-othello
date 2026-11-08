@@ -11,7 +11,8 @@ use othello::search::{
     Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, ordered_moves, search,
     search_iterative, search_limited, search_tt,
 };
-use othello::tt::{Bound, Entry, NO_MOVE, Table, zobrist};
+use othello::solver::solve;
+use othello::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -741,4 +742,98 @@ fn corpus_tt_nodes_deep() {
         tt_nodes * 100 <= cold_nodes * 80,
         "{tt_nodes} vs {cold_nodes}"
     );
+}
+
+fn exact(board: Board, alpha: i32, beta: i32) -> i32 {
+    let moves = legal_moves(board.me, board.opp);
+    if moves == 0 {
+        if legal_moves(board.opp, board.me) == 0 {
+            return terminal_score(final_score(board));
+        }
+        return -exact(pass(board), -beta, -alpha);
+    }
+    let mut best = -INF;
+    let mut alpha = alpha;
+    for square in squares(moves) {
+        let value = -exact(play(board, square), -beta, -alpha);
+        best = best.max(value);
+        alpha = alpha.max(value);
+        if alpha >= beta {
+            break;
+        }
+    }
+    best
+}
+
+fn endgame_board(max_empty: u32) -> Board {
+    corpus()
+        .into_iter()
+        .map(|(board, _)| board)
+        .find(|board| {
+            !is_terminal(*board)
+                && legal_moves(board.me, board.opp) != 0
+                && othello::board::empty_count(*board) <= max_empty
+        })
+        .unwrap()
+}
+
+#[test]
+fn solve_terminal() {
+    let config = config();
+    let board = Board {
+        me: at(0, 0),
+        opp: at(7, 7),
+    };
+    let mut ctx = Ctx::new(&config);
+    assert_eq!(
+        solve(board, -INF, INF, &mut ctx),
+        Some(terminal_score(final_score(board)))
+    );
+}
+
+#[test]
+fn solve_pass() {
+    let config = config();
+    let board = Board {
+        me: at(1, 1),
+        opp: at(0, 0) | at(2, 0),
+    };
+    let mut ctx = Ctx::new(&config);
+    assert_eq!(
+        solve(board, -INF, INF, &mut ctx),
+        Some(-solve(pass(board), -INF, INF, &mut Ctx::new(&config)).unwrap())
+    );
+}
+
+#[test]
+fn solve_matches_reference() {
+    let config = config();
+    let board = endgame_board(6);
+    let mut ctx = Ctx::new(&config);
+    assert_eq!(
+        solve(board, -INF, INF, &mut ctx),
+        Some(exact(board, -INF, INF))
+    );
+}
+
+#[test]
+fn solver_root_trigger() {
+    let config = config();
+    let board = endgame_board(6);
+    let result = search_limited(board, SearchLimits::depth(10), &config);
+    assert_eq!(result.status, SearchStatus::Complete);
+    assert_eq!(result.depth, 0);
+    assert!(result.solved);
+    assert_eq!(result.score, exact(board, -INF, INF));
+}
+
+#[test]
+fn solver_endgame_domain() {
+    let config = config();
+    let board = endgame_board(6);
+    let mut table = Table::new(1 << 16);
+    let _ = search_tt(board, SearchLimits::depth(10), &config, &mut table);
+    let entry = table.probe(zobrist(board)).unwrap();
+    assert_eq!(entry.domain, Domain::Endgame);
+    assert_eq!(entry.depth, 0);
 }
