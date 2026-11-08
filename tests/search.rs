@@ -251,9 +251,13 @@ fn id_root_ordering() {
     let config = config();
     let mut rng = Rng::new(0x1D);
     let mut positions = Vec::new();
+    let mut visited = 0;
     while positions.len() < 30 {
         playout(&mut rng, |board| {
-            if positions.len() < 30 && legal_moves(board.me, board.opp).count_ones() >= 2 {
+            let sample = visited % 5 == 0;
+            visited += 1;
+            if sample && positions.len() < 30 && legal_moves(board.me, board.opp).count_ones() >= 2
+            {
                 positions.push(board);
             }
         });

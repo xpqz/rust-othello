@@ -88,16 +88,37 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
         return SearchResult::new(first, (config.eval)(board), 0, 0, SearchStatus::Fallback);
     }
     let mut ctx = Ctx::new(config);
-    let mut best = first;
+    let (best, score) = root(board, moves, depth, first, &mut ctx);
+    SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
+}
+
+pub fn search_iterative(board: Board, max_depth: u32, config: &SearchConfig) -> SearchResult {
+    let moves = legal_moves(board.me, board.opp);
+    assert!(moves != 0, "search requires a legal root move");
+    let mut best = moves.trailing_zeros() as u8;
+    let mut result = SearchResult::new(best, (config.eval)(board), 0, 0, SearchStatus::Fallback);
+    let mut nodes = 0;
+    for depth in 1..=max_depth {
+        let mut ctx = Ctx::new(config);
+        let (square, score) = root(board, moves, depth, best, &mut ctx);
+        best = square;
+        nodes += ctx.nodes;
+        result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
+    }
+    result
+}
+
+fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> (u8, i32) {
+    let mut chosen = best;
     let mut score = -INF;
     let mut alpha = -INF;
-    for square in squares(moves) {
-        let value = -negamax(play(board, square), depth - 1, -INF, -alpha, &mut ctx).unwrap();
+    for square in std::iter::once(best).chain(squares(moves & !(1u64 << best))) {
+        let value = -negamax(play(board, square), depth - 1, -INF, -alpha, ctx).unwrap();
         if value > score {
             score = value;
-            best = square;
+            chosen = square;
         }
         alpha = alpha.max(value);
     }
-    SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
+    (chosen, score)
 }
