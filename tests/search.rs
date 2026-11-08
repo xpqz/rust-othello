@@ -453,3 +453,43 @@ fn ordering_xc_last() {
     assert_eq!(len, 7);
     assert_eq!(order[len - 1], sq(1, 1));
 }
+
+#[test]
+fn ordering_c_last() {
+    let board = Board {
+        me: at(5, 2)
+            | at(2, 3)
+            | at(3, 3)
+            | at(4, 3)
+            | at(2, 4)
+            | at(3, 4)
+            | at(3, 5)
+            | at(4, 5)
+            | at(3, 6)
+            | at(4, 6),
+        opp: at(0, 0)
+            | at(1, 1)
+            | at(3, 1)
+            | at(2, 2)
+            | at(3, 2)
+            | at(6, 2)
+            | at(1, 3)
+            | at(5, 3)
+            | at(0, 4)
+            | at(4, 4)
+            | at(5, 4)
+            | at(6, 4)
+            | at(5, 5)
+            | at(6, 5)
+            | at(2, 6),
+    };
+    let moves = legal_moves(board.me, board.opp);
+    let (order, len) = ordered_moves(board, moves, 1, None);
+    let position = |square: u8| {
+        order[..len]
+            .iter()
+            .position(|&item| item == square)
+            .unwrap()
+    };
+    assert!(position(sq(7, 1)) > position(sq(0, 2)));
+}
