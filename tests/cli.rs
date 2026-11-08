@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Output, Stdio};
 use std::time::Instant;
 
@@ -287,7 +287,45 @@ fn play_opponent_is_search() {
     );
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("Black to move") || text.contains("Game over"),
+        text.matches("Black to move").count() >= 2 || text.contains("Game over"),
         "{text}"
     );
+}
+
+#[test]
+#[ignore = "release-only"]
+fn play_complete_game() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_othello"))
+        .arg("play")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    let output = BufReader::new(child.stdout.take().unwrap());
+    let mut moves = 0;
+    for line in output.lines() {
+        let line = line.unwrap();
+        if line.starts_with("Game over.") {
+            let discs: Vec<u32> = line
+                .split(|c: char| !c.is_ascii_digit())
+                .filter_map(|part| part.parse().ok())
+                .collect();
+            assert_eq!(discs.len(), 2, "{line}");
+            assert!(discs[0] + discs[1] <= 64, "{line}");
+            break;
+        }
+        if line.starts_with("Black to move.") {
+            let legal = line.split("legal:").nth(1).unwrap_or("").trim();
+            if legal.is_empty() {
+                writeln!(input, "pass").unwrap();
+            } else {
+                writeln!(input, "{}", legal.split_whitespace().next().unwrap()).unwrap();
+                moves += 1;
+            }
+        }
+    }
+    assert!(moves > 0);
+    assert!(child.wait().unwrap().success());
 }
