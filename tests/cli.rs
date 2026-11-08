@@ -26,6 +26,16 @@ fn run(args: &[&str], input: &str) -> Output {
     child.wait_with_output().unwrap()
 }
 
+fn field(text: &str, key: &str) -> String {
+    let mut parts = text.split_whitespace();
+    while let Some(part) = parts.next() {
+        if part == key {
+            return parts.next().unwrap().to_string();
+        }
+    }
+    panic!("missing {key} in {text}");
+}
+
 fn notation(square: u8) -> String {
     let file = (b'a' + square % 8) as char;
     let rank = (b'1' + square / 8) as char;
@@ -169,12 +179,28 @@ fn bench_time_controls() {
     let output = run(&["bench", "--depth", "10", "--time-ms", "0"], "");
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("depth 0"), "{text}");
+    assert_eq!(field(&text, "depth"), "0", "{text}");
+    assert_eq!(field(&text, "nodes"), "0", "{text}");
     assert!(text.contains("nps"), "{text}");
+    assert!(text.contains("elapsed"), "{text}");
 
     let output = run(&["bench", "--depth", "10", "--max-nodes", "1"], "");
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("depth 0"), "{text}");
-    assert!(text.contains("nps"), "{text}");
+    assert_eq!(field(&text, "depth"), "0", "{text}");
+    assert!(text.contains("elapsed"), "{text}");
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
+fn bench_deadline_smoke() {
+    let output = run(&["bench", "--depth", "30", "--time-ms", "200"], "");
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    let elapsed: f64 = field(&text, "elapsed")
+        .trim_end_matches("ms")
+        .parse()
+        .unwrap();
+    assert!(elapsed <= 270.0, "{text}");
+    assert_ne!(field(&text, "depth"), "30", "{text}");
 }
