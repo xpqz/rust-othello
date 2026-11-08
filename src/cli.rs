@@ -31,29 +31,44 @@ fn parse_depth(text: &str, limit: u32) -> Result<u32, String> {
 
 fn bench(args: &[String]) -> Result<(), String> {
     let (mut depth, mut time_ms, mut max_nodes) = (10, NO_DEADLINE, 0);
+    let (mut board, mut threshold) = (Board::START, 12);
     for pair in args.chunks(2) {
         let value = pair.get(1).ok_or("missing bench value")?;
         match pair[0].as_str() {
             "--depth" => depth = parse_depth(value, 64)?,
             "--time-ms" => time_ms = value.parse().map_err(|_| "invalid time")?,
             "--max-nodes" => max_nodes = value.parse().map_err(|_| "invalid nodes")?,
+            "--board" => board = parse_board(value)?,
+            "--endgame-threshold" => threshold = value.parse().map_err(|_| "invalid threshold")?,
             flag => return Err(format!("unknown option: {flag}")),
         }
     }
-    let config = SearchConfig::standard();
+    let config = SearchConfig {
+        endgame_threshold: threshold,
+        ..SearchConfig::standard()
+    };
     let start = Instant::now();
-    let result = search_limited(
-        Board::START,
-        SearchLimits::new(depth, time_ms, max_nodes),
-        &config,
-    );
+    let result = search_limited(board, SearchLimits::new(depth, time_ms, max_nodes), &config);
     let elapsed = start.elapsed().as_secs_f64() * 1000.0;
     let nps = result.nodes as f64 * 1000.0 / elapsed.max(1e-9);
     println!(
-        "depth {} score {} nodes {} nps {nps:.0} elapsed {elapsed:.2}ms",
-        result.depth, result.score, result.nodes
+        "depth {} score {} nodes {} nps {nps:.0} elapsed {elapsed:.2}ms solved {} status {:?}",
+        result.depth, result.score, result.nodes, result.solved as u8, result.status
     );
     Ok(())
+}
+
+fn parse_board(text: &str) -> Result<Board, String> {
+    let (me, opp) = text.split_once(':').ok_or("invalid board")?;
+    let me = u64::from_str_radix(me, 16).map_err(|_| "invalid board")?;
+    let opp = u64::from_str_radix(opp, 16).map_err(|_| "invalid board")?;
+    if me & opp != 0 || me | opp == 0 {
+        return Err("invalid board".into());
+    }
+    if legal_moves(me, opp) == 0 {
+        return Err("board has no legal move".into());
+    }
+    Ok(Board { me, opp })
 }
 
 fn cell(black: u64, white: u64, bit: u64) -> char {
