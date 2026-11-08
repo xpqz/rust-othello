@@ -124,3 +124,47 @@ fn frontier_swap() {
     }
     assert!(checked > 0);
 }
+
+#[test]
+fn corner_risk_while_empty() {
+    assert_eq!(
+        evaluate(Board {
+            me: at(1, 1),
+            opp: 0
+        }),
+        50
+    );
+    assert_eq!(
+        evaluate(Board {
+            me: at(1, 0),
+            opp: 0
+        }),
+        80
+    );
+}
+
+#[test]
+fn corner_risk_disappears() {
+    let corner = at(0, 0);
+    assert_eq!(
+        evaluate(Board {
+            me: at(1, 1) | corner,
+            opp: 0,
+        }),
+        299
+    );
+    assert_eq!(
+        evaluate(Board {
+            me: at(1, 0) | corner,
+            opp: 0,
+        }),
+        299
+    );
+    assert_eq!(
+        evaluate(Board {
+            me: at(1, 1),
+            opp: corner,
+        }),
+        -101
+    );
+}
