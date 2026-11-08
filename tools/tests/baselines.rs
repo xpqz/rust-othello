@@ -56,6 +56,12 @@ fn match_smoke() {
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(text.contains("pairs 2"), "{text}");
     assert!(text.contains("mean 0.5000"), "{text}");
+    assert!(text.contains("a greedy"), "{text}");
+    assert!(text.contains("b greedy"), "{text}");
+    assert!(
+        text.contains("seed 1 resamples 10000 evaluator-only"),
+        "{text}"
+    );
 }
 
 #[test]
@@ -64,7 +70,61 @@ fn phase2_selectable() {
         "match", "--a", "phase2", "--b", "greedy", "--pairs", "1", "--seed", "1",
     ]);
     assert!(output.status.success());
-    assert!(String::from_utf8_lossy(&output.stdout).contains("pairs 1"));
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("pairs 1"), "{text}");
+    assert!(
+        text.contains("phase2 (eval_phase2, depth 4, threshold 12)"),
+        "{text}"
+    );
+}
+
+#[test]
+fn random_match_reproducible() {
+    let args = [
+        "match", "--a", "random", "--b", "greedy", "--pairs", "10", "--seed", "1",
+    ];
+    let first = tools(&args);
+    let second = tools(&args);
+    assert!(first.status.success());
+    assert_eq!(first.stdout, second.stdout);
+    let other = tools(&[
+        "match", "--a", "random", "--b", "greedy", "--pairs", "10", "--seed", "2",
+    ]);
+    let line = |output: &std::process::Output| {
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .next()
+            .unwrap()
+            .to_string()
+    };
+    assert_ne!(line(&first), line(&other));
+}
+
+#[test]
+fn ab_selectable() {
+    let output = tools(&[
+        "match", "--a", "ab:2", "--b", "greedy", "--pairs", "1", "--seed", "1",
+    ]);
+    assert!(output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("ab:2 (evaluate, depth 2, threshold 12)")
+    );
+}
+
+#[test]
+fn ab_invalid() {
+    for name in ["ab:x", "ab:"] {
+        let output = tools(&["match", "--a", name, "--b", "greedy"]);
+        assert!(!output.status.success(), "{name}");
+        assert!(String::from_utf8_lossy(&output.stderr).contains("unknown agent"));
+    }
+}
+
+#[test]
+fn frozen_source() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/baselines.rs");
+    let source = std::fs::read_to_string(path).unwrap();
+    assert!(!source.contains("evaluate"));
 }
 
 #[test]
