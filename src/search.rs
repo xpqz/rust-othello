@@ -81,22 +81,19 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
 }
 
 pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
-    let moves = legal_moves(board.me, board.opp);
-    assert!(moves != 0, "search requires a legal root move");
-    let first = moves.trailing_zeros() as u8;
+    let (moves, first, fallback) = root_setup(board, config);
     if depth == 0 {
-        return SearchResult::new(first, (config.eval)(board), 0, 0, SearchStatus::Fallback);
+        return fallback;
     }
     let mut ctx = Ctx::new(config);
     let (best, score) = root(board, moves, depth, first, &mut ctx);
     SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
 }
 
+/// Deepens to `max_depth`; on tied root scores it keeps the previous best,
+/// unlike `search`, which keeps the lowest square.
 pub fn search_iterative(board: Board, max_depth: u32, config: &SearchConfig) -> SearchResult {
-    let moves = legal_moves(board.me, board.opp);
-    assert!(moves != 0, "search requires a legal root move");
-    let mut best = moves.trailing_zeros() as u8;
-    let mut result = SearchResult::new(best, (config.eval)(board), 0, 0, SearchStatus::Fallback);
+    let (moves, mut best, mut result) = root_setup(board, config);
     let mut nodes = 0;
     for depth in 1..=max_depth {
         let mut ctx = Ctx::new(config);
@@ -106,6 +103,14 @@ pub fn search_iterative(board: Board, max_depth: u32, config: &SearchConfig) -> 
         result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
     }
     result
+}
+
+fn root_setup(board: Board, config: &SearchConfig) -> (u64, u8, SearchResult) {
+    let moves = legal_moves(board.me, board.opp);
+    assert!(moves != 0, "search requires a legal root move");
+    let first = moves.trailing_zeros() as u8;
+    let fallback = SearchResult::new(first, (config.eval)(board), 0, 0, SearchStatus::Fallback);
+    (moves, first, fallback)
 }
 
 fn root(board: Board, moves: u64, depth: u32, best: u8, ctx: &mut Ctx) -> (u8, i32) {
