@@ -1,51 +1,25 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
 import type { Event, Session, SessionStatus } from "@opencode-ai/sdk"
-import {
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  watch,
-  writeFileSync,
-} from "node:fs"
+import { mkdirSync, readFileSync, readdirSync, watch } from "node:fs"
 import { join } from "node:path"
 
 type Client = PluginInput["client"]
-type State = Record<string, number>
 
 const debounceMs = 1500
-
-function loadState(path: string): State {
-  try {
-    const value: unknown = JSON.parse(readFileSync(path, "utf8"))
-    if (!value || typeof value !== "object" || Array.isArray(value)) return {}
-    const state: State = {}
-    for (const [key, entry] of Object.entries(value)) {
-      if (typeof entry === "number") state[key] = entry
-    }
-    return state
-  } catch {
-    return {}
-  }
-}
-
-function saveState(path: string, state: State) {
-  writeFileSync(path, JSON.stringify(state, null, 2) + "\n")
-}
-
-function mtime(path: string): number | undefined {
-  try {
-    return statSync(path).mtimeMs
-  } catch {
-    return undefined
-  }
-}
 
 function reviews(dir: string): string[] {
   try {
     return readdirSync(dir).filter((name) => /^\d+\.md$/.test(name))
   } catch {
     return []
+  }
+}
+
+function contents(path: string): string | undefined {
+  try {
+    return readFileSync(path, "utf8")
+  } catch {
+    return undefined
   }
 }
 
@@ -72,35 +46,21 @@ async function statuses(
 
 export const ReviewWatch: Plugin = async ({ client, directory }) => {
   const reviewDir = join(directory, "docs", "reviews")
-  const statePath = join(directory, ".opencode", "review-watch-state.json")
   mkdirSync(reviewDir, { recursive: true })
-  mkdirSync(join(directory, ".opencode"), { recursive: true })
 
-  const state = loadState(statePath)
-  const seen = new Map<string, number>()
-  const pending = new Map<string, number>()
+  // Compare contents, never mtimes: a checkout or touch that leaves the review
+  // unchanged must not wake the agent. The baseline is taken in memory at
+  // startup, so no state file (and nothing inside the repo) is involved.
+  const seen = new Map<string, string>()
+  const pending = new Map<string, string>()
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
   const children = new Set<string>()
   let active: string | undefined
   let flushing = false
 
   for (const name of reviews(reviewDir)) {
-    const id = name.slice(0, -3)
-    const current = mtime(join(reviewDir, name))
-    if (current === undefined) continue
-    const prior = state[id]
-    if (prior === undefined) {
-      state[id] = current
-      seen.set(id, current)
-    } else {
-      seen.set(id, prior)
-      if (current > prior) pending.set(id, current)
-    }
-  }
-  saveState(statePath, state)
-
-  for (const session of await sessions(client, directory)) {
-    if (session.parentID) children.add(session.id)
+    const text = contents(join(reviewDir, name))
+    if (text !== undefined) seen.set(name.slice(0, -3), text)
   }
 
   async function idleSession(): Promise<string | undefined> {
@@ -126,13 +86,9 @@ export const ReviewWatch: Plugin = async ({ client, directory }) => {
     if (flushing || pending.size === 0) return
     flushing = true
     let success = false
-    const batch = [...pending.entries()]
     try {
       const id = await idleSession()
       if (!id) return
-      const files = batch
-        .map(([review]) => `docs/reviews/${review}.md`)
-        .join(", ")
       const result = await client.session.prompt({
         path: { id },
         query: { directory },
@@ -140,19 +96,16 @@ export const ReviewWatch: Plugin = async ({ client, directory }) => {
           parts: [
             {
               type: "text",
-              text: `Review(s) ready: ${files}. Read them, address the findings, and continue.`,
+              text: "Wake up: check docs/reviews for new review activity, then continue.",
             },
           ],
         },
       })
       if (result.error) throw result.error
-      for (const [review, stamp] of batch) {
-        if (mtime(join(reviewDir, `${review}.md`)) !== stamp) continue
+      for (const [review, text] of pending) {
+        seen.set(review, text)
         pending.delete(review)
-        seen.set(review, stamp)
-        state[review] = stamp
       }
-      saveState(statePath, state)
       success = true
     } catch (error) {
       console.error("review-watch: unable to prompt", error)
@@ -170,10 +123,10 @@ export const ReviewWatch: Plugin = async ({ client, directory }) => {
       setTimeout(() => {
         timers.delete(name)
         const id = name.slice(0, -3)
-        const current = mtime(join(reviewDir, name))
-        if (current === undefined) return
-        if (current === seen.get(id) || pending.get(id) === current) return
-        pending.set(id, current)
+        const text = contents(join(reviewDir, name))
+        if (text === undefined) return
+        if (text === seen.get(id) || pending.get(id) === text) return
+        pending.set(id, text)
         void flush()
       }, debounceMs),
     )
@@ -182,9 +135,9 @@ export const ReviewWatch: Plugin = async ({ client, directory }) => {
   function scan() {
     for (const name of reviews(reviewDir)) {
       const id = name.slice(0, -3)
-      const current = mtime(join(reviewDir, name))
-      if (current === undefined) continue
-      if (current === seen.get(id) || pending.get(id) === current) continue
+      const text = contents(join(reviewDir, name))
+      if (text === undefined) continue
+      if (text === seen.get(id) || pending.get(id) === text) continue
       schedule(name)
     }
   }
@@ -192,7 +145,18 @@ export const ReviewWatch: Plugin = async ({ client, directory }) => {
   const watcher = watch(reviewDir, { persistent: true }, () => scan())
   const poll = setInterval(scan, 2000)
 
-  if (pending.size > 0) void flush()
+  // Calling the client while this factory runs deadlocks startup: opencode
+  // bootstraps plugins from inside the instance bootstrap, so an in-process
+  // request would wait for the bootstrap that is waiting for this factory.
+  // Defer every client call until after the factory has returned.
+  const startup = setTimeout(() => {
+    void (async () => {
+      for (const session of await sessions(client, directory)) {
+        if (session.parentID) children.add(session.id)
+      }
+      if (pending.size > 0) await flush()
+    })()
+  }, 0)
 
   async function onEvent(event: Event) {
     if (event.type === "session.status") {
@@ -228,6 +192,7 @@ export const ReviewWatch: Plugin = async ({ client, directory }) => {
     dispose: async () => {
       watcher.close()
       clearInterval(poll)
+      clearTimeout(startup)
       for (const timer of timers.values()) clearTimeout(timer)
     },
   }
