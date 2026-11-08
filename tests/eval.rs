@@ -83,18 +83,34 @@ fn overflow_clamps() {
 
 #[test]
 fn mobility_unequal_counts() {
-    let board = play(Board::START, 19);
+    let board = Board {
+        me: 0x020c_fc00_4828_1800,
+        opp: 0x0000_021a_1616_263d,
+    };
     let mine = legal_moves(board.me, board.opp).count_ones() as i32;
     let theirs = legal_moves(board.opp, board.me).count_ones() as i32;
-    assert_ne!(mine, theirs);
+    assert_eq!((mine, theirs), (10, 11));
     let value = mobility(board);
     assert_ne!(value, 0);
     assert_eq!(value.signum(), (mine - theirs).signum());
 }
 
 #[test]
+fn mobility_values() {
+    let board = Board {
+        me: 0x020c_fc00_4828_1800,
+        opp: 0x0000_021a_1616_263d,
+    };
+    assert_eq!(mobility(board), -45);
+    assert_eq!(mobility(pass(board)), 45);
+}
+
+#[test]
 fn frontier_swap() {
     assert_eq!(frontier(Board::START), 0);
+    let board = play(Board::START, 19);
+    assert_eq!(frontier(board), 3);
+    assert_eq!(frontier(pass(board)), -3);
     let mut rng = Rng::new(0xF20A);
     let mut checked = 0;
     for _ in 0..20 {
@@ -107,15 +123,4 @@ fn frontier_swap() {
         });
     }
     assert!(checked > 0);
-}
-
-#[test]
-fn mobility_formula() {
-    let board = play(Board::START, 19);
-    let mine = legal_moves(board.me, board.opp).count_ones() as i32;
-    let theirs = legal_moves(board.opp, board.me).count_ones() as i32;
-    assert_eq!(
-        mobility(board),
-        (mine - theirs) * 1000 / (mine + theirs + 1)
-    );
 }
