@@ -954,27 +954,27 @@ with honest evidence.
 
 **Acceptance checklist**
 
-- [ ] All correctness tests pass, including differential, perft, pass/terminal
+- [x] All correctness tests pass, including differential, perft, pass/terminal
       fixtures, and the start-position fixture.
-- [ ] Score contract, fail-soft, double-no-move terminal, and caller-handled
+- [x] Score contract, fail-soft, double-no-move terminal, and caller-handled
       pass/terminal roots pass.
-- [ ] TT strict fixed-depth equivalence, deep-then-shallow, domains, bounds,
+- [x] TT strict fixed-depth equivalence, deep-then-shallow, domains, bounds,
       local abort rule, and stored-move legality pass.
-- [ ] Endgame oracle uses the documented 6-10 empty sample and known 12-empty
+- [x] Endgame oracle uses the documented 6-10 empty sample and known 12-empty
       positions, with completion rate and p90/p99.
-- [ ] Tools harness uses per-game agent factories, absolute side-to-move,
+- [x] Tools harness uses per-game agent factories, absolute side-to-move,
       release action validation, position-based splits, and bootstrap
       degeneracy.
-- [ ] Engine + CLI source is `<=999` formatted non-comment lines; tools are
+- [x] Engine + CLI source is `<=999` formatted non-comment lines; tools are
       `<=650`; no test code in production files.
-- [ ] No dependencies, no `unsafe`, fmt and clippy clean.
-- [ ] perft(8) < 0.2 s, perft(10) < 2 s, search >= 1 M nodes/s, 12-empty median
+- [x] No dependencies, no `unsafe`, fmt and clippy clean.
+- [x] perft(8) < 0.2 s, perft(10) < 2 s, search >= 1 M nodes/s, 12-empty median
       < 1 s on recorded hardware.
-- [ ] Strength thresholds met with recorded intervals, seeds/IDs, depth, and
+- [x] Strength thresholds met with recorded intervals, seeds/IDs, depth, and
       node budget/time control; final set untouched.
-- [ ] CLI plays a complete game, handles EOF/malformed input, and prints a
+- [x] CLI plays a complete game, handles EOF/malformed input, and prints a
       readable final score.
-- [ ] README documents build, play, benchmark, tools match, conventions, and
+- [x] README documents build, play, benchmark, tools match, conventions, and
       actual engine/tools sizes.
 
 **Gate:** Every checkbox is satisfied. This is the release.
