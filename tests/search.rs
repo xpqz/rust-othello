@@ -605,20 +605,23 @@ fn corpus_frozen() {
     let config = config();
     let corpus = corpus();
     assert!(corpus.len() >= 20);
-    let (mut pass, mut terminal, mut mid, mut end) = (0, 0, 0, 0);
+    let (mut pass, mut terminal, mut mid, mut end, mut other) = (0, 0, 0, 0, 0);
     for (board, expected) in corpus {
+        let empty = othello::board::empty_count(board);
         if is_terminal(board) {
             terminal += 1;
         } else if legal_moves(board.me, board.opp) == 0 {
             pass += 1;
-        } else if othello::board::empty_count(board) <= 12 {
+        } else if empty <= 12 {
             end += 1;
-        } else {
+        } else if 64 - empty >= 20 {
             mid += 1;
+        } else {
+            other += 1;
         }
         assert_eq!(corpus_score(board, &config), expected, "{board:?}");
     }
-    assert!(pass >= 1 && terminal >= 1 && mid >= 8 && end >= 4);
+    assert!(pass >= 1 && terminal >= 1 && mid >= 10 && end >= 6 && other == 0);
 }
 
 #[test]

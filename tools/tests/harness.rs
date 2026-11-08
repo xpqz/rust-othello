@@ -314,3 +314,19 @@ fn equal_node_naming() {
         "{text}"
     );
 }
+
+#[test]
+fn no_ordering_flag() {
+    let output = tools(&[
+        "match",
+        "--a",
+        "phase2",
+        "--b",
+        "greedy",
+        "--pairs",
+        "1",
+        "--no-ordering",
+    ]);
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("ordering false"));
+}
