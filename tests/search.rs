@@ -5,7 +5,10 @@ use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
 use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
-use othello::search::{Ctx, SearchConfig, SearchStatus, negamax, search, search_iterative};
+use othello::search::{
+    Ctx, SearchConfig, SearchLimits, SearchStatus, negamax, search, search_iterative,
+    search_limited,
+};
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -287,4 +290,54 @@ fn id_zero_is_fallback() {
     assert_eq!(result.score, evaluate(Board::START));
     assert_eq!(result.depth, 0);
     assert_eq!(result.status, SearchStatus::Fallback);
+}
+
+#[test]
+fn deadline_zero_falls_back() {
+    let config = config();
+    let board = Board::START;
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: 0,
+        max_nodes: 0,
+    };
+    let result = search_limited(board, limits, &config);
+    assert_eq!(result.status, SearchStatus::Fallback);
+    assert_eq!(result.depth, 0);
+    assert!(!result.solved);
+    assert_eq!(result.score, evaluate(board));
+    assert_ne!(legal_moves(board.me, board.opp) & (1u64 << result.best), 0);
+}
+
+#[test]
+fn node_limit_partial() {
+    let config = config();
+    let board = Board::START;
+    let depth_one = search(board, 1, &config);
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: 1_000,
+        max_nodes: depth_one.nodes + 1,
+    };
+    let result = search_limited(board, limits, &config);
+    assert_eq!(result.status, SearchStatus::Partial);
+    assert_eq!(result.depth, 1);
+    assert_eq!(result.score, depth_one.score);
+    assert!(!result.solved);
+}
+
+#[test]
+fn node_limit_fallback() {
+    let config = config();
+    let board = Board::START;
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: 1_000,
+        max_nodes: 1,
+    };
+    let result = search_limited(board, limits, &config);
+    assert_eq!(result.status, SearchStatus::Fallback);
+    assert_eq!(result.depth, 0);
+    assert_eq!(result.score, evaluate(board));
+    assert_ne!(legal_moves(board.me, board.opp) & (1u64 << result.best), 0);
 }
