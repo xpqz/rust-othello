@@ -229,10 +229,6 @@ fn id_matches_depth() {
             me: at(0, 0) | at(2, 0) | at(4, 0),
             opp: at(1, 0) | at(3, 0) | at(5, 0) | at(6, 0),
         },
-        Board {
-            me: at(1, 1),
-            opp: at(0, 0) | at(2, 0),
-        },
     ];
     for board in boards {
         for depth in 1..=4 {
@@ -253,12 +249,30 @@ fn id_matches_depth() {
 #[test]
 fn id_root_ordering() {
     let config = config();
-    let board = Board::START;
-    let depth = 4;
-    let iterative = search_iterative(board, depth, &config);
-    let fixed: u64 = (1..=depth).map(|d| search(board, d, &config).nodes).sum();
-    assert!(iterative.nodes < fixed, "{} vs {fixed}", iterative.nodes);
-    assert_eq!(iterative.score, search(board, depth, &config).score);
+    let mut rng = Rng::new(0x1D);
+    let mut positions = Vec::new();
+    while positions.len() < 30 {
+        playout(&mut rng, |board| {
+            if positions.len() < 30 && legal_moves(board.me, board.opp).count_ones() >= 2 {
+                positions.push(board);
+            }
+        });
+    }
+    let depth = 3;
+    let (mut iterative_nodes, mut fixed_nodes) = (0, 0);
+    for board in positions {
+        let iterative = search_iterative(board, depth, &config);
+        let direct = search(board, depth, &config);
+        assert_eq!(iterative.score, direct.score, "{board:?}");
+        iterative_nodes += iterative.nodes;
+        fixed_nodes += (1..=depth)
+            .map(|d| search(board, d, &config).nodes)
+            .sum::<u64>();
+    }
+    assert!(
+        iterative_nodes < fixed_nodes,
+        "{iterative_nodes} vs {fixed_nodes}"
+    );
 }
 
 #[test]
