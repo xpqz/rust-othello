@@ -1248,3 +1248,8 @@ fn solver_full_game() {
     assert!(solved > 0, "solver never completed an endgame");
     assert!(slowest <= 250.0, "{slowest}");
 }
+
+#[test]
+fn standard_threshold_is_14() {
+    assert_eq!(SearchConfig::standard().endgame_threshold, 14);
+}

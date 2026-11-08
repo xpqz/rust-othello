@@ -229,8 +229,8 @@ fn play_opponent_is_search() {
     );
     assert!(output.status.success());
     assert!(
-        start.elapsed().as_millis() >= 500,
-        "White responded too quickly to be the search agent"
+        start.elapsed().as_millis() >= 2000,
+        "White responded too quickly for the 3 s search agent"
     );
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
