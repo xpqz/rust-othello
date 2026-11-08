@@ -77,12 +77,18 @@ impl<'a> Ctx<'a> {
         }
     }
 
+    fn expired(&self) -> bool {
+        self.deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+    }
+
     fn stop(&self) -> bool {
         (self.max_nodes > 0 && self.nodes > self.max_nodes)
-            || (self.nodes & 1023 == 0
-                && self
-                    .deadline
-                    .is_some_and(|deadline| Instant::now() >= deadline))
+            || (self.nodes & 1023 == 0 && self.expired())
+    }
+
+    fn stop_iteration(&self) -> bool {
+        (self.max_nodes > 0 && self.nodes > self.max_nodes) || self.expired()
     }
 }
 
@@ -142,7 +148,7 @@ pub fn search_limited(board: Board, limits: SearchLimits, config: &SearchConfig)
             max_nodes: limits.max_nodes,
             deadline,
         };
-        if ctx.stop() {
+        if ctx.stop_iteration() {
             break;
         }
         let Some((square, score)) = root(board, moves, depth, best, &mut ctx) else {
