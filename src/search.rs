@@ -69,28 +69,20 @@ pub struct Ctx<'a> {
 
 impl<'a> Ctx<'a> {
     pub fn new(config: &'a SearchConfig) -> Self {
-        Self::limited(config, 0, 0, None)
-    }
-
-    fn limited(
-        config: &'a SearchConfig,
-        nodes: u64,
-        max_nodes: u64,
-        deadline: Option<Instant>,
-    ) -> Self {
         Self {
             config,
-            nodes,
-            max_nodes,
-            deadline,
+            nodes: 0,
+            max_nodes: 0,
+            deadline: None,
         }
     }
 
     fn stop(&self) -> bool {
         (self.max_nodes > 0 && self.nodes > self.max_nodes)
-            || self
-                .deadline
-                .is_some_and(|deadline| Instant::now() >= deadline)
+            || (self.nodes & 1023 == 0
+                && self
+                    .deadline
+                    .is_some_and(|deadline| Instant::now() >= deadline))
     }
 }
 
