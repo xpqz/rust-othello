@@ -236,6 +236,9 @@ fn timed_and_node_agents() {
 
 #[test]
 fn node_limited_match() {
+    let unlimited = tools(&[
+        "match", "--a", "phase2", "--b", "greedy", "--pairs", "2", "--seed", "1",
+    ]);
     let args = [
         "match", "--a", "phase2", "--b", "greedy", "--pairs", "2", "--seed", "1", "--nodes", "100",
     ];
@@ -244,4 +247,22 @@ fn node_limited_match() {
     assert!(first.status.success());
     assert_eq!(first.stdout, second.stdout);
     assert!(String::from_utf8_lossy(&first.stdout).contains("nodes 100"));
+    let logs = |output: &std::process::Output| {
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter(|line| line.starts_with("run "))
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert_ne!(logs(&first), logs(&unlimited));
+}
+
+#[test]
+fn malformed_agent_suffixes() {
+    for name in ["ab:2:x", "ab:2:", "phase2:x"] {
+        let output = tools(&["match", "--a", name, "--b", "greedy"]);
+        assert!(!output.status.success(), "{name}");
+        assert!(String::from_utf8_lossy(&output.stderr).contains("unknown agent"));
+    }
 }

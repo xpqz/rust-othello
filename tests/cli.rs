@@ -201,6 +201,6 @@ fn bench_deadline_smoke() {
         .trim_end_matches("ms")
         .parse()
         .unwrap();
-    assert!(elapsed <= 270.0, "{text}");
+    assert!(elapsed <= 250.0, "{text}");
     assert_ne!(field(&text, "depth"), "30", "{text}");
 }
