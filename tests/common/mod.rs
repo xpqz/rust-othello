@@ -95,6 +95,7 @@ impl Naive {
     }
 
     pub fn from_bits(me: u64, opp: u64) -> Self {
+        debug_assert_eq!(me & opp, 0);
         let mut cells = [[0; 8]; 8];
         for (rank, row) in cells.iter_mut().enumerate() {
             for (file, cell) in row.iter_mut().enumerate() {
@@ -158,6 +159,7 @@ impl Naive {
         moves
     }
 
+    /// Applies a legal move; callers pass a legal square.
     pub fn play(&self, sq: u8) -> Self {
         let mut next = Self { cells: self.cells };
         let file = (sq % 8) as i8;
@@ -211,7 +213,7 @@ pub fn nth_bit(mut bits: u64, mut k: u32) -> u8 {
 
 pub fn playout(rng: &mut Rng, mut visit: impl FnMut(Board)) {
     let mut board = Board::START;
-    for _ in 0..60 {
+    loop {
         visit(board);
         let moves = legal_moves(board.me, board.opp);
         if moves != 0 {
