@@ -209,6 +209,11 @@ fn differential(count: usize) {
             while rest != 0 {
                 let square = rest.trailing_zeros() as u8;
                 rest &= rest - 1;
+                assert_eq!(
+                    flips(board, square),
+                    naive.flips(square),
+                    "{seen}: {board:?} {square}"
+                );
                 let after = play(board, square);
                 assert_eq!(
                     (after.me, after.opp),
@@ -228,7 +233,7 @@ fn differential_10k() {
 }
 
 #[test]
-#[ignore]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
 fn differential_200k() {
     differential(200_000);
 }
