@@ -193,6 +193,9 @@ fn frozen_sets() {
         assert_eq!(stats.lengths, vec![(8, 512)]);
         let keys: std::collections::HashSet<_> = set.iter().map(|opening| opening.key).collect();
         assert!(keys.len() >= 20, "{} groups", keys.len());
+        let prefix: std::collections::HashSet<_> =
+            set.iter().take(20).map(|opening| opening.key).collect();
+        assert_eq!(prefix.len(), 20);
     }
 }
 
