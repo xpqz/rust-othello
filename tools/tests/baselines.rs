@@ -212,7 +212,7 @@ fn timed_and_node_agents() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("ab:2:1000 (evaluate, depth 2, time 1000"),
+        text.contains("ab:2:1000 (evaluate, depth 64, time 1000"),
         "{text}"
     );
 
@@ -230,7 +230,7 @@ fn timed_and_node_agents() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("phase2:1000 (eval_phase2, depth 4, time 1000"),
+        text.contains("phase2:1000 (eval_phase2, depth 64, time 1000"),
         "{text}"
     );
 }

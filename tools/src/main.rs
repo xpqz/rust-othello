@@ -54,13 +54,13 @@ fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
 }
 
 fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
-    if nodes == 0 {
-        return Ok((depth, time.unwrap_or(NO_DEADLINE)));
+    if nodes == 0 && time.is_none() {
+        return Ok((depth, NO_DEADLINE));
     }
-    if time.is_some() {
+    if nodes > 0 && time.is_some() {
         return Err("time control conflicts with --nodes".into());
     }
-    Ok((64, NO_DEADLINE))
+    Ok((64, time.unwrap_or(NO_DEADLINE)))
 }
 
 fn make_agent(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<dyn Agent>, String> {
