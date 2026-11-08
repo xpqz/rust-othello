@@ -9,8 +9,9 @@ use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
 use othello::search::{
     Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, ordered_moves, search,
-    search_iterative, search_limited,
+    search_iterative, search_limited, search_tt,
 };
+use othello::tt::Table;
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -492,4 +493,39 @@ fn ordering_c_last() {
             .unwrap()
     };
     assert!(position(sq(7, 1)) > position(sq(0, 2)));
+}
+
+#[test]
+fn tt_equivalence() {
+    let config = config();
+    let boards = [
+        Board::START,
+        Board {
+            me: at(0, 0) | at(2, 0) | at(4, 0),
+            opp: at(1, 0) | at(3, 0) | at(5, 0) | at(6, 0),
+        },
+        Board {
+            me: at(3, 3) | at(4, 4),
+            opp: at(2, 1) | at(2, 2) | at(2, 3) | at(4, 3) | at(2, 4) | at(3, 4) | at(2, 5),
+        },
+    ];
+    for board in boards {
+        let limits = SearchLimits::depth(3);
+        let cold = search_limited(board, limits, &config);
+        let mut table = Table::new(1 << 16);
+        let warm = search_tt(board, limits, &config, &mut table);
+        assert_eq!(warm.score, cold.score, "{board:?}");
+        assert_ne!(legal_moves(board.me, board.opp) & (1u64 << warm.best), 0);
+    }
+}
+
+#[test]
+fn tt_deep_then_shallow() {
+    let config = config();
+    let board = Board::START;
+    let mut table = Table::new(1 << 16);
+    let _ = search_tt(board, SearchLimits::depth(4), &config, &mut table);
+    let warm = search_tt(board, SearchLimits::depth(3), &config, &mut table);
+    let cold = search_limited(board, SearchLimits::depth(3), &config);
+    assert_eq!(warm.score, cold.score);
 }
