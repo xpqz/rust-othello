@@ -2,7 +2,7 @@
 //!
 //! See [`crate::score`] for the heuristic-bound tradeoff.
 
-use crate::board::{Board, disc_count, legal_moves};
+use crate::board::{Board, Dir, disc_count, legal_moves, shift};
 use crate::score::{EVAL_BOUND, SCORE_SCALE};
 
 const WEIGHTS: [[i32; 8]; 8] = [
@@ -16,25 +16,10 @@ const WEIGHTS: [[i32; 8]; 8] = [
     [100, -20, 10, 5, 5, 10, -20, 100],
 ];
 
-/// Positional table plus disc difference, in centidiscs.
-///
-/// For non-terminal positions; terminals use
-/// [`crate::score::terminal_score`].
 pub const MOBILITY_SCALE: i32 = 1000;
 
-const FILE_A: u64 = 0x0101_0101_0101_0101;
-const FILE_H: u64 = 0x8080_8080_8080_8080;
-
 fn neighbours(bits: u64) -> u64 {
-    let (west, east) = (bits & !FILE_A, bits & !FILE_H);
-    (bits << 8)
-        | (bits >> 8)
-        | (west >> 1)
-        | (east << 1)
-        | (east << 9)
-        | (west << 7)
-        | (east >> 7)
-        | (west >> 9)
+    Dir::ALL.iter().fold(0, |acc, &dir| acc | shift(bits, dir))
 }
 
 pub fn mobility(board: Board) -> i32 {
@@ -48,6 +33,10 @@ pub fn frontier(board: Board) -> i32 {
     (edge & board.opp).count_ones() as i32 - (edge & board.me).count_ones() as i32
 }
 
+/// Positional table plus disc difference, in centidiscs.
+///
+/// For non-terminal positions; terminals use
+/// [`crate::score::terminal_score`].
 pub fn evaluate(board: Board) -> i32 {
     let mut value = (disc_count(board.me) as i32 - disc_count(board.opp) as i32) * SCORE_SCALE;
     for (square, weight) in WEIGHTS.as_flattened().iter().enumerate() {
