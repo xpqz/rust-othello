@@ -22,6 +22,13 @@ fn sq(file: usize, rank: usize) -> u8 {
     (rank * 8 + file) as u8
 }
 
+fn heuristic_config() -> SearchConfig {
+    SearchConfig {
+        endgame_threshold: 0,
+        ..config()
+    }
+}
+
 fn config() -> SearchConfig {
     SearchConfig {
         eval: evaluate,
@@ -256,7 +263,7 @@ fn id_matches_depth() {
 
 #[test]
 fn id_root_ordering() {
-    let config = config();
+    let config = heuristic_config();
     let mut rng = Rng::new(0x1D);
     let mut positions = Vec::new();
     let mut visited = 0;
@@ -604,7 +611,7 @@ fn corpus_score(board: Board, config: &SearchConfig) -> i32 {
 
 #[test]
 fn corpus_frozen() {
-    let config = config();
+    let config = heuristic_config();
     let corpus = corpus();
     assert!(corpus.len() >= 20);
     let (mut pass, mut terminal, mut mid, mut end, mut other) = (0, 0, 0, 0, 0);
@@ -628,7 +635,7 @@ fn corpus_frozen() {
 
 #[test]
 fn corpus_tt() {
-    let config = config();
+    let config = heuristic_config();
     for (board, expected) in corpus() {
         if is_terminal(board) {
             continue;
@@ -647,7 +654,7 @@ fn corpus_tt() {
 
 #[test]
 fn corpus_preload() {
-    let config = config();
+    let config = heuristic_config();
     for (board, expected) in corpus() {
         if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
             continue;
@@ -665,7 +672,7 @@ fn corpus_preload() {
 
 #[test]
 fn corpus_tt_nodes() {
-    let config = config();
+    let config = heuristic_config();
     let (mut cold_nodes, mut tt_nodes) = (0, 0);
     for (board, _) in corpus() {
         if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
@@ -684,7 +691,7 @@ fn corpus_tt_nodes() {
 
 #[test]
 fn corpus_abort_store() {
-    let config = config();
+    let config = heuristic_config();
     for (board, expected) in corpus() {
         if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
             continue;
@@ -707,11 +714,11 @@ fn corpus_abort_store() {
 fn corpus_ordering_nodes() {
     let ordered = SearchConfig {
         ordering: true,
-        ..config()
+        ..heuristic_config()
     };
     let unordered = SearchConfig {
         ordering: false,
-        ..config()
+        ..heuristic_config()
     };
     let (mut with, mut without) = (0, 0);
     for (board, _) in corpus() {
@@ -727,7 +734,7 @@ fn corpus_ordering_nodes() {
 #[test]
 #[cfg_attr(debug_assertions, ignore = "release-only")]
 fn corpus_tt_nodes_deep() {
-    let config = config();
+    let config = heuristic_config();
     let (mut cold_nodes, mut tt_nodes) = (0, 0);
     for (board, _) in corpus() {
         if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {

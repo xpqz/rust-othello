@@ -311,7 +311,8 @@ src/
   board.rs          Board, masks, shifts, legal moves, flips, play, pass, score
   perft.rs          perft tree walk, shared by the CLI and tests
   eval.rs           hand-built evaluation and feature functions
-  search.rs         negamax, alpha-beta, ordering, iterative deepening, solver
+  search.rs         negamax, alpha-beta, ordering, iterative deepening, trigger
+  solver.rs         depth-free exact endgame solver
   tt.rs             Zobrist transposition table with domains
   agents.rs         agent trait/factory, random, greedy, search agents
   rng.rs            production xorshift64* PRNG and seed-zero rule
@@ -360,16 +361,17 @@ scripts/
 | `score.rs` | 25 | Units, pure conversion, bounds |
 | `board.rs` | 130 | Most care here; plain loops before tricks |
 | `perft.rs` | 20 | Tree walk used by the CLI and tests |
-| `eval.rs` | 120 | Features plus phase-weighted combination |
-| `search.rs` | 290 | Root, ordering, deepening, cancellation, solver |
+| `eval.rs` | 80 | Features plus phase-weighted combination |
+| `search.rs` | 300 | Root, ordering, deepening, cancellation, trigger |
+| `solver.rs` | 80 | Depth-free exact endgame solver |
 | `tt.rs` | 110 | Zobrist domain-aware table |
 | `agents.rs` | 50 | Trait/factory and small adapters |
 | `rng.rs` | 10 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **945** | Leaves 54 lines of headroom |
+| **Total** | **995** | Leaves 4 lines of headroom |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
-engine claim and does not consume the 54-line engine headroom.
+engine claim and does not consume the 4-line engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
 formatted counts. Every later phase records cumulative counts.
@@ -870,7 +872,8 @@ reusable endgame bounds and honest completion reporting.
 recorded hardware; completion rate and p90/p99 recorded; full game with solver
 finishes under the CLI time limit; aborted solves report `solved = false`.
 
-**Budget:** `search.rs` <= 290 including the solver; `tt.rs` unchanged.
+**Budget:** `solver.rs` <= 80 and `search.rs` <= 300 including the trigger;
+`tt.rs` unchanged. The unused Phase 2 eval allocation funds the solver.
 
 ---
 

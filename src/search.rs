@@ -2,7 +2,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::board::{Board, final_score, legal_moves, pass, play, squares};
+use crate::board::{Board, empty_count, final_score, legal_moves, pass, play, squares};
 use crate::score::{INF, terminal_score};
 use crate::tt::{Bound, Entry, NO_MOVE, Table, zobrist};
 
@@ -61,6 +61,7 @@ pub enum SearchStatus {
 pub struct SearchResult {
     pub best: u8,
     pub score: i32,
+    /// 0 for an exact solve; heuristic iteration depth otherwise.
     pub depth: u32,
     pub nodes: u64,
     pub status: SearchStatus,
@@ -85,7 +86,7 @@ pub struct Ctx<'a> {
     pub nodes: u64,
     max_nodes: u64,
     deadline: Option<Instant>,
-    table: Option<&'a mut Table>,
+    pub(crate) table: Option<&'a mut Table>,
 }
 
 impl<'a> Ctx<'a> {
@@ -104,7 +105,7 @@ impl<'a> Ctx<'a> {
             .is_some_and(|deadline| Instant::now() >= deadline)
     }
 
-    fn stop(&self) -> bool {
+    pub(crate) fn stop(&self) -> bool {
         (self.max_nodes > 0 && self.nodes > self.max_nodes)
             || (self.nodes & 1023 == 0 && self.expired())
     }
@@ -221,6 +222,9 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
     if depth == 0 {
         return fallback;
     }
+    if empty_count(board) <= config.endgame_threshold {
+        return search_inner(board, SearchLimits::depth(depth), config, None);
+    }
     let mut ctx = Ctx::new(config);
     let (best, score) = root(board, moves, depth, first, &mut ctx).unwrap();
     SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
@@ -253,6 +257,21 @@ fn search_inner(
 ) -> SearchResult {
     let deadline = Instant::now().checked_add(Duration::from_millis(limits.time_ms));
     let (moves, fallback, fallback_result) = root_setup(board, config);
+    if empty_count(board) <= config.endgame_threshold {
+        let mut ctx = Ctx {
+            config,
+            nodes: 0,
+            max_nodes: limits.max_nodes,
+            deadline,
+            table: table.as_deref_mut(),
+        };
+        let Some((square, score)) = crate::solver::root(board, moves, fallback, &mut ctx) else {
+            return fallback_result;
+        };
+        let mut result = SearchResult::new(square, score, 0, ctx.nodes, SearchStatus::Complete);
+        result.solved = true;
+        return result;
+    }
     let mut best = fallback;
     let mut nodes = 0;
     let mut result = fallback_result;
