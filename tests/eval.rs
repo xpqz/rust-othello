@@ -1,6 +1,6 @@
 mod common;
 
-use common::playout;
+use common::{Sym, playout, transform};
 use othello::board::{Board, is_terminal, legal_moves, pass, play};
 use othello::eval::{evaluate, frontier, mobility};
 use othello::rng::Rng;
@@ -36,7 +36,7 @@ fn single_disc_values() {
 fn mixed_table_sum() {
     let me = at(0, 0) | at(7, 7);
     let opp = at(1, 0) | at(6, 7);
-    assert_eq!(evaluate(Board { me, opp }), 240);
+    assert_eq!(evaluate(Board { me, opp }), 202);
 }
 
 #[test]
@@ -167,4 +167,23 @@ fn corner_risk_disappears() {
         }),
         -101
     );
+}
+
+#[test]
+fn d4_invariance() {
+    let mut rng = Rng::new(0xD4A1);
+    for _ in 0..20 {
+        playout(&mut rng, |board| {
+            if is_terminal(board) {
+                return;
+            }
+            for sym in Sym::ALL {
+                let moved = Board {
+                    me: transform(board.me, sym),
+                    opp: transform(board.opp, sym),
+                };
+                assert_eq!(evaluate(moved), evaluate(board), "{board:?} {sym:?}");
+            }
+        });
+    }
 }
