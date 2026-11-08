@@ -256,7 +256,18 @@ pub fn solve(board: Board, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> 
 }
 
 pub fn solve_wdl(board: Board, ctx: &mut Ctx) -> Option<i32> {
-    let wdl = solve(board, -1, 1, ctx)?.signum();
+    let moves = legal_moves(board.me, board.opp);
+    assert!(moves != 0, "solve_wdl requires a legal root move");
+    let best = moves.trailing_zeros() as u8;
+    wdl_root(board, moves, best, ctx).map(|(_, wdl)| wdl)
+}
+
+fn wdl_root(board: Board, moves: u64, best: u8, ctx: &mut Ctx) -> Option<(u8, i32)> {
+    ctx.exact = true;
+    let found = root(board, moves, EXACT_ORDER_DEPTH, best, -1, 1, ctx);
+    ctx.exact = false;
+    let (square, value) = found?;
+    let wdl = value.signum();
     let flag = match wdl {
         1 => Bound::Lower,
         -1 => Bound::Upper,
@@ -269,10 +280,10 @@ pub fn solve_wdl(board: Board, ctx: &mut Ctx) -> Option<i32> {
             depth: 0,
             flag,
             domain: Domain::Endgame,
-            mv: NO_MOVE,
+            mv: square,
         });
     }
-    Some(wdl)
+    Some((square, wdl))
 }
 
 pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
@@ -327,7 +338,7 @@ fn search_inner(
         if let Some(table) = table.as_deref_mut() {
             ctx.set_table(table);
         }
-        let Some(wdl) = solve_wdl(board, &mut ctx) else {
+        let Some((wdl_best, wdl)) = wdl_root(board, moves, fallback, &mut ctx) else {
             return fallback_result;
         };
         ctx.exact = true;
@@ -345,7 +356,7 @@ fn search_inner(
             beta,
             &mut ctx,
         ) else {
-            return SearchResult::new(fallback, wdl, 0, ctx.nodes, SearchStatus::Partial);
+            return SearchResult::new(wdl_best, wdl, 0, ctx.nodes, SearchStatus::Partial);
         };
         let mut result = SearchResult::new(square, score, 0, ctx.nodes, SearchStatus::Complete);
         result.solved = true;

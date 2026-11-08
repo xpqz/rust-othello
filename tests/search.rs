@@ -1068,4 +1068,9 @@ fn wdl_only_partial() {
     assert!(!result.solved);
     assert_eq!(result.depth, 0);
     assert_eq!(result.score.signum(), exact.signum());
+    let reply = {
+        let mut ctx = Ctx::new(&config);
+        solve(play(board, result.best), -INF, INF, &mut ctx).unwrap()
+    };
+    assert_eq!((-reply).signum(), exact.signum());
 }
