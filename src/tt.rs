@@ -1,6 +1,7 @@
 use crate::board::Board;
 
 pub const NO_MOVE: u8 = 64;
+pub const MAX_ENTRIES: usize = 1 << 22;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Domain {
@@ -71,7 +72,7 @@ pub struct Table(Vec<Entry>);
 
 impl Table {
     pub fn new(entries: usize) -> Self {
-        Self(vec![Entry::default(); entries])
+        Self(vec![Entry::default(); entries.min(MAX_ENTRIES)])
     }
 
     pub fn clear(&mut self) {

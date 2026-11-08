@@ -2,7 +2,7 @@ use std::mem::size_of;
 
 use othello::board::Board;
 use othello::score::INF;
-use othello::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
+use othello::tt::{Bound, Domain, Entry, MAX_ENTRIES, NO_MOVE, Table, zobrist};
 
 fn entry(key: u64, value: i32, depth: u8, flag: Bound, domain: Domain) -> Entry {
     Entry {
@@ -103,4 +103,9 @@ fn index_collision() {
     table.store(entry(13, 2, 0, Bound::Exact, Domain::Heuristic));
     assert!(table.probe(5).is_none());
     assert_eq!(table.probe(13).map(|entry| entry.value), Some(2));
+}
+
+#[test]
+fn memory_cap_is_64_mb() {
+    assert_eq!(MAX_ENTRIES * std::mem::size_of::<Entry>(), 64 << 20);
 }

@@ -360,13 +360,13 @@ scripts/
 | `score.rs` | 6 | Units, pure conversion, bounds |
 | `board.rs` | 110 | Most care here; plain loops before tricks |
 | `perft.rs` | 19 | Tree walk used by the CLI and tests |
-| `eval.rs` | 86 | Features plus phase-weighted combination |
+| `eval.rs` | 84 | Features plus phase-weighted combination |
 | `search.rs` | 407 | Root, ordering, deepening, cancellation, WDL, exact widening |
-| `tt.rs` | 110 | Zobrist domain-aware table |
+| `tt.rs` | 112 | Zobrist domain-aware table |
 | `agents.rs` | 47 | Trait/factory and small adapters |
 | `rng.rs` | 20 | Production PRNG |
 | `cli.rs` + `main.rs` | 184 | Printer/parser, play/perft/bench |
-| **Total** | **999** | Estimates at the ceiling; actual engine is 992 |
+| **Total** | **999** | Estimates at the ceiling; actual engine is 993 |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
 engine claim and does not consume the engine headroom.
