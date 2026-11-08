@@ -13,7 +13,7 @@ We complete one issue at a time. Use the `skis` CLI for all issue operations. Ne
 5. GREEN phase: implement until the approved tests pass. Append implementation notes to `docs/prs/{id}.md`: what changed, commands run, and results. Tell the user it is ready for review.
 6. The user either approves or updates the review document. Repeat from step 4 until the verdict is `approve`.
 7. On `approve`: re-run the full checks. If `main` has moved, rebase onto it and re-run. Merge into `main` and delete the spent local branch.
-8. Close the completed issue in `skis`. Pick the next open issue in the current epic. If the epic has no open issues, close the epic and stop.
+8. Close the completed issue in `skis`. Pick the next open issue in the current epic. If the epic has no open issues, close the epic and continue with the lowest-numbered open epic. Stop only when no open epics remain.
 
 Do not merge before an `approve` verdict. Do not close an issue before its branch is merged.
 
