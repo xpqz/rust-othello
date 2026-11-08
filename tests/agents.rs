@@ -1,0 +1,112 @@
+mod common;
+
+use common::playout;
+use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
+use othello::board::{Board, is_terminal, legal_moves};
+use othello::eval::evaluate;
+use othello::rng::Rng;
+use othello::search::{SearchConfig, SearchLimits};
+
+fn at(file: usize, rank: usize) -> u64 {
+    1u64 << (rank * 8 + file)
+}
+
+fn sq(file: usize, rank: usize) -> u8 {
+    (rank * 8 + file) as u8
+}
+
+fn config() -> SearchConfig {
+    SearchConfig {
+        eval: evaluate,
+        endgame_threshold: 12,
+    }
+}
+
+fn limits() -> SearchLimits {
+    SearchLimits { max_depth: 2 }
+}
+
+#[test]
+fn random_legal() {
+    let mut rng = Rng::new(0xA9E7);
+    let mut agent = random_agent(7);
+    for _ in 0..50 {
+        playout(&mut rng, |board| {
+            let moves = legal_moves(board.me, board.opp);
+            match agent.choose(board) {
+                Some(square) => assert_ne!(moves & (1 << square), 0),
+                None => assert_eq!(moves, 0),
+            }
+        });
+    }
+}
+
+#[test]
+fn greedy_hand_checked() {
+    let mut agent = greedy_agent();
+    assert_eq!(agent.choose(Board::START), Some(sq(3, 2)));
+    let board = Board {
+        me: at(2, 0) | at(2, 1),
+        opp: at(1, 0) | at(1, 1),
+    };
+    assert_eq!(legal_moves(board.me, board.opp), at(0, 0) | at(0, 1));
+    assert_eq!(agent.choose(board), Some(sq(0, 0)));
+}
+
+#[test]
+fn search_legal() {
+    let mut agent = search_agent(config(), limits());
+    let mut rng = Rng::new(0x5EA3);
+    for _ in 0..20 {
+        playout(&mut rng, |board| {
+            let moves = legal_moves(board.me, board.opp);
+            match agent.choose(board) {
+                Some(square) => assert_ne!(moves & (1 << square), 0),
+                None => assert_eq!(moves, 0),
+            }
+        });
+    }
+}
+
+#[test]
+fn agent_roots() {
+    let mut search = search_agent(config(), limits());
+    let pass_root = Board {
+        me: at(1, 1),
+        opp: at(0, 0) | at(2, 0),
+    };
+    assert_eq!(legal_moves(pass_root.me, pass_root.opp), 0);
+    assert_eq!(search.choose(pass_root), None);
+
+    let terminal = Board {
+        me: at(0, 0),
+        opp: at(7, 7),
+    };
+    assert!(is_terminal(terminal));
+    assert_eq!(search.choose(terminal), None);
+
+    let mut greedy = greedy_agent();
+    assert_eq!(greedy.choose(pass_root), None);
+    let mut random = random_agent(0);
+    assert_eq!(random.choose(terminal), None);
+}
+
+#[test]
+fn fresh_state() {
+    let board = Board::START;
+    let mut first = random_agent(42);
+    let mut second = random_agent(42);
+    let first_choice = first.choose(board);
+    assert_eq!(second.choose(board), first_choice);
+    let _ = first.choose(board);
+    let mut reset = random_agent(42);
+    assert_eq!(reset.choose(board), first_choice);
+}
+
+#[test]
+fn game_finishes() {
+    let mut first = random_agent(1);
+    let mut second = random_agent(2);
+    let board = common::agent_game(&mut first, &mut second);
+    assert!(is_terminal(board));
+}
