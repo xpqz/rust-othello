@@ -258,7 +258,15 @@ fn bench_board_invalid() {
     for board in ["xyz", "1:1", "0:0"] {
         let output = run(&["bench", "--board", board], "");
         assert!(!output.status.success(), "{board}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("invalid board"),
+            "{board}"
+        );
     }
+    let output = run(&["bench", "--board", "200:5"], "");
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("legal"));
     let output = run(&["bench", "--endgame-threshold", "x"], "");
     assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("invalid threshold"));
 }

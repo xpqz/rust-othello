@@ -1174,6 +1174,43 @@ fn endgame_bench() {
         if remaining == 12 {
             assert!(median < 1000.0, "{median}");
         }
+        if remaining == 14 {
+            let mut partial = (0usize, 0usize, 0.0f64);
+            let mut fallback = (0usize, 0usize, 0.0f64);
+            for board in sample_positions(14, 14, count) {
+                if legal_moves(board.me, board.opp) == 0 {
+                    continue;
+                }
+                let mut ctx = Ctx::new(&config);
+                let exact = solve(board, -INF, INF, &mut ctx).unwrap();
+                let result = search_limited(board, SearchLimits::new(64, 5, 0), &config);
+                let reply = {
+                    let mut ctx = Ctx::new(&config);
+                    solve(play(board, result.best), -INF, INF, &mut ctx).unwrap()
+                };
+                let value = -reply;
+                let kept = usize::from(value.signum() == exact.signum());
+                let loss = (exact - value) as f64;
+                let bucket = match result.status {
+                    SearchStatus::Partial => &mut partial,
+                    SearchStatus::Fallback => &mut fallback,
+                    SearchStatus::Complete => continue,
+                };
+                bucket.0 += 1;
+                bucket.1 += kept;
+                bucket.2 += loss;
+            }
+            println!(
+                "14 interrupted: partial n={} kept={} avg_loss={:.1} fallback n={} kept={} avg_loss={:.1}",
+                partial.0,
+                partial.1,
+                partial.2 / partial.0.max(1) as f64,
+                fallback.0,
+                fallback.1,
+                fallback.2 / fallback.0.max(1) as f64
+            );
+            assert_eq!(partial.1, partial.0, "Partial lost a proven WDL result");
+        }
     }
 }
 
@@ -1184,6 +1221,7 @@ fn solver_full_game() {
     let mut board = Board::START;
     let mut elapsed = 0.0;
     let mut slowest: f64 = 0.0;
+    let mut solved = 0;
     let mut moves = 0;
     while !is_terminal(board) {
         let legal = legal_moves(board.me, board.opp);
@@ -1192,15 +1230,19 @@ fn solver_full_game() {
             continue;
         }
         let start = Instant::now();
-        let result = search_limited(board, SearchLimits::new(64, 50, 0), &config);
+        let result = search_limited(board, SearchLimits::new(64, 200, 0), &config);
         let move_ms = start.elapsed().as_secs_f64() * 1000.0;
         elapsed += move_ms;
         slowest = slowest.max(move_ms);
         assert!(legal & (1 << result.best) != 0, "{board:?}");
+        solved += result.solved as usize;
         board = play(board, result.best);
         moves += 1;
     }
-    println!("full game: moves={moves} elapsed={elapsed:.2}ms slowest={slowest:.2}ms");
+    println!(
+        "full game: moves={moves} solved={solved} limit=200ms elapsed={elapsed:.2}ms slowest={slowest:.2}ms"
+    );
     assert!(moves > 0);
-    assert!(slowest < 250.0, "{slowest}");
+    assert!(solved > 0, "solver never completed an endgame");
+    assert!(slowest <= 250.0, "{slowest}");
 }
