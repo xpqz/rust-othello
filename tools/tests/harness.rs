@@ -240,6 +240,15 @@ fn first_line(output: &std::process::Output) -> String {
         .to_string()
 }
 
+fn bounds(line: &str) -> (f64, f64) {
+    let text = line.split('[').nth(1).unwrap().split(']').next().unwrap();
+    let mut parts = text.split(", ");
+    (
+        parts.next().unwrap().parse().unwrap(),
+        parts.next().unwrap().parse().unwrap(),
+    )
+}
+
 fn mean(line: &str) -> f64 {
     line.split("mean ")
         .nth(1)
@@ -254,21 +263,26 @@ fn mean(line: &str) -> f64 {
 #[test]
 fn ladder_random() {
     let output = tools(&[
-        "match", "--a", "random", "--b", "random", "--pairs", "20", "--seed", "3",
+        "match", "--a", "random", "--b", "random", "--pairs", "100", "--seed", "3",
     ]);
     assert!(output.status.success());
     let line = first_line(&output);
-    assert!(line.contains("pairs 20"), "{line}");
-    assert!((0.0..=1.0).contains(&mean(&line)), "{line}");
+    assert!(line.contains("pairs 100"), "{line}");
+    assert!(line.contains("bootstrap"), "{line}");
+    let (low, high) = bounds(&line);
+    assert!(low <= 0.5 && 0.5 <= high, "{line}");
 }
 
 #[test]
 fn ladder_greedy_random() {
     let output = tools(&[
-        "match", "--a", "greedy", "--b", "random", "--pairs", "20", "--seed", "4",
+        "match", "--a", "greedy", "--b", "random", "--pairs", "100", "--seed", "4",
     ]);
     assert!(output.status.success());
-    assert!(first_line(&output).contains("pairs 20"));
+    let line = first_line(&output);
+    assert!(line.contains("pairs 100"), "{line}");
+    assert!(line.contains("bootstrap"), "{line}");
+    assert!(bounds(&line).0 > 0.5, "{line}");
 }
 
 #[test]
@@ -292,4 +306,5 @@ fn phase2_gate() {
     let line = first_line(&output);
     assert!(line.contains("pairs 200"), "{line}");
     assert!(line.contains("bootstrap"), "{line}");
+    assert!(bounds(&line).0 > 0.5, "{line}");
 }
