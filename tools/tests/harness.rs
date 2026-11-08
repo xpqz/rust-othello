@@ -297,3 +297,20 @@ fn phase2_gate() {
     assert!(line.contains("bootstrap"), "{line}");
     assert!(bounds(&line).0 > 0.5, "{line}");
 }
+
+#[test]
+fn equal_node_naming() {
+    let output = tools(&[
+        "match", "--a", "ab:2", "--b", "phase2", "--pairs", "1", "--nodes", "100",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("ab:2 (evaluate, depth 64, time none, nodes 100, threshold 12)"),
+        "{text}"
+    );
+    assert!(
+        text.contains("phase2 (eval_phase2, depth 64, time none, nodes 100, threshold 12)"),
+        "{text}"
+    );
+}

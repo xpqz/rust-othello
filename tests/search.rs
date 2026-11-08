@@ -5,6 +5,8 @@ use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
 use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
+use std::time::{Duration, Instant};
+
 use othello::search::{
     Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, search, search_iterative,
     search_limited,
@@ -324,6 +326,7 @@ fn node_limit_partial() {
     assert_eq!(result.depth, 1);
     assert_eq!(result.score, depth_one.score);
     assert_eq!(result.best, search_iterative(board, 1, &config).best);
+    assert_ne!(legal_moves(board.me, board.opp) & (1u64 << result.best), 0);
     assert!(!result.solved);
 }
 
@@ -374,4 +377,23 @@ fn node_limit_boundary() {
     assert_eq!(result.status, SearchStatus::Partial);
     assert_eq!(result.depth, 1);
     assert_eq!(result.score, depth_one.score);
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
+fn deadline_smoke() {
+    let config = config();
+    let board = Board::START;
+    let limits = SearchLimits {
+        max_depth: 30,
+        time_ms: 50,
+        max_nodes: 0,
+    };
+    let start = Instant::now();
+    let result = search_limited(board, limits, &config);
+    let elapsed = start.elapsed();
+    assert!(elapsed <= Duration::from_millis(100), "{elapsed:?}");
+    assert_ne!(result.status, SearchStatus::Complete);
+    assert!(!result.solved);
+    assert_ne!(legal_moves(board.me, board.opp) & (1u64 << result.best), 0);
 }
