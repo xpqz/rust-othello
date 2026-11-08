@@ -138,14 +138,18 @@ pub fn search_iterative(board: Board, max_depth: u32, config: &SearchConfig) -> 
 }
 
 pub fn search_limited(board: Board, limits: SearchLimits, config: &SearchConfig) -> SearchResult {
+    let deadline = Instant::now().checked_add(Duration::from_millis(limits.time_ms));
     let (moves, fallback, fallback_result) = root_setup(board, config);
-    let deadline = (limits.time_ms != NO_DEADLINE)
-        .then(|| Instant::now() + Duration::from_millis(limits.time_ms));
     let mut best = fallback;
     let mut nodes = 0;
     let mut result = fallback_result;
     for depth in 1..=limits.max_depth {
-        let mut ctx = Ctx::limited(config, nodes, limits.max_nodes, deadline);
+        let mut ctx = Ctx {
+            config,
+            nodes,
+            max_nodes: limits.max_nodes,
+            deadline,
+        };
         if ctx.stop() {
             break;
         }
@@ -157,13 +161,7 @@ pub fn search_limited(board: Board, limits: SearchLimits, config: &SearchConfig)
         result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
     }
     if result.depth > 0 && result.depth < limits.max_depth {
-        result = SearchResult::new(
-            result.best,
-            result.score,
-            result.depth,
-            result.nodes,
-            SearchStatus::Partial,
-        );
+        result.status = SearchStatus::Partial;
     }
     result
 }

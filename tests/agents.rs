@@ -5,7 +5,7 @@ use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
 use othello::board::{Board, is_terminal, legal_moves};
 use othello::eval::evaluate;
 use othello::rng::Rng;
-use othello::search::{SearchConfig, SearchLimits, search};
+use othello::search::{SearchConfig, SearchLimits, search_limited};
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -64,7 +64,10 @@ fn search_legal() {
             opp: at(1, 0) | at(1, 1),
         },
     ] {
-        assert_eq!(agent.choose(board), Some(search(board, 2, &cfg).best));
+        assert_eq!(
+            agent.choose(board),
+            Some(search_limited(board, SearchLimits::depth(2), &cfg).best)
+        );
     }
     let mut rng = Rng::new(0x5EA3);
     for _ in 0..20 {
