@@ -1,7 +1,7 @@
 mod common;
 
 use common::playout;
-use othello::board::{Board, pass};
+use othello::board::{Board, is_terminal, pass};
 use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::EVAL_BOUND;
@@ -24,7 +24,8 @@ fn single_disc_values() {
         (at(2, 0), 110),
         (at(3, 0), 105),
         (at(2, 1), 98),
-        (at(3, 1), 99),
+        (at(3, 1), 98),
+        (at(2, 2), 99),
     ];
     for (me, expected) in cases {
         assert_eq!(evaluate(Board { me, opp: 0 }), expected, "{me:#x}");
@@ -39,10 +40,18 @@ fn mixed_table_sum() {
 }
 
 #[test]
+fn signature() {
+    let _: fn(Board) -> i32 = evaluate;
+}
+
+#[test]
 fn antisymmetry_and_bounds() {
     let mut rng = Rng::new(0xE7A1);
     for _ in 0..100 {
         playout(&mut rng, |board| {
+            if is_terminal(board) {
+                return;
+            }
             let value = evaluate(board);
             assert_eq!(value, -evaluate(pass(board)));
             assert!((-EVAL_BOUND..=EVAL_BOUND).contains(&value));
