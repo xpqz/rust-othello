@@ -242,6 +242,7 @@ fn play_opponent_is_search() {
 #[test]
 #[ignore = "release-only"]
 fn play_complete_game() {
+    let start = Instant::now();
     let mut child = Command::new(env!("CARGO_BIN_EXE_othello"))
         .arg("play")
         .stdin(Stdio::piped())
@@ -277,5 +278,6 @@ fn play_complete_game() {
     }
     assert!(moves > 0);
     println!("black passes observed: {passes}");
+    assert!(start.elapsed().as_secs() < 120, "game timed out");
     assert!(child.wait().unwrap().success());
 }

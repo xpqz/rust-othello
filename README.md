@@ -95,7 +95,9 @@ intervals. The ladder predates #101's TT integration and was not re-run.
 | tuned vs phase2 (equal 5 ms, cap 64) | 400 | 0.9163 | [0.8969, 0.9344] |
 
 The equal-time rung uses 5 ms/move for practical run time; strength at the
-1 s default is not measured. Logs: `docs/tuning/100_*.log`.
+current 3 s play default is not measured. The #100 ladder was threshold-matched
+at 12; current `ab` agents use 14 while frozen `phase2` stays at 12, so future
+comparisons must state their thresholds. Logs: `docs/tuning/100_*.log`.
 
 ## Performance
 
