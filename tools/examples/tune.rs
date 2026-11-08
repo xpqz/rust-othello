@@ -173,7 +173,10 @@ fn main() {
         eval,
         ..SearchConfig::standard()
     };
-    let baseline = SearchConfig::standard();
+    let baseline = SearchConfig {
+        eval: base,
+        ..SearchConfig::standard()
+    };
     let mut game_points = Vec::with_capacity(pairs);
     let mut logs = Vec::new();
     for (pair, opening) in openings.iter().enumerate().take(pairs) {
