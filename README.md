@@ -1,7 +1,8 @@
 # Othello
 
-A dependency-free Rust Othello engine with fixed-depth search, a transposition
-table, and a root-only exact endgame solver.
+A dependency-free Rust Othello engine with iterative deepening, alpha-beta
+search, move ordering, a transposition table, and a root-only WDL/exact
+endgame solver.
 
 ## Build and run
 
