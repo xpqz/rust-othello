@@ -28,6 +28,17 @@ pub struct Entry {
 }
 
 impl Entry {
+    pub fn heuristic(key: u64, value: i32, depth: u8, flag: Bound, mv: u8) -> Self {
+        Self {
+            key,
+            value,
+            depth,
+            flag,
+            domain: Domain::Heuristic,
+            mv,
+        }
+    }
+
     fn window(&self, alpha: i32, beta: i32, domain: Domain) -> Option<i32> {
         if self.domain != domain {
             return None;
@@ -84,9 +95,8 @@ impl Table {
     }
 }
 
-const fn splitmix64(mut state: u64) -> u64 {
-    state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    let mut value = state;
+const fn splitmix64(mut value: u64) -> u64 {
+    value = value.wrapping_add(0x9E37_79B9_7F4A_7C15);
     value = (value ^ (value >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     value = (value ^ (value >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     value ^ (value >> 31)

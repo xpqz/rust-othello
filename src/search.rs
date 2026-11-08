@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::board::{Board, final_score, legal_moves, pass, play, squares};
 use crate::score::{INF, terminal_score};
+use crate::tt::{Bound, Entry, NO_MOVE, Table, zobrist};
 
 #[derive(Clone, Copy, Debug)]
 pub struct SearchConfig {
@@ -82,6 +83,7 @@ pub struct Ctx<'a> {
     pub nodes: u64,
     max_nodes: u64,
     deadline: Option<Instant>,
+    table: Option<&'a mut Table>,
 }
 
 impl<'a> Ctx<'a> {
@@ -91,6 +93,7 @@ impl<'a> Ctx<'a> {
             nodes: 0,
             max_nodes: 0,
             deadline: None,
+            table: None,
         }
     }
 
@@ -165,15 +168,34 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
     if depth == 0 {
         return Some((ctx.config.eval)(board));
     }
+    let key = ctx.table.as_ref().map(|_| zobrist(board));
+    let entry = key.and_then(|key| ctx.table.as_ref()?.probe(key)).copied();
+    if let Some(value) = entry.and_then(|entry| entry.cutoff(depth, alpha, beta)) {
+        return Some(value);
+    }
+    let alpha_orig = alpha;
+    let hint = entry.and_then(|entry| entry.move_hint(depth));
     let mut best = -INF;
-    let (order, len) = ordered_moves(board, moves, depth, None);
+    let mut chosen = NO_MOVE;
+    let (order, len) = ordered_moves(board, moves, depth, hint);
     for &square in &order[..len] {
         let value = -negamax(play(board, square), depth - 1, -beta, -alpha, ctx)?;
-        best = best.max(value);
+        if value > best {
+            best = value;
+            chosen = square;
+        }
         alpha = alpha.max(value);
         if alpha >= beta {
             break;
         }
+    }
+    if let (Some(table), Some(key)) = (ctx.table.as_mut(), key) {
+        let flag = match (best <= alpha_orig, best >= beta) {
+            (true, _) => Bound::Upper,
+            (_, true) => Bound::Lower,
+            _ => Bound::Exact,
+        };
+        table.store(Entry::heuristic(key, best, depth as u8, flag, chosen));
     }
     Some(best)
 }
@@ -195,6 +217,24 @@ pub fn search_iterative(board: Board, max_depth: u32, config: &SearchConfig) -> 
 }
 
 pub fn search_limited(board: Board, limits: SearchLimits, config: &SearchConfig) -> SearchResult {
+    search_inner(board, limits, config, None)
+}
+
+pub fn search_tt(
+    board: Board,
+    limits: SearchLimits,
+    config: &SearchConfig,
+    table: &mut Table,
+) -> SearchResult {
+    search_inner(board, limits, config, Some(table))
+}
+
+fn search_inner(
+    board: Board,
+    limits: SearchLimits,
+    config: &SearchConfig,
+    mut table: Option<&mut Table>,
+) -> SearchResult {
     let deadline = Instant::now().checked_add(Duration::from_millis(limits.time_ms));
     let (moves, fallback, fallback_result) = root_setup(board, config);
     let mut best = fallback;
@@ -206,6 +246,7 @@ pub fn search_limited(board: Board, limits: SearchLimits, config: &SearchConfig)
             nodes,
             max_nodes: limits.max_nodes,
             deadline,
+            table: table.as_deref_mut(),
         };
         if ctx.stop_iteration() {
             break;
