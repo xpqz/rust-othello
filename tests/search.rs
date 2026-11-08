@@ -75,7 +75,7 @@ fn horizon_terminal() {
 fn pass_in_tree() {
     let config = config();
     let board = Board {
-        me: at(1, 0),
+        me: at(1, 1),
         opp: at(0, 0) | at(2, 0),
     };
     assert_eq!(legal_moves(board.me, board.opp), 0);
@@ -100,16 +100,23 @@ fn fail_soft() {
     let value = negamax(Board::START, 1, 5000, INF, &mut ctx).unwrap();
     assert_eq!(value, 297);
     assert!(value < 5000);
+    let mut ctx = Ctx::new(&config);
+    let value = negamax(Board::START, 1, -INF, 0, &mut ctx).unwrap();
+    assert_eq!(value, 297);
+    assert!(value > 0);
 }
 
 #[test]
 fn minimax_equivalence() {
     let config = config();
     let mut rng = Rng::new(0x5EA2);
+    let mut visited = 0;
     let mut count = 0;
-    while count < 100 {
+    for _ in 0..400 {
         playout(&mut rng, |board| {
-            if count >= 100 {
+            let sample = visited % 13 == 0 || legal_moves(board.me, board.opp) == 0;
+            visited += 1;
+            if !sample || count >= 100 {
                 return;
             }
             let depth = (count % 4 + 1) as u32;
@@ -121,14 +128,18 @@ fn minimax_equivalence() {
             );
             count += 1;
         });
+        if count >= 100 {
+            break;
+        }
     }
+    assert_eq!(count, 100);
 }
 
 #[test]
 fn caller_roots() {
     let config = config();
     let pass_root = Board {
-        me: at(1, 0),
+        me: at(1, 1),
         opp: at(0, 0) | at(2, 0),
     };
     assert_eq!(legal_moves(pass_root.me, pass_root.opp), 0);
@@ -145,6 +156,18 @@ fn caller_roots() {
     };
     assert!(is_terminal(terminal));
     assert_eq!(legal_moves(terminal.me, terminal.opp), 0);
+}
+
+#[test]
+#[should_panic(expected = "legal root move")]
+fn terminal_root_panics() {
+    let config = config();
+    let terminal = Board {
+        me: at(0, 0),
+        opp: at(7, 7),
+    };
+    assert!(is_terminal(terminal));
+    let _ = search(terminal, 1, &config);
 }
 
 #[test]
@@ -172,6 +195,11 @@ fn complete_depth() {
     assert_ne!(
         legal_moves(Board::START.me, Board::START.opp) & (1 << result.best),
         0
+    );
+    let mut ctx = Ctx::new(&config);
+    assert_eq!(
+        -negamax(play(Board::START, result.best), 2, -INF, INF, &mut ctx).unwrap(),
+        result.score
     );
     assert!(result.nodes > 0);
 }
