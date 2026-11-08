@@ -3,7 +3,7 @@ mod common;
 use std::time::{Duration, Instant};
 
 use common::playout;
-use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
+use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play, squares};
 use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
@@ -651,16 +651,55 @@ fn corpus_preload() {
             continue;
         }
         let mut table = Table::new(1 << 16);
-        for depth in 1..4 {
-            table.store(Entry::heuristic(
-                zobrist(board),
-                0,
-                depth,
-                Bound::Exact,
-                NO_MOVE,
-            ));
+        for square in squares(legal_moves(board.me, board.opp)) {
+            let child = play(board, square);
+            let key = zobrist(child);
+            for depth in 1..3 {
+                table.store(Entry::heuristic(key, 6400, depth, Bound::Exact, NO_MOVE));
+                table.store(Entry::heuristic(key, -6400, depth, Bound::Exact, NO_MOVE));
+            }
         }
         let warm = search_tt(board, SearchLimits::depth(4), &config, &mut table);
+        assert_eq!(warm.score, expected, "{board:?}");
+    }
+}
+
+#[test]
+fn corpus_tt_nodes() {
+    let config = config();
+    let (mut cold_nodes, mut tt_nodes) = (0, 0);
+    for (board, _) in corpus() {
+        if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let limits = SearchLimits::depth(4);
+        cold_nodes += search_limited(board, limits, &config).nodes;
+        let mut table = Table::new(1 << 16);
+        tt_nodes += search_tt(board, limits, &config, &mut table).nodes;
+    }
+    assert!(
+        tt_nodes * 100 <= cold_nodes * 80,
+        "{tt_nodes} vs {cold_nodes}"
+    );
+}
+
+#[test]
+fn corpus_abort_store() {
+    let config = config();
+    for (board, expected) in corpus() {
+        if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let cold = search_limited(board, SearchLimits::depth(4), &config);
+        let mut table = Table::new(1 << 16);
+        let abort = SearchLimits {
+            max_depth: 4,
+            time_ms: NO_DEADLINE,
+            max_nodes: 20,
+        };
+        let _ = search_tt(board, abort, &config, &mut table);
+        let warm = search_tt(board, SearchLimits::depth(4), &config, &mut table);
+        assert_eq!(warm.score, cold.score, "{board:?}");
         assert_eq!(warm.score, expected, "{board:?}");
     }
 }
