@@ -1098,22 +1098,30 @@ fn solver_known_endgames() {
 #[test]
 fn solver_reuses_endgame_bounds() {
     let config = config();
+    let (mut cold_nodes, mut warm_nodes) = (0, 0);
     for board in sample_positions(6, 8, 10) {
         let expected = exact(board, -INF, INF);
+        let cold = {
+            let mut ctx = Ctx::new(&config);
+            let score = solve(board, -INF, INF, &mut ctx);
+            assert_eq!(score, Some(expected), "{board:?}");
+            ctx.nodes
+        };
         let mut table = Table::new(1 << 16);
         {
             let mut ctx = Ctx::new(&config);
             ctx.set_table(&mut table);
             solve_wdl(board, &mut ctx).unwrap();
         }
-        {
+        let warm = {
             let mut ctx = Ctx::new(&config);
             ctx.set_table(&mut table);
-            assert_eq!(
-                solve(board, -INF, INF, &mut ctx),
-                Some(expected),
-                "{board:?}"
-            );
-        }
+            let score = solve(board, -INF, INF, &mut ctx);
+            assert_eq!(score, Some(expected), "{board:?}");
+            ctx.nodes
+        };
+        cold_nodes += cold;
+        warm_nodes += warm;
     }
+    assert!(warm_nodes < cold_nodes, "{warm_nodes} vs {cold_nodes}");
 }
