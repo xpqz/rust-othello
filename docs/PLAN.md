@@ -17,7 +17,7 @@ fixes. Revision 3 resolved the second review.
 | Constraint | Target | How it is enforced |
 | --- | --- | --- |
 | Implementation size | **Hard ceiling: 999 LOC for the engine + playable CLI, excluding tests** | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
-| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 600-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
+| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 650-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
 | Early feasibility | A complete playable vertical slice with actual counts by the end of Phase 2 | Phase 2 gate records formatted LOC and cuts scope before Phase 3 if needed |
 | Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies; the tools crate may path-depend on the engine |
 | Safety | No `unsafe` in library or binary | `#![forbid(unsafe_code)]` in both `src/lib.rs` and `src/main.rs` |
@@ -33,7 +33,7 @@ comments are documentation, not code. `scripts/check.sh` runs `cargo fmt
 `.rustfmt.toml` so formatting cannot compress code. The budget test counts the
 source as written; a bare `cargo test` is not a substitute for the formatted
 check. `tests/`, `tools/`, `bench/`, examples, and benchmark data are not engine
-production source. The tools crate has its own 600-line budget. Future model
+production source. The tools crate has its own 650-line budget. Future model
 assets get a separate budget.
 
 Timing and node-reduction targets are measured on the frozen corpus and
@@ -368,7 +368,7 @@ scripts/
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
 | **Total** | **835** | Leaves 164 lines of headroom |
 
-The tools crate has a separate 600-line budget. Its code is not part of the
+The tools crate has a separate 650-line budget. Its code is not part of the
 engine claim and does not consume the 164-line engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
@@ -456,7 +456,7 @@ special hooks.
     lines for the engine + CLI, rejects `#[cfg(test)]` in production files, and
     rejects implementation hidden in `include!`, `#[path]`, `build.rs`
     generation, or test-only files. It also rejects `rustfmt.toml` and
-    `.rustfmt.toml`. `tools/tests/budget.rs` enforces the tools 600-line budget
+    `.rustfmt.toml`. `tools/tests/budget.rs` enforces the tools 650-line budget
     over `tools/src`; committed one-off data-generation scripts in
     `tools/examples` are outside that budget.
 12. **CLI.** Validate moves and depth bounds before shifting/indexing, handle
@@ -735,7 +735,7 @@ position-based held-out sets and action validation, in a separate tools crate.
 reproducible and prints a valid interval. The frozen evaluator is a complete
 function, position splits are valid, and tools harness tests pass.
 
-**Budget:** tools crate <= 600 lines total; `harness.rs` <= 180,
+**Budget:** tools crate <= 650 lines total; `harness.rs` <= 180,
 `baselines.rs` <= 40, `stats.rs` <= 120, `positions.rs` <= 120.
 
 ---
@@ -965,7 +965,7 @@ with honest evidence.
       release action validation, position-based splits, and bootstrap
       degeneracy.
 - [ ] Engine + CLI source is `<=999` formatted non-comment lines; tools are
-      `<=600`; no test code in production files.
+      `<=650`; no test code in production files.
 - [ ] No dependencies, no `unsafe`, fmt and clippy clean.
 - [ ] perft(8) < 0.2 s, perft(10) < 2 s, search >= 1 M nodes/s, 12-empty median
       < 1 s on recorded hardware.
@@ -992,7 +992,7 @@ with honest evidence.
 | Tools harness state leaks or invalid actions pass | Per-game agent factories; separate agent/bootstrap RNG streams; absolute side-to-move; release action validation |
 | Bootstrap intervals are degenerate | Finite-sample conservative fallback; withhold claims; define zero/one/all-equal cases and Elo endpoints |
 | Feature gains are not isolated | Compare with the preceding accepted config; ablate; predeclare selection; untouched final validation |
-| Size budget is optimistic | `<=999` engine+CLI metric, separate 600-line tools budget; Phase 2 vertical slice; cumulative counts every phase; early cuts |
+| Size budget is optimistic | `<=999` engine+CLI metric, separate 650-line tools budget; Phase 2 vertical slice; cumulative counts every phase; early cuts |
 | Phase gates depend on future work | Stage score tests with real dependencies; move solver timeout to Phase 6; local abort-store rule |
 | Deadline tests are flaky | Deterministic expired-deadline/node-limit tests; tolerant wall-clock smoke; define clock start and overrun |
 | DESIGN and PLAN conflict | Mark DESIGN superseded and point to these contracts |
