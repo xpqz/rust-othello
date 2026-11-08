@@ -2,20 +2,22 @@ use crate::board::Board;
 
 pub const NO_MOVE: u8 = 64;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Domain {
+    #[default]
     Heuristic,
     Endgame,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Bound {
+    #[default]
     Exact,
     Lower,
     Upper,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Entry {
     pub key: u64,
     pub value: i32,
@@ -26,15 +28,6 @@ pub struct Entry {
 }
 
 impl Entry {
-    const EMPTY: Self = Self {
-        key: 0,
-        value: 0,
-        depth: 0,
-        flag: Bound::Exact,
-        domain: Domain::Heuristic,
-        mv: NO_MOVE,
-    };
-
     fn window(&self, alpha: i32, beta: i32, domain: Domain) -> Option<i32> {
         if self.domain != domain {
             return None;
@@ -67,11 +60,11 @@ pub struct Table(Vec<Entry>);
 
 impl Table {
     pub fn new(entries: usize) -> Self {
-        Self(vec![Entry::EMPTY; entries])
+        Self(vec![Entry::default(); entries])
     }
 
     pub fn clear(&mut self) {
-        self.0.fill(Entry::EMPTY);
+        self.0.fill(Entry::default());
     }
 
     pub fn probe(&self, key: u64) -> Option<&Entry> {
