@@ -1102,7 +1102,9 @@ fn solver_reuses_endgame_bounds() {
     for board in sample_positions(6, 8, 10) {
         let expected = exact(board, -INF, INF);
         let cold = {
+            let mut table = Table::new(1 << 16);
             let mut ctx = Ctx::new(&config);
+            ctx.set_table(&mut table);
             let score = solve(board, -INF, INF, &mut ctx);
             assert_eq!(score, Some(expected), "{board:?}");
             ctx.nodes
