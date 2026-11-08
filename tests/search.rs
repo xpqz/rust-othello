@@ -964,6 +964,7 @@ fn wdl_sign_matches_exact() {
         let exact = solve(board, -INF, INF, &mut ctx).unwrap();
         let mut ctx = Ctx::new(&config);
         let wdl = solve_wdl(board, &mut ctx).unwrap();
+        assert_eq!(wdl, wdl.signum(), "{board:?}");
         assert_eq!(wdl.signum(), exact.signum(), "{board:?}");
         if exact == 0 {
             assert_eq!(wdl, 0, "{board:?}");
@@ -1040,4 +1041,31 @@ fn wdl_widening_matches_exact() {
         assert_eq!(result.depth, 0);
         assert_eq!(result.score, exact, "{board:?}");
     }
+}
+
+#[test]
+fn wdl_only_partial() {
+    let config = config();
+    let (board, exact) = sample_positions(6, 8, 100)
+        .into_iter()
+        .find_map(|board| {
+            let mut ctx = Ctx::new(&config);
+            let exact = solve(board, -INF, INF, &mut ctx).unwrap();
+            (exact != 0).then_some((board, exact))
+        })
+        .unwrap();
+    let mut ctx = Ctx::new(&config);
+    let wdl = solve_wdl(board, &mut ctx).unwrap();
+    assert_eq!(wdl.signum(), exact.signum());
+    let wdl_nodes = ctx.nodes;
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: NO_DEADLINE,
+        max_nodes: wdl_nodes + 1,
+    };
+    let result = search_limited(board, limits, &config);
+    assert_eq!(result.status, SearchStatus::Partial);
+    assert!(!result.solved);
+    assert_eq!(result.depth, 0);
+    assert_eq!(result.score.signum(), exact.signum());
 }
