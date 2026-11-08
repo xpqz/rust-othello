@@ -11,6 +11,15 @@ pub struct SearchConfig {
     pub endgame_threshold: u32,
 }
 
+impl SearchConfig {
+    pub fn standard() -> Self {
+        Self {
+            eval: crate::eval::evaluate,
+            endgame_threshold: 12,
+        }
+    }
+}
+
 pub const NO_DEADLINE: u64 = u64::MAX;
 
 #[derive(Clone, Copy, Debug)]
@@ -103,13 +112,18 @@ impl<'a> Ctx<'a> {
 const CORNERS: u64 = 0x8100_0000_0000_0081;
 const XC: u64 = 0x42c3_0000_0000_c342;
 
-pub fn ordered_moves(b: Board, m: u64, d: u32, p: Option<u8>) -> ([u8; 64], usize) {
+pub fn ordered_moves(
+    board: Board,
+    moves: u64,
+    depth: u32,
+    preferred: Option<u8>,
+) -> ([u8; 64], usize) {
     let mut order = [0u8; 64];
     let mut keys = [0u32; 64];
     let mut len = 0;
-    for square in squares(m) {
+    for square in squares(moves) {
         let rank = match (
-            Some(square) == p,
+            Some(square) == preferred,
             CORNERS & (1 << square) != 0,
             XC & (1 << square) != 0,
         ) {
@@ -118,8 +132,8 @@ pub fn ordered_moves(b: Board, m: u64, d: u32, p: Option<u8>) -> ([u8; 64], usiz
             (false, false, true) => 3,
             _ => 2,
         };
-        let count = if d >= 2 {
-            let child = play(b, square);
+        let count = if depth >= 2 {
+            let child = play(board, square);
             legal_moves(child.me, child.opp).count_ones()
         } else {
             0
