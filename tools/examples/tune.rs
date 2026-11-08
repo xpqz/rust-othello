@@ -1,5 +1,5 @@
 use othello::agents::search_agent;
-use othello::board::{Board, disc_count};
+use othello::board::{Board, disc_count, is_terminal, legal_moves, pass, play, squares};
 use othello::eval::{frontier, mobility, phase};
 use othello::rng::Rng;
 use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits};
@@ -124,7 +124,29 @@ fn stream(seed: u64, pair: usize, game: u64, side: u64) -> u64 {
     Rng::new(Rng::new(seed).next_u64() ^ ((pair as u64) << 2 | (game << 1) | side)).next_u64()
 }
 
+fn check_engine() {
+    let mut rng = Rng::new(0xC0DE);
+    let mut board = Board::START;
+    let mut checked = 0;
+    while checked < 1000 {
+        if is_terminal(board) {
+            board = Board::START;
+            continue;
+        }
+        let legal = legal_moves(board.me, board.opp);
+        if legal == 0 {
+            board = pass(board);
+            continue;
+        }
+        assert_eq!(eval(board, NO_DISC), othello::eval::evaluate(board));
+        checked += 1;
+        let pick = (rng.next_u64() % legal.count_ones() as u64) as usize;
+        board = play(board, squares(legal).nth(pick).unwrap());
+    }
+}
+
 fn main() {
+    check_engine();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let variant = args.first().map(String::as_str).unwrap_or("base");
     let pairs: usize = args.get(1).map_or(400, |s| s.parse().unwrap());
@@ -134,6 +156,9 @@ fn main() {
         concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/openings_tune.txt"),
         String::as_str,
     );
+    let shown = args
+        .get(4)
+        .map_or("bench/openings_tune.txt", String::as_str);
     let (label, eval): (&str, fn(Board) -> i32) = match variant {
         "base" => ("base", base),
         "no-mobility" => ("no-mobility", no_mobility),
@@ -203,7 +228,7 @@ fn main() {
         interval.0,
         interval.1
     );
-    println!("seed {seed} nodes {nodes} openings {path}");
+    println!("seed {seed} nodes {nodes} openings {shown}");
     for line in logs {
         println!("{line}");
     }
