@@ -1,4 +1,4 @@
-use othello_tools::stats::{Interval, bootstrap_ci, elo_from_score, report_with};
+use othello_tools::stats::{Interval, bootstrap_ci, elo_from_score, report, report_with};
 
 fn approx(left: f64, right: f64) {
     assert!((left - right).abs() < 1e-9, "{left} vs {right}");
@@ -81,4 +81,23 @@ fn elo_range() {
     let (elo_low, elo_high) = interval.elo_range().unwrap();
     approx(elo_low, elo_from_score(low));
     approx(elo_high, elo_from_score(high));
+}
+
+#[test]
+fn report_default() {
+    let games = [
+        (1.0, 0.0),
+        (0.0, 1.0),
+        (0.5, 0.5),
+        (1.0, 0.5),
+        (0.5, 0.0),
+        (1.0, 1.0),
+        (0.0, 0.5),
+        (0.5, 0.0),
+        (1.0, 0.5),
+        (0.0, 0.0),
+        (0.5, 0.5),
+        (1.0, 0.0),
+    ];
+    assert_eq!(report(&games), report_with(&games, 10_000, 0));
 }
