@@ -366,10 +366,10 @@ scripts/
 | `agents.rs` | 50 | Trait/factory and small adapters |
 | `rng.rs` | 10 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **825** | Leaves 174 lines of headroom |
+| **Total** | **835** | Leaves 164 lines of headroom |
 
 The tools crate has a separate 600-line budget. Its code is not part of the
-engine claim and does not consume the 174-line engine headroom.
+engine claim and does not consume the 164-line engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
 formatted counts. Every later phase records cumulative counts.
