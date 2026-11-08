@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "othello"
+version = "0.1.0"
+
+[[package]]
 name = "othello-tools"
 version = "0.1.0"
+dependencies = [
+ "othello",
+]
