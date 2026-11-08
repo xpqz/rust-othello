@@ -316,13 +316,14 @@ fn node_limit_partial() {
     let depth_one = search(board, 1, &config);
     let limits = SearchLimits {
         max_depth: 10,
-        time_ms: 1_000,
+        time_ms: NO_DEADLINE,
         max_nodes: depth_one.nodes + 1,
     };
     let result = search_limited(board, limits, &config);
     assert_eq!(result.status, SearchStatus::Partial);
     assert_eq!(result.depth, 1);
     assert_eq!(result.score, depth_one.score);
+    assert_eq!(result.best, search_iterative(board, 1, &config).best);
     assert!(!result.solved);
 }
 
@@ -332,7 +333,7 @@ fn node_limit_fallback() {
     let board = Board::START;
     let limits = SearchLimits {
         max_depth: 10,
-        time_ms: 1_000,
+        time_ms: NO_DEADLINE,
         max_nodes: 1,
     };
     let result = search_limited(board, limits, &config);
@@ -340,4 +341,37 @@ fn node_limit_fallback() {
     assert_eq!(result.depth, 0);
     assert_eq!(result.score, evaluate(board));
     assert_ne!(legal_moves(board.me, board.opp) & (1u64 << result.best), 0);
+}
+
+#[test]
+fn complete_status() {
+    let config = config();
+    let board = Board::START;
+    let limits = SearchLimits {
+        max_depth: 3,
+        time_ms: NO_DEADLINE,
+        max_nodes: 0,
+    };
+    let result = search_limited(board, limits, &config);
+    assert_eq!(result.status, SearchStatus::Complete);
+    assert_eq!(result.depth, 3);
+    assert_eq!(result.score, search(board, 3, &config).score);
+    assert!(!result.solved);
+    assert_ne!(legal_moves(board.me, board.opp) & (1u64 << result.best), 0);
+}
+
+#[test]
+fn node_limit_boundary() {
+    let config = config();
+    let board = Board::START;
+    let depth_one = search(board, 1, &config);
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: NO_DEADLINE,
+        max_nodes: depth_one.nodes,
+    };
+    let result = search_limited(board, limits, &config);
+    assert_eq!(result.status, SearchStatus::Partial);
+    assert_eq!(result.depth, 1);
+    assert_eq!(result.score, depth_one.score);
 }
