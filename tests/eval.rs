@@ -2,7 +2,7 @@ mod common;
 
 use common::{Sym, playout, transform};
 use othello::board::{Board, is_terminal, legal_moves, pass, play};
-use othello::eval::{evaluate, frontier, mobility};
+use othello::eval::{disc_weight, evaluate, frontier, mobility, phase};
 use othello::rng::Rng;
 use othello::score::EVAL_BOUND;
 
@@ -186,4 +186,21 @@ fn d4_invariance() {
             }
         });
     }
+}
+
+#[test]
+fn phase_endpoints() {
+    assert_eq!(phase(60), 0);
+    assert_eq!(phase(63), 0);
+    assert_eq!(phase(36), 500);
+    assert_eq!(phase(24), 750);
+    assert_eq!(phase(12), 1000);
+    assert_eq!(phase(5), 1000);
+}
+
+#[test]
+fn disc_weight_endpoints() {
+    assert_eq!(disc_weight(60), 0);
+    assert_eq!(disc_weight(36), 50);
+    assert_eq!(disc_weight(12), 100);
 }
