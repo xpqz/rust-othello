@@ -362,14 +362,14 @@ scripts/
 | `perft.rs` | 20 | Tree walk used by the CLI and tests |
 | `eval.rs` | 120 | Features plus phase-weighted combination |
 | `search.rs` | 260 | Root, ordering, deepening, cancellation, solver |
-| `tt.rs` | 80 | Zobrist domain-aware table |
+| `tt.rs` | 110 | Zobrist domain-aware table |
 | `agents.rs` | 50 | Trait/factory and small adapters |
 | `rng.rs` | 10 | Production PRNG |
 | `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
-| **Total** | **885** | Leaves 114 lines of headroom |
+| **Total** | **915** | Leaves 84 lines of headroom |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
-engine claim and does not consume the 114-line engine headroom.
+engine claim and does not consume the 84-line engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
 formatted counts. Every later phase records cumulative counts.
@@ -831,7 +831,7 @@ time-to-depth regression; TT cuts nodes by at least 20% without a time
 regression. These are initial targets; record the corpus/hardware baseline and
 adjust the gate if the corpus shows a different scale.
 
-**Budget:** `tt.rs` <= 80, `search.rs` <= 260.
+**Budget:** `tt.rs` <= 110, `search.rs` <= 260.
 
 ---
 
