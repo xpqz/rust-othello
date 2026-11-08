@@ -5,7 +5,7 @@ use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
 use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
-use othello::search::{Ctx, SearchConfig, SearchStatus, negamax, search};
+use othello::search::{Ctx, SearchConfig, SearchStatus, negamax, search, search_iterative};
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -218,4 +218,55 @@ fn double_no_move() {
     assert_eq!(terminal_score(final_score(child)), -6000);
     let mut ctx = Ctx::new(&config);
     assert_eq!(negamax(board, 1, -INF, INF, &mut ctx), Some(6000));
+}
+
+#[test]
+fn id_matches_depth() {
+    let config = config();
+    let boards = [
+        Board::START,
+        Board {
+            me: at(0, 0) | at(2, 0) | at(4, 0),
+            opp: at(1, 0) | at(3, 0) | at(5, 0) | at(6, 0),
+        },
+        Board {
+            me: at(1, 1),
+            opp: at(0, 0) | at(2, 0),
+        },
+    ];
+    for board in boards {
+        for depth in 1..=4 {
+            let direct = search(board, depth, &config);
+            let iterative = search_iterative(board, depth, &config);
+            assert_eq!(iterative.score, direct.score, "{board:?} depth {depth}");
+            assert_eq!(iterative.depth, depth);
+            assert_eq!(iterative.status, SearchStatus::Complete);
+            assert!(!iterative.solved);
+            let mut ctx = Ctx::new(&config);
+            let value =
+                -negamax(play(board, iterative.best), depth - 1, -INF, INF, &mut ctx).unwrap();
+            assert_eq!(value, iterative.score, "{board:?} depth {depth}");
+        }
+    }
+}
+
+#[test]
+fn id_root_ordering() {
+    let config = config();
+    let board = Board::START;
+    let depth = 4;
+    let iterative = search_iterative(board, depth, &config);
+    let fixed: u64 = (1..=depth).map(|d| search(board, d, &config).nodes).sum();
+    assert!(iterative.nodes < fixed, "{} vs {fixed}", iterative.nodes);
+    assert_eq!(iterative.score, search(board, depth, &config).score);
+}
+
+#[test]
+fn id_zero_is_fallback() {
+    let config = config();
+    let result = search_iterative(Board::START, 0, &config);
+    assert_eq!(result.best, sq(3, 2));
+    assert_eq!(result.score, evaluate(Board::START));
+    assert_eq!(result.depth, 0);
+    assert_eq!(result.status, SearchStatus::Fallback);
 }
