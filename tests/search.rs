@@ -9,7 +9,7 @@ use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
 use othello::search::{
     Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, ordered_moves, search,
-    search_iterative, search_limited, search_tt, solve,
+    search_iterative, search_limited, search_tt, solve, solve_wdl,
 };
 use othello::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
@@ -954,4 +954,90 @@ fn heuristic_ignores_endgame_entries() {
     let warm = search_tt(board, SearchLimits::depth(3), &config, &mut table);
     assert_eq!(warm.score, cold.score);
     assert!(!warm.solved);
+}
+
+#[test]
+fn wdl_sign_matches_exact() {
+    let config = config();
+    for board in sample_positions(6, 8, 20) {
+        let mut ctx = Ctx::new(&config);
+        let exact = solve(board, -INF, INF, &mut ctx).unwrap();
+        let mut ctx = Ctx::new(&config);
+        let wdl = solve_wdl(board, &mut ctx).unwrap();
+        assert_eq!(wdl.signum(), exact.signum(), "{board:?}");
+        if exact == 0 {
+            assert_eq!(wdl, 0, "{board:?}");
+        }
+    }
+}
+
+#[test]
+fn wdl_stores_bounds() {
+    let config = config();
+    let (mut win, mut loss, mut draw) = (None, None, None);
+    for board in sample_positions(6, 8, 100) {
+        if win.is_some() && loss.is_some() && draw.is_some() {
+            break;
+        }
+        let mut ctx = Ctx::new(&config);
+        let exact = solve(board, -INF, INF, &mut ctx).unwrap();
+        match exact.signum() {
+            1 if win.is_none() => win = Some(board),
+            -1 if loss.is_none() => loss = Some(board),
+            0 if draw.is_none() => draw = Some(board),
+            _ => {}
+        }
+    }
+    for (board, flag) in [(win.unwrap(), Bound::Lower), (loss.unwrap(), Bound::Upper)] {
+        let mut table = Table::new(1 << 16);
+        {
+            let mut ctx = Ctx::new(&config);
+            ctx.set_table(&mut table);
+            assert_ne!(solve_wdl(board, &mut ctx).unwrap(), 0);
+        }
+        let entry = table.probe(zobrist(board)).unwrap();
+        assert_eq!(entry.domain, Domain::Endgame);
+        assert_eq!(entry.depth, 0);
+        assert_eq!(entry.flag, flag);
+    }
+    let mut table = Table::new(1 << 16);
+    {
+        let mut ctx = Ctx::new(&config);
+        ctx.set_table(&mut table);
+        assert_eq!(solve_wdl(draw.unwrap(), &mut ctx), Some(0));
+    }
+    let entry = table.probe(zobrist(draw.unwrap())).unwrap();
+    assert_eq!(entry.flag, Bound::Exact);
+    assert_eq!(entry.value, 0);
+}
+
+#[test]
+fn wdl_cancellation_falls_back() {
+    let config = config();
+    let board = endgame_board(6);
+    let mut table = Table::new(1 << 16);
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: NO_DEADLINE,
+        max_nodes: 1,
+    };
+    let result = search_tt(board, limits, &config, &mut table);
+    assert_eq!(result.status, SearchStatus::Fallback);
+    assert!(!result.solved);
+}
+
+#[test]
+fn wdl_widening_matches_exact() {
+    let config = config();
+    for board in sample_positions(6, 8, 20) {
+        let exact = {
+            let mut ctx = Ctx::new(&config);
+            solve(board, -INF, INF, &mut ctx).unwrap()
+        };
+        let result = search_limited(board, SearchLimits::depth(10), &config);
+        assert_eq!(result.status, SearchStatus::Complete);
+        assert!(result.solved);
+        assert_eq!(result.depth, 0);
+        assert_eq!(result.score, exact, "{board:?}");
+    }
 }

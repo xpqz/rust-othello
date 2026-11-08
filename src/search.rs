@@ -103,6 +103,10 @@ impl<'a> Ctx<'a> {
         }
     }
 
+    pub fn set_table(&mut self, table: &'a mut Table) {
+        self.table = Some(table);
+    }
+
     fn expired(&self) -> bool {
         self.deadline
             .is_some_and(|deadline| Instant::now() >= deadline)
