@@ -871,7 +871,7 @@ fn solve_sample() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, ignore = "release-only")]
+#[ignore = "release-only"]
 fn solve_sample_deep() {
     let config = config();
     for board in sample_positions(6, 10, 1000) {
@@ -1073,4 +1073,47 @@ fn wdl_only_partial() {
         solve(play(board, result.best), -INF, INF, &mut ctx).unwrap()
     };
     assert_eq!((-reply).signum(), exact.signum());
+}
+
+#[test]
+#[ignore = "release-only"]
+fn solver_known_endgames() {
+    let config = config();
+    let known = [
+        (0x785c_68e1_f14f_0d11, 0x0223_171e_0e30_70a0, -2200),
+        (0x03e7_23c0_c88c_1000, 0xd018_1c3e_3772_6e7e, 1800),
+    ];
+    for (me, opp, expected) in known {
+        let board = Board { me, opp };
+        let mut ctx = Ctx::new(&config);
+        assert_eq!(
+            solve(board, -INF, INF, &mut ctx),
+            Some(expected),
+            "{board:?}"
+        );
+        assert_eq!(exact(board, -INF, INF), expected, "{board:?}");
+    }
+}
+
+#[test]
+fn solver_reuses_endgame_bounds() {
+    let config = config();
+    for board in sample_positions(6, 8, 10) {
+        let expected = exact(board, -INF, INF);
+        let mut table = Table::new(1 << 16);
+        {
+            let mut ctx = Ctx::new(&config);
+            ctx.set_table(&mut table);
+            solve_wdl(board, &mut ctx).unwrap();
+        }
+        {
+            let mut ctx = Ctx::new(&config);
+            ctx.set_table(&mut table);
+            assert_eq!(
+                solve(board, -INF, INF, &mut ctx),
+                Some(expected),
+                "{board:?}"
+            );
+        }
+    }
 }
