@@ -23,6 +23,15 @@ Do not merge before an `approve` verdict. Do not close an issue before its branc
 - `docs/reviews/{id}.md` is written by the user. Treat it as the review contract.
 - Always add every untracked review artifact to the change set; never leave `docs/reviews/{id}.md` untracked.
 
+### Claims must match the committed tree
+
+Before telling the user an issue is ready for review:
+
+- `git status --short` must be empty, and every file named in `docs/prs/{id}.md` must appear in `git show --stat HEAD`.
+- Grep the committed tree for every test, function, flag, and file the notes claim. If a name is absent, the claim is false: fix the code or remove the claim.
+- After any scripted edit, read the changed hunk and `git diff` before writing notes. Do not infer success from the edit command.
+- PR notes are evidence, not intentions. Anything not committed is marked deferred, not done.
+
 ### Definition of done
 
 - All approved tests are green.
@@ -36,7 +45,7 @@ Do not merge before an `approve` verdict. Do not close an issue before its branc
 
 - You are the only worker. Never claim an issue is pre-existing or someone else's responsibility.
 - Do not use hacks, loopholes, or reward hacking to meet the size budget. Write straight, professional Rust.
-- The engine plus playable CLI has a hard ceiling of 999 LOC. The tools crate has a separate 600-line budget. See `docs/PLAN.md`.
+- The engine plus playable CLI has a hard ceiling of 999 LOC. The tools crate has a separate 650-line budget. See `docs/PLAN.md`.
 - If the work cannot fit under the budget, stop and discuss algorithmic or scope reductions. Do not contort the code.
 - Before claiming done, step back and self-review the implementation.
 - Fitting the budget will be tight. Be disciplined.
