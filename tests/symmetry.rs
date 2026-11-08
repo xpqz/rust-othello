@@ -1,7 +1,8 @@
 mod common;
 
 use common::{Sym, transform};
-use othello::board::{Board, legal_moves};
+use othello::board::{Board, legal_moves, pass, play};
+use othello::rng::Rng;
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -25,6 +26,25 @@ fn inverse(sym: Sym) -> Sym {
         Sym::FlipV => Sym::FlipV,
         Sym::FlipDiag => Sym::FlipDiag,
         Sym::FlipAnti => Sym::FlipAnti,
+    }
+}
+
+fn nth_bit(mut bits: u64, mut k: u32) -> u8 {
+    while k > 0 {
+        bits &= bits - 1;
+        k -= 1;
+    }
+    bits.trailing_zeros() as u8
+}
+
+fn assert_commutes(board: Board) {
+    let moves = legal_moves(board.me, board.opp);
+    for sym in Sym::ALL {
+        assert_eq!(
+            transform(moves, sym),
+            legal_moves(transform(board.me, sym), transform(board.opp, sym)),
+            "{sym:?}"
+        );
     }
 }
 
@@ -63,10 +83,17 @@ fn identity_orders() {
         assert_eq!(apply(bits, &[sym, Sym::Identity]), transform(bits, sym));
     }
     for sym in [Sym::Rot90, Sym::Rot270] {
+        assert_ne!(apply(bits, &[sym, sym]), bits, "{sym:?} order is 4");
         assert_eq!(apply(bits, &[sym, sym, sym, sym]), bits, "{sym:?}");
     }
-    assert_eq!(apply(bits, &[Sym::Rot180, Sym::Rot180]), bits);
-    for sym in [Sym::FlipH, Sym::FlipV, Sym::FlipDiag, Sym::FlipAnti] {
+    for sym in [
+        Sym::Rot180,
+        Sym::FlipH,
+        Sym::FlipV,
+        Sym::FlipDiag,
+        Sym::FlipAnti,
+    ] {
+        assert_ne!(transform(bits, sym), bits, "{sym:?} order is 2");
         assert_eq!(apply(bits, &[sym, sym]), bits, "{sym:?}");
     }
 }
@@ -103,27 +130,26 @@ fn inverses() {
 
 #[test]
 fn legal_moves_commute() {
-    let boards = [
-        Board::START,
-        Board {
-            me: at(0, 0) | at(3, 4) | at(6, 2),
-            opp: at(2, 2) | at(5, 5) | at(7, 0),
-        },
-        Board {
-            me: sample(),
-            opp: at(2, 2) | at(5, 5) | at(7, 0),
-        },
-    ];
-    let start = legal_moves(Board::START.me, Board::START.opp);
-    assert_eq!(start.count_ones(), 4);
-    for board in boards {
-        let moves = legal_moves(board.me, board.opp);
-        for sym in Sym::ALL {
-            assert_eq!(
-                transform(moves, sym),
-                legal_moves(transform(board.me, sym), transform(board.opp, sym)),
-                "{sym:?}"
-            );
+    let mut rng = Rng::new(0x5EED);
+    let mut positions = 0;
+    let mut with_moves = 0;
+    for _ in 0..200 {
+        let mut board = Board::START;
+        for _ in 0..60 {
+            let moves = legal_moves(board.me, board.opp);
+            assert_commutes(board);
+            positions += 1;
+            if moves == 0 {
+                if legal_moves(board.opp, board.me) == 0 {
+                    break;
+                }
+                board = pass(board);
+                continue;
+            }
+            with_moves += 1;
+            let k = (rng.next_u64() % moves.count_ones() as u64) as u32;
+            board = play(board, nth_bit(moves, k));
         }
     }
+    assert!(with_moves * 10 >= positions * 9, "{with_moves}/{positions}");
 }
