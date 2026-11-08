@@ -1127,3 +1127,80 @@ fn solver_reuses_endgame_bounds() {
     }
     assert!(warm_nodes < cold_nodes, "{warm_nodes} vs {cold_nodes}");
 }
+
+fn percentile(times: &[f64], fraction: f64) -> f64 {
+    let index = ((times.len() - 1) as f64 * fraction).round() as usize;
+    times[index]
+}
+
+#[test]
+#[ignore = "release-only"]
+fn endgame_bench() {
+    for (remaining, count) in [(12, 20), (14, 10)] {
+        let config = SearchConfig {
+            endgame_threshold: remaining,
+            ..config()
+        };
+        let mut boards = sample_positions(remaining, remaining, count);
+        if remaining == 12 {
+            boards.push(Board {
+                me: 0x785c_68e1_f14f_0d11,
+                opp: 0x0223_171e_0e30_70a0,
+            });
+        }
+        let mut times = Vec::new();
+        let mut nodes = 0;
+        let mut completed = 0;
+        for board in boards {
+            if legal_moves(board.me, board.opp) == 0 {
+                continue;
+            }
+            let start = Instant::now();
+            let result = search_limited(board, SearchLimits::new(64, 1000, 0), &config);
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+            nodes += result.nodes;
+            completed += result.solved as usize;
+        }
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let median = percentile(&times, 0.5);
+        let p90 = percentile(&times, 0.9);
+        let p99 = percentile(&times, 0.99);
+        let nps = nodes as f64 * 1000.0 / times.iter().sum::<f64>().max(1e-9);
+        println!(
+            "{remaining} empty: n={} completed={} median={median:.2}ms p90={p90:.2}ms p99={p99:.2}ms nps={nps:.0}",
+            times.len(),
+            completed
+        );
+        if remaining == 12 {
+            assert!(median < 1000.0, "{median}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "release-only"]
+fn solver_full_game() {
+    let config = config();
+    let mut board = Board::START;
+    let mut elapsed = 0.0;
+    let mut slowest: f64 = 0.0;
+    let mut moves = 0;
+    while !is_terminal(board) {
+        let legal = legal_moves(board.me, board.opp);
+        if legal == 0 {
+            board = pass(board);
+            continue;
+        }
+        let start = Instant::now();
+        let result = search_limited(board, SearchLimits::new(64, 50, 0), &config);
+        let move_ms = start.elapsed().as_secs_f64() * 1000.0;
+        elapsed += move_ms;
+        slowest = slowest.max(move_ms);
+        assert!(legal & (1 << result.best) != 0, "{board:?}");
+        board = play(board, result.best);
+        moves += 1;
+    }
+    println!("full game: moves={moves} elapsed={elapsed:.2}ms slowest={slowest:.2}ms");
+    assert!(moves > 0);
+    assert!(slowest < 250.0, "{slowest}");
+}

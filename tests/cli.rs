@@ -204,3 +204,61 @@ fn bench_deadline_smoke() {
     assert!(elapsed <= 250.0, "{text}");
     assert_ne!(field(&text, "depth"), "30", "{text}");
 }
+
+#[test]
+fn bench_board_position() {
+    let board = "785c68e1f14f0d11:0223171e0e3070a0";
+    let output = run(
+        &[
+            "bench",
+            "--board",
+            board,
+            "--endgame-threshold",
+            "12",
+            "--depth",
+            "10",
+        ],
+        "",
+    );
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(field(&text, "depth"), "0", "{text}");
+    assert_eq!(field(&text, "score"), "-2200", "{text}");
+    assert_eq!(field(&text, "solved"), "1", "{text}");
+    assert_eq!(field(&text, "status"), "Complete", "{text}");
+}
+
+#[test]
+fn bench_board_timeout() {
+    let board = "785c68e1f14f0d11:0223171e0e3070a0";
+    let output = run(
+        &[
+            "bench",
+            "--board",
+            board,
+            "--endgame-threshold",
+            "12",
+            "--depth",
+            "10",
+            "--time-ms",
+            "0",
+        ],
+        "",
+    );
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(field(&text, "depth"), "0", "{text}");
+    assert_eq!(field(&text, "solved"), "0", "{text}");
+    let status = field(&text, "status");
+    assert!(status == "Fallback" || status == "Partial", "{text}");
+}
+
+#[test]
+fn bench_board_invalid() {
+    for board in ["xyz", "1:1", "0:0"] {
+        let output = run(&["bench", "--board", board], "");
+        assert!(!output.status.success(), "{board}");
+    }
+    let output = run(&["bench", "--endgame-threshold", "x"], "");
+    assert!(!output.status.success());
+}
