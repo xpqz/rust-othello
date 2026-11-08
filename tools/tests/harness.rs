@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use othello::agents::{Agent, greedy_agent, random_agent};
 use othello::board::Board;
 use othello_tools::harness::{GameLog, GameResult, pair_score, play_from, play_game, points};
@@ -221,4 +223,73 @@ fn log_line() {
         line.contains("black random white greedy score 120"),
         "{line}"
     );
+}
+
+fn tools(args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_othello-tools"))
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+fn first_line(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .next()
+        .unwrap()
+        .to_string()
+}
+
+fn mean(line: &str) -> f64 {
+    line.split("mean ")
+        .nth(1)
+        .unwrap()
+        .split(' ')
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap()
+}
+
+#[test]
+fn ladder_random() {
+    let output = tools(&[
+        "match", "--a", "random", "--b", "random", "--pairs", "20", "--seed", "3",
+    ]);
+    assert!(output.status.success());
+    let line = first_line(&output);
+    assert!(line.contains("pairs 20"), "{line}");
+    assert!((0.0..=1.0).contains(&mean(&line)), "{line}");
+}
+
+#[test]
+fn ladder_greedy_random() {
+    let output = tools(&[
+        "match", "--a", "greedy", "--b", "random", "--pairs", "20", "--seed", "4",
+    ]);
+    assert!(output.status.success());
+    assert!(first_line(&output).contains("pairs 20"));
+}
+
+#[test]
+fn phase2_reproducible() {
+    let args = [
+        "match", "--a", "phase2", "--b", "greedy", "--pairs", "10", "--seed", "1",
+    ];
+    let first = tools(&args);
+    let second = tools(&args);
+    assert!(first.status.success());
+    assert_eq!(first.stdout, second.stdout);
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
+fn phase2_gate() {
+    let output = tools(&[
+        "match", "--a", "phase2", "--b", "greedy", "--pairs", "200", "--seed", "1",
+    ]);
+    assert!(output.status.success());
+    let line = first_line(&output);
+    assert!(line.contains("pairs 200"), "{line}");
+    assert!(line.contains("bootstrap"), "{line}");
 }
