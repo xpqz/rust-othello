@@ -1,12 +1,12 @@
 mod common;
 
+use std::time::{Duration, Instant};
+
 use common::playout;
 use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
 use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
-use std::time::{Duration, Instant};
-
 use othello::search::{
     Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, search, search_iterative,
     search_limited,
