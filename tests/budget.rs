@@ -14,6 +14,14 @@ fn fixture_lines() {
     );
     assert_eq!(rules::source_error("#[cfg(test)]"), Some("test code"));
     assert_eq!(rules::source_error("#[test]"), Some("test code"));
+    assert_eq!(
+        rules::source_error("#[cfg_attr(test, allow(dead_code))]"),
+        Some("test code")
+    );
+    assert_eq!(
+        rules::source_error("include_bytes!(\"data\")"),
+        Some("include macro")
+    );
     assert_eq!(rules::source_error("let x = 1;"), None);
 }
 
@@ -25,7 +33,6 @@ fn source_scope() {
 #[test]
 fn budget_guard() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    rules::check_scope(root);
     let total = rules::count_dir(&root.join("src"));
     println!("engine production lines: {total}");
     assert!(total <= 999, "engine production lines {total} exceed 999");

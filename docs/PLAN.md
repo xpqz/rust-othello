@@ -329,9 +329,11 @@ tests/
   search.rs         minimax, terminal/pass, fail-soft, TT domains, solver, abort
   cli.rs            spawned-binary smoke, malformed input, EOF
   budget.rs         engine LOC ceiling and source-scope guard
+  budget/rules.rs   shared line-count and source-scope rules
 tools/
   Cargo.toml        separate tools crate, path-depends on othello
   src/
+    lib.rs          tools library wiring
     main.rs         match/tune/positions commands
     harness.rs      game loop, factories, side-to-move, validation, logs
     baselines.rs    complete frozen evaluator configurations
