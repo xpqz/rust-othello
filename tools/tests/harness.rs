@@ -249,17 +249,6 @@ fn bounds(line: &str) -> (f64, f64) {
     )
 }
 
-fn mean(line: &str) -> f64 {
-    line.split("mean ")
-        .nth(1)
-        .unwrap()
-        .split(' ')
-        .next()
-        .unwrap()
-        .parse()
-        .unwrap()
-}
-
 #[test]
 fn ladder_random() {
     let output = tools(&[
