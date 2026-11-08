@@ -69,11 +69,11 @@ pub fn flips(board: Board, sq: u8) -> u64 {
     for dir in Dir::ALL {
         let mut cursor = shift(1u64 << sq, dir);
         let mut line = 0;
-        while cursor != 0 && cursor & board.opp != 0 {
+        while cursor & board.opp != 0 {
             line |= cursor;
             cursor = shift(cursor, dir);
         }
-        if cursor != 0 && cursor & board.me != 0 {
+        if cursor & board.me != 0 {
             flipped |= line;
         }
     }
@@ -112,14 +112,6 @@ pub fn empty_count(board: Board) -> u32 {
 
 /// WTHOR score from the side to move; meaningful only on terminal boards.
 pub fn final_score(board: Board) -> i32 {
-    let me = disc_count(board.me) as i32;
-    let opp = disc_count(board.opp) as i32;
-    let empty = empty_count(board) as i32;
-    if me > opp {
-        me + empty - opp
-    } else if me < opp {
-        me - opp - empty
-    } else {
-        0
-    }
+    let diff = disc_count(board.me) as i32 - disc_count(board.opp) as i32;
+    diff + diff.signum() * empty_count(board) as i32
 }
