@@ -837,3 +837,117 @@ fn solver_endgame_domain() {
     assert_eq!(entry.domain, Domain::Endgame);
     assert_eq!(entry.depth, 0);
 }
+
+fn sample_positions(min_empty: u32, max_empty: u32, count: usize) -> Vec<Board> {
+    let mut rng = Rng::new(0x5A_3A_11);
+    let mut positions = Vec::new();
+    while positions.len() < count {
+        playout(&mut rng, |board| {
+            let empty = othello::board::empty_count(board);
+            if empty >= min_empty && empty <= max_empty && positions.len() < count {
+                positions.push(board);
+            }
+        });
+    }
+    positions
+}
+
+#[test]
+fn solve_sample() {
+    let config = config();
+    for board in sample_positions(6, 8, 20) {
+        let mut ctx = Ctx::new(&config);
+        assert_eq!(
+            solve(board, -INF, INF, &mut ctx),
+            Some(exact(board, -INF, INF))
+        );
+    }
+}
+
+#[test]
+#[ignore]
+fn solve_sample_deep() {
+    let config = config();
+    for board in sample_positions(6, 10, 1000) {
+        let mut ctx = Ctx::new(&config);
+        assert_eq!(
+            solve(board, -INF, INF, &mut ctx),
+            Some(exact(board, -INF, INF))
+        );
+    }
+}
+
+#[test]
+fn solver_interior_is_heuristic() {
+    let base = config();
+    let probe = SearchConfig {
+        endgame_threshold: 0,
+        ..base
+    };
+    let board = sample_positions(8, 8, 20)
+        .into_iter()
+        .find(|board| {
+            let heuristic = search_limited(*board, SearchLimits::depth(10), &probe);
+            let mut ctx = Ctx::new(&base);
+            heuristic.score != solve(*board, -INF, INF, &mut ctx).unwrap()
+        })
+        .expect("fixture where exact and heuristic differ");
+    let exact_score = {
+        let mut ctx = Ctx::new(&base);
+        solve(board, -INF, INF, &mut ctx).unwrap()
+    };
+    let config = SearchConfig {
+        endgame_threshold: 7,
+        ..base
+    };
+    let result = search_limited(board, SearchLimits::depth(10), &config);
+    assert_eq!(result.status, SearchStatus::Complete);
+    assert!(!result.solved);
+    assert_eq!(
+        result.score,
+        search_limited(board, SearchLimits::depth(10), &probe).score
+    );
+    assert_ne!(result.score, exact_score);
+}
+
+#[test]
+fn solver_ignores_heuristic_entries() {
+    let config = config();
+    let board = endgame_board(6);
+    let mut table = Table::new(1 << 16);
+    for square in squares(legal_moves(board.me, board.opp)) {
+        let key = zobrist(play(board, square));
+        for depth in 1..4 {
+            table.store(Entry::heuristic(key, 6400, depth, Bound::Exact, NO_MOVE));
+            table.store(Entry::heuristic(key, -6400, depth, Bound::Exact, NO_MOVE));
+        }
+    }
+    let result = search_tt(board, SearchLimits::depth(20), &config, &mut table);
+    assert!(result.solved);
+    assert_eq!(result.score, exact(board, -INF, INF));
+}
+
+#[test]
+fn heuristic_ignores_endgame_entries() {
+    let config = SearchConfig {
+        endgame_threshold: 0,
+        ..config()
+    };
+    let board = sample_positions(8, 8, 1)[0];
+    let cold = search_limited(board, SearchLimits::depth(10), &config);
+    let mut table = Table::new(1 << 16);
+    for square in squares(legal_moves(board.me, board.opp)) {
+        let key = zobrist(play(board, square));
+        table.store(Entry {
+            key,
+            value: 6400,
+            depth: 0,
+            flag: Bound::Exact,
+            domain: Domain::Endgame,
+            mv: NO_MOVE,
+        });
+    }
+    let warm = search_tt(board, SearchLimits::depth(10), &config, &mut table);
+    assert_eq!(warm.score, cold.score);
+    assert!(!warm.solved);
+}
