@@ -529,3 +529,47 @@ fn tt_deep_then_shallow() {
     let cold = search_limited(board, SearchLimits::depth(3), &config);
     assert_eq!(warm.score, cold.score);
 }
+
+#[test]
+fn tt_warm_nodes() {
+    let config = config();
+    let board = Board::START;
+    let limits = SearchLimits::depth(4);
+    let mut table = Table::new(1 << 16);
+    let cold = search_tt(board, limits, &config, &mut table);
+    let warm = search_tt(board, limits, &config, &mut table);
+    assert_eq!(warm.score, cold.score);
+    assert!(
+        warm.nodes * 2 < cold.nodes,
+        "{} vs {}",
+        warm.nodes,
+        cold.nodes
+    );
+}
+
+#[test]
+fn tt_sample_equivalence() {
+    let config = config();
+    let mut rng = Rng::new(0x1D);
+    let mut positions = Vec::new();
+    let mut visited = 0;
+    while positions.len() < 30 {
+        playout(&mut rng, |board| {
+            let sample = visited % 5 == 0;
+            visited += 1;
+            if sample && positions.len() < 30 && legal_moves(board.me, board.opp).count_ones() >= 2
+            {
+                positions.push(board);
+            }
+        });
+    }
+    for board in positions {
+        let cold = search_limited(board, SearchLimits::depth(4), &config);
+        let mut table = Table::new(1 << 16);
+        let tt = search_tt(board, SearchLimits::depth(4), &config, &mut table);
+        assert_eq!(tt.score, cold.score, "{board:?}");
+        let _ = search_tt(board, SearchLimits::depth(5), &config, &mut table);
+        let warm = search_tt(board, SearchLimits::depth(4), &config, &mut table);
+        assert_eq!(warm.score, cold.score, "{board:?}");
+    }
+}
