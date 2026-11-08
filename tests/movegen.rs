@@ -1,7 +1,11 @@
+mod common;
+
+use common::{Naive, playout};
 use othello::board::{
     Board, Dir, disc_count, empty_count, final_score, flips, is_terminal, legal_moves, pass, play,
     shift,
 };
+use othello::rng::Rng;
 
 fn bit(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -188,4 +192,43 @@ fn opening_invariants() {
 #[should_panic(expected = "illegal move")]
 fn play_illegal() {
     let _ = play(Board::START, sq(0, 0));
+}
+
+fn differential(count: usize) {
+    let mut rng = Rng::new(0x0D1FF);
+    let mut seen = 0;
+    while seen < count {
+        playout(&mut rng, |board| {
+            if seen >= count {
+                return;
+            }
+            let naive = Naive::from_bits(board.me, board.opp);
+            let moves = legal_moves(board.me, board.opp);
+            assert_eq!(naive.legal_moves(), moves, "{seen}: {board:?}");
+            let mut rest = moves;
+            while rest != 0 {
+                let square = rest.trailing_zeros() as u8;
+                rest &= rest - 1;
+                let after = play(board, square);
+                assert_eq!(
+                    (after.me, after.opp),
+                    naive.play(square).bits(),
+                    "{seen}: {board:?} {square}"
+                );
+            }
+            seen += 1;
+        });
+    }
+    assert_eq!(seen, count);
+}
+
+#[test]
+fn differential_10k() {
+    differential(10_000);
+}
+
+#[test]
+#[ignore]
+fn differential_200k() {
+    differential(200_000);
 }
