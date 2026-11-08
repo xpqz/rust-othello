@@ -59,6 +59,8 @@ fn start_moves() {
 
 #[test]
 fn legal_fixtures() {
+    assert_eq!(legal_moves(0, 0), 0);
+
     let six_run = bit(1, 0) | bit(2, 0) | bit(3, 0) | bit(4, 0) | bit(5, 0) | bit(6, 0);
     assert_eq!(legal_moves(bit(0, 0), six_run), bit(7, 0));
 
