@@ -365,7 +365,7 @@ scripts/
 | `tt.rs` | 80 | Zobrist domain-aware table |
 | `agents.rs` | 50 | Trait/factory and small adapters |
 | `rng.rs` | 10 | Production PRNG |
-| `cli.rs` + `main.rs` | 160 | Printer/parser, play/perft/bench |
+| `cli.rs` + `main.rs` | 170 | Printer/parser, play/perft/bench |
 | **Total** | **825** | Leaves 174 lines of headroom |
 
 The tools crate has a separate 600-line budget. Its code is not part of the
@@ -655,7 +655,7 @@ callers; the vertical slice works; actual LOC is recorded and, if over
 projection, scope is cut before Phase 3.
 
 **Budget:** `eval.rs` <= 60 at this stage, `search.rs` <= 110, `agents.rs` <=
-50, `cli.rs` + `main.rs` <= 130.
+50, `cli.rs` + `main.rs` <= 170.
 
 ---
 

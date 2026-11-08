@@ -53,7 +53,7 @@ fn colours(board: Board, black_to_move: bool) -> (u64, u64) {
 
 pub fn render(board: Board, black_to_move: bool) -> String {
     let (black, white) = colours(board, black_to_move);
-    let mut out = String::new();
+    let mut out = String::from(" abcdefgh\n");
     for rank in (0..8).rev() {
         out.push((b'1' + rank as u8) as char);
         for file in 0..8 {
@@ -83,15 +83,15 @@ pub fn render(board: Board, black_to_move: bool) -> String {
 
 pub fn parse(text: &str) -> Option<(Board, bool)> {
     let lines: Vec<&str> = text.lines().collect();
-    if lines.len() != 9 {
+    if lines.len() != 10 {
         return None;
     }
-    if !lines[8].starts_with("Black") && !lines[8].starts_with("White") {
+    if !lines[9].starts_with("Black") && !lines[9].starts_with("White") {
         return None;
     }
-    let black_to_move = lines[8].starts_with("Black");
+    let black_to_move = lines[9].starts_with("Black");
     let (mut black, mut white) = (0u64, 0u64);
-    for (row, line) in lines[..8].iter().enumerate() {
+    for (row, line) in lines[1..9].iter().enumerate() {
         let cells = line.as_bytes();
         if cells.len() != 9 {
             return None;
@@ -107,7 +107,7 @@ pub fn parse(text: &str) -> Option<(Board, bool)> {
         }
     }
     let (me, opp) = (black, white);
-    let (me, opp) = if black_to_move { (me, opp) } else { (opp, me) };
+    let (me, opp) = colours(Board { me, opp }, black_to_move);
     Some((Board { me, opp }, black_to_move))
 }
 
