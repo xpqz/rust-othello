@@ -8,8 +8,8 @@ use othello::eval::evaluate;
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
 use othello::search::{
-    Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, search, search_iterative,
-    search_limited,
+    Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, ordered_moves, search,
+    search_iterative, search_limited,
 };
 
 fn at(file: usize, rank: usize) -> u64 {
@@ -396,4 +396,27 @@ fn deadline_smoke() {
     assert_ne!(result.status, SearchStatus::Complete);
     assert!(!result.solved);
     assert_ne!(legal_moves(board.me, board.opp) & (1u64 << result.best), 0);
+}
+
+#[test]
+fn ordering_priorities() {
+    let board = Board {
+        me: at(2, 0) | at(1, 3) | at(4, 3),
+        opp: at(1, 0) | at(1, 2) | at(5, 3),
+    };
+    let moves = legal_moves(board.me, board.opp);
+    let (order, len) = ordered_moves(board, moves, 1, None);
+    assert_eq!(&order[..len], &[sq(0, 0), sq(6, 3), sq(1, 1)]);
+
+    let (order, len) = ordered_moves(board, moves, 1, Some(sq(1, 1)));
+    assert_eq!(order[0], sq(1, 1));
+    assert_eq!(len, 3);
+}
+
+#[test]
+fn ordering_start_ties() {
+    let board = Board::START;
+    let moves = legal_moves(board.me, board.opp);
+    let (order, len) = ordered_moves(board, moves, 1, Some(sq(5, 4)));
+    assert_eq!(&order[..len], &[sq(5, 4), sq(3, 2), sq(2, 3), sq(4, 5)]);
 }
