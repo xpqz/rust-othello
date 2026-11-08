@@ -203,3 +203,19 @@ fn complete_depth() {
     );
     assert!(result.nodes > 0);
 }
+
+#[test]
+fn double_no_move() {
+    let config = config();
+    let board = Board {
+        me: at(0, 0) | at(2, 0) | at(4, 0),
+        opp: at(1, 0) | at(3, 0) | at(5, 0) | at(6, 0),
+    };
+    assert_eq!(legal_moves(board.me, board.opp), at(7, 0));
+    let child = play(board, sq(7, 0));
+    assert!(is_terminal(child));
+    assert_eq!(final_score(child), -60);
+    assert_eq!(terminal_score(final_score(child)), -6000);
+    let mut ctx = Ctx::new(&config);
+    assert_eq!(negamax(board, 1, -INF, INF, &mut ctx), Some(6000));
+}
