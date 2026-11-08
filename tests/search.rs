@@ -11,7 +11,7 @@ use othello::search::{
     Ctx, NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, negamax, ordered_moves, search,
     search_iterative, search_limited, search_tt,
 };
-use othello::tt::Table;
+use othello::tt::{Bound, Entry, NO_MOVE, Table, zobrist};
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -572,4 +572,113 @@ fn tt_sample_equivalence() {
         let warm = search_tt(board, SearchLimits::depth(4), &config, &mut table);
         assert_eq!(warm.score, cold.score, "{board:?}");
     }
+}
+
+fn corpus() -> Vec<(Board, i32)> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/bench/corpus.txt");
+    std::fs::read_to_string(path)
+        .unwrap()
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .map(|line| {
+            let mut parts = line.split_whitespace();
+            let me = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
+            let opp = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
+            let score = parts.next().unwrap().parse().unwrap();
+            (Board { me, opp }, score)
+        })
+        .collect()
+}
+
+fn corpus_score(board: Board, config: &SearchConfig) -> i32 {
+    if is_terminal(board) {
+        terminal_score(final_score(board))
+    } else if legal_moves(board.me, board.opp) == 0 {
+        -search_limited(pass(board), SearchLimits::depth(4), config).score
+    } else {
+        search_limited(board, SearchLimits::depth(4), config).score
+    }
+}
+
+#[test]
+fn corpus_frozen() {
+    let config = config();
+    let corpus = corpus();
+    assert!(corpus.len() >= 20);
+    let (mut pass, mut terminal, mut mid, mut end) = (0, 0, 0, 0);
+    for (board, expected) in corpus {
+        if is_terminal(board) {
+            terminal += 1;
+        } else if legal_moves(board.me, board.opp) == 0 {
+            pass += 1;
+        } else if othello::board::empty_count(board) <= 12 {
+            end += 1;
+        } else {
+            mid += 1;
+        }
+        assert_eq!(corpus_score(board, &config), expected, "{board:?}");
+    }
+    assert!(pass >= 1 && terminal >= 1 && mid >= 8 && end >= 4);
+}
+
+#[test]
+fn corpus_tt() {
+    let config = config();
+    for (board, expected) in corpus() {
+        if is_terminal(board) {
+            continue;
+        }
+        let root = if legal_moves(board.me, board.opp) == 0 {
+            pass(board)
+        } else {
+            board
+        };
+        let sign = if root == board { 1 } else { -1 };
+        let mut table = Table::new(1 << 16);
+        let warm = search_tt(root, SearchLimits::depth(4), &config, &mut table);
+        assert_eq!(sign * warm.score, expected, "{board:?}");
+    }
+}
+
+#[test]
+fn corpus_preload() {
+    let config = config();
+    for (board, expected) in corpus() {
+        if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let mut table = Table::new(1 << 16);
+        for depth in 1..4 {
+            table.store(Entry::heuristic(
+                zobrist(board),
+                0,
+                depth,
+                Bound::Exact,
+                NO_MOVE,
+            ));
+        }
+        let warm = search_tt(board, SearchLimits::depth(4), &config, &mut table);
+        assert_eq!(warm.score, expected, "{board:?}");
+    }
+}
+
+#[test]
+fn corpus_ordering_nodes() {
+    let ordered = SearchConfig {
+        ordering: true,
+        ..config()
+    };
+    let unordered = SearchConfig {
+        ordering: false,
+        ..config()
+    };
+    let (mut with, mut without) = (0, 0);
+    for (board, _) in corpus() {
+        if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        with += search_limited(board, SearchLimits::depth(4), &ordered).nodes;
+        without += search_limited(board, SearchLimits::depth(4), &unordered).nodes;
+    }
+    assert!(with * 100 <= without * 60, "{with} vs {without}");
 }
