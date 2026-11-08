@@ -1,6 +1,4 @@
-mod common;
-
-use common::Rng;
+use othello::rng::Rng;
 
 #[test]
 fn known_vectors() {

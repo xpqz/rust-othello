@@ -8,13 +8,14 @@ fn at(file: usize, rank: usize) -> u64 {
 
 #[test]
 fn transform_orientation() {
+    let b1 = at(1, 0);
     assert_eq!(Sym::ALL.len(), 8);
-    assert_eq!(transform(at(0, 0), Sym::Rot90), at(7, 0));
-    assert_eq!(transform(at(0, 0), Sym::Rot180), at(7, 7));
-    assert_eq!(transform(at(0, 0), Sym::Rot270), at(0, 7));
-    assert_eq!(transform(at(0, 0), Sym::FlipH), at(7, 0));
-    assert_eq!(transform(at(0, 0), Sym::FlipV), at(0, 7));
-    assert_eq!(transform(at(0, 0), Sym::FlipDiag), at(0, 0));
-    assert_eq!(transform(at(0, 0), Sym::FlipAnti), at(7, 7));
-    assert_eq!(transform(at(1, 0), Sym::Rot90), at(7, 1));
+    assert_eq!(transform(b1, Sym::Identity), at(1, 0));
+    assert_eq!(transform(b1, Sym::Rot90), at(7, 1));
+    assert_eq!(transform(b1, Sym::Rot180), at(6, 7));
+    assert_eq!(transform(b1, Sym::Rot270), at(0, 6));
+    assert_eq!(transform(b1, Sym::FlipH), at(6, 0));
+    assert_eq!(transform(b1, Sym::FlipV), at(1, 7));
+    assert_eq!(transform(b1, Sym::FlipDiag), at(0, 1));
+    assert_eq!(transform(b1, Sym::FlipAnti), at(7, 6));
 }

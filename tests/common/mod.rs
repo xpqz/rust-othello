@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-pub type Rng = othello::rng::Rng;
-
 pub fn format_bits(me: u64, opp: u64) -> String {
     let mut out = String::new();
     for rank in (0..8).rev() {

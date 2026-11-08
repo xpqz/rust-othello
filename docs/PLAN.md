@@ -320,6 +320,7 @@ src/
 tests/
   common/mod.rs     helpers, naive reference, D4 test transforms, loaders
   score.rs          pure conversion, bounds, infinity
+  rng.rs            xorshift64* known-answer vectors
   movegen.rs        differential move generation and start-position fixture
   perft.rs          exact counts, pass and early-terminal fixtures
   symmetry.rs       D4 orders, composition, commutation
