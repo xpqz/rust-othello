@@ -1,30 +1,20 @@
-pub const NOT_A: u64 = 0xfefe_fefe_fefe_fefe;
-pub const NOT_H: u64 = 0x7f7f_7f7f_7f7f_7f7f;
+//! Bitboards; square and start conventions are in the crate docs.
 
-const DIRS: [(i8, u64); 8] = [
-    (1, NOT_A),
-    (-1, NOT_H),
-    (8, !0),
-    (-8, !0),
-    (9, NOT_A),
-    (7, NOT_H),
-    (-7, NOT_A),
-    (-9, NOT_H),
-];
+const NOT_A: u64 = 0xfefe_fefe_fefe_fefe;
+const NOT_H: u64 = 0x7f7f_7f7f_7f7f_7f7f;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Dir {
-    E,
-    W,
-    N,
-    S,
-    NE,
-    NW,
-    SE,
-    SW,
-}
+pub struct Dir(i8, u64);
 
 impl Dir {
+    pub const E: Dir = Dir(1, NOT_A);
+    pub const W: Dir = Dir(-1, NOT_H);
+    pub const N: Dir = Dir(8, !0);
+    pub const S: Dir = Dir(-8, !0);
+    pub const NE: Dir = Dir(9, NOT_A);
+    pub const NW: Dir = Dir(7, NOT_H);
+    pub const SE: Dir = Dir(-7, NOT_A);
+    pub const SW: Dir = Dir(-9, NOT_H);
     pub const ALL: [Dir; 8] = [
         Dir::E,
         Dir::W,
@@ -51,12 +41,11 @@ impl Board {
     };
 }
 
-pub fn shift(bits: u64, dir: Dir) -> u64 {
-    let (step, mask) = DIRS[dir as usize];
+pub fn shift(bits: u64, Dir(step, mask): Dir) -> u64 {
     if step > 0 {
-        (bits << (step as u32)) & mask
+        (bits << step) & mask
     } else {
-        (bits >> ((-step) as u32)) & mask
+        (bits >> -step) & mask
     }
 }
 
@@ -65,12 +54,12 @@ pub fn legal_moves(me: u64, opp: u64) -> u64 {
     let mut moves = 0;
     for dir in Dir::ALL {
         let mut run = shift(me, dir) & opp;
-        let mut flips = 0;
+        let mut line = 0;
         while run != 0 {
-            flips |= run;
+            line |= run;
             run = shift(run, dir) & opp;
         }
-        moves |= shift(flips, dir) & empty;
+        moves |= shift(line, dir) & empty;
     }
     moves
 }
