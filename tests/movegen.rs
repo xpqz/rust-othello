@@ -132,5 +132,60 @@ fn terminal_board() {
     };
     assert!(is_terminal(won));
     assert_eq!(final_score(won), 62);
+    assert_eq!(final_score(pass(won)), -62);
+
+    let full = Board {
+        me: (1 << 33) - 1,
+        opp: !((1 << 33) - 1),
+    };
+    assert!(is_terminal(full));
+    assert_eq!(final_score(full), 2);
+
     assert!(!is_terminal(Board::START));
+    assert!(!is_terminal(Board {
+        me: bit(1, 0),
+        opp: bit(0, 0),
+    }));
+}
+
+#[test]
+fn flips_fixtures() {
+    let multi = Board {
+        me: bit(0, 0) | bit(2, 2),
+        opp: bit(1, 0) | bit(2, 1) | bit(3, 0),
+    };
+    assert_eq!(flips(multi, sq(2, 0)), bit(1, 0) | bit(2, 1));
+
+    let wrap = Board {
+        me: bit(7, 2) | bit(1, 1),
+        opp: bit(7, 1) | bit(0, 1),
+    };
+    assert_eq!(flips(wrap, sq(7, 0)), bit(7, 1));
+
+    let long = Board {
+        me: bit(0, 0),
+        opp: bit(1, 0) | bit(2, 0) | bit(3, 0) | bit(4, 0) | bit(5, 0) | bit(6, 0),
+    };
+    assert_eq!(
+        flips(long, sq(7, 0)),
+        bit(1, 0) | bit(2, 0) | bit(3, 0) | bit(4, 0) | bit(5, 0) | bit(6, 0)
+    );
+}
+
+#[test]
+fn opening_invariants() {
+    let start = Board::START;
+    let before = disc_count(start.me) + disc_count(start.opp);
+    for square in [sq(2, 3), sq(3, 2), sq(4, 5), sq(5, 4)] {
+        assert_ne!(flips(start, square), 0);
+        let after = play(start, square);
+        assert_eq!(disc_count(after.me) + disc_count(after.opp), before + 1);
+    }
+}
+
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic]
+fn play_illegal() {
+    let _ = play(Board::START, sq(0, 0));
 }

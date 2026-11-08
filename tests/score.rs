@@ -52,4 +52,10 @@ fn terminal_wiring() {
         opp: 1 << 63,
     };
     assert_eq!(terminal_score(final_score(board)), 6_200);
+
+    let tied = Board {
+        me: 1,
+        opp: 1 << 63,
+    };
+    assert_eq!(terminal_score(final_score(tied)), 0);
 }
