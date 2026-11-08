@@ -366,7 +366,7 @@ scripts/
 | `agents.rs` | 47 | Trait/factory and small adapters |
 | `rng.rs` | 20 | Production PRNG |
 | `cli.rs` + `main.rs` | 184 | Printer/parser, play/perft/bench |
-| **Total** | **999** | Estimates at the ceiling; actual engine is 996 |
+| **Total** | **999** | Estimates at the ceiling; actual engine is 992 |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
 engine claim and does not consume the engine headroom.
@@ -885,8 +885,8 @@ baseline win.
 
 - Feature functions with the corrected mobility, frontier, and dynamic corner
   risk. Specify phase endpoints and feature weights before implementation.
-- Disc-diff active in the heuristic region above the 12-empty solver threshold;
-  tune it on positions where the heuristic runs.
+- Disc-diff was removed by #99's direct ablation (no-disc 0.773 vs base);
+  retained features (mobility, frontier, corner risk) have direct ablations.
 - Optional conservative stability, added last and kept only if an ablation
   shows a gain.
 - `tests/eval.rs`: hand-computed values, unequal mobility counts, frontier

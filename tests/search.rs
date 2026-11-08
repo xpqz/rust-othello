@@ -111,11 +111,11 @@ fn fail_soft() {
     let config = config();
     let mut ctx = Ctx::new(&config);
     let value = negamax(Board::START, 1, 5000, INF, &mut ctx).unwrap();
-    assert_eq!(value, -27);
+    assert_eq!(value, -33);
     assert!(value < 5000);
     let mut ctx = Ctx::new(&config);
     let value = negamax(Board::START, 1, -INF, -100, &mut ctx).unwrap();
-    assert_eq!(value, -27);
+    assert_eq!(value, -33);
     assert!(value > -100);
 }
 

@@ -33,10 +33,6 @@ pub fn phase(empties: u32) -> i32 {
     (60 - empty) as i32 * 1000 / 48
 }
 
-pub fn disc_weight(empties: u32) -> i32 {
-    phase(empties) / 10
-}
-
 fn blend(weights: [i32; 2], phase: i32) -> i32 {
     weights[0] + (weights[1] - weights[0]) * phase / 1000
 }
@@ -100,7 +96,6 @@ pub fn evaluate(board: Board) -> i32 {
     value += frontier(board) * blend(FRONTIER_WEIGHTS, phase);
     let risk = corner_risk(board, board.opp) - corner_risk(board, board.me);
     value += risk * blend(RISK_WEIGHTS, phase) / 1000;
-    value += (mine - theirs) * disc_weight(empties as u32);
     debug_assert!(value.abs() <= EVAL_BOUND, "evaluate out of bounds: {value}");
     value.clamp(-EVAL_BOUND, EVAL_BOUND)
 }
