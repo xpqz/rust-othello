@@ -1,3 +1,5 @@
+use std::mem::size_of;
+
 use othello::board::Board;
 use othello::score::INF;
 use othello::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
@@ -23,6 +25,12 @@ fn zobrist_keys() {
         opp: Board::START.me,
     });
     assert_ne!(key, swapped);
+    assert_eq!(key, 0xe63a_89a2_65d0_0287);
+}
+
+#[test]
+fn entry_size() {
+    assert_eq!(size_of::<Entry>(), 16);
 }
 
 #[test]
@@ -49,6 +57,22 @@ fn strict_depth_and_domain() {
     let endgame = entry(2, 5, 0, Bound::Exact, Domain::Endgame);
     assert_eq!(endgame.cutoff(0, -INF, INF), None);
     assert_eq!(endgame.endgame_cutoff(-INF, INF), Some(5));
+
+    let lower = entry(3, 10, 0, Bound::Lower, Domain::Endgame);
+    assert_eq!(lower.endgame_cutoff(0, 10), Some(10));
+    assert_eq!(
+        entry(4, 9, 0, Bound::Lower, Domain::Endgame).endgame_cutoff(0, 10),
+        None
+    );
+    let upper = entry(5, 0, 0, Bound::Upper, Domain::Endgame);
+    assert_eq!(upper.endgame_cutoff(0, 10), Some(0));
+    assert_eq!(
+        entry(6, 1, 0, Bound::Upper, Domain::Endgame).endgame_cutoff(0, 10),
+        None
+    );
+
+    let heuristic = entry(7, 5, 0, Bound::Exact, Domain::Heuristic);
+    assert_eq!(heuristic.endgame_cutoff(-INF, INF), None);
 }
 
 #[test]
