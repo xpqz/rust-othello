@@ -366,7 +366,7 @@ scripts/
 | `agents.rs` | 47 | Trait/factory and small adapters |
 | `rng.rs` | 20 | Production PRNG |
 | `cli.rs` + `main.rs` | 184 | Printer/parser, play/perft/bench |
-| **Total** | **999** | Estimates at the ceiling; actual engine is 936 |
+| **Total** | **999** | Estimates at the ceiling; actual engine is 996 |
 
 The tools crate has a separate 650-line budget. Its code is not part of the
 engine claim and does not consume the engine headroom.

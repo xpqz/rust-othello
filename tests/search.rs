@@ -111,12 +111,12 @@ fn fail_soft() {
     let config = config();
     let mut ctx = Ctx::new(&config);
     let value = negamax(Board::START, 1, 5000, INF, &mut ctx).unwrap();
-    assert_eq!(value, 297);
+    assert_eq!(value, -27);
     assert!(value < 5000);
     let mut ctx = Ctx::new(&config);
-    let value = negamax(Board::START, 1, -INF, 0, &mut ctx).unwrap();
-    assert_eq!(value, 297);
-    assert!(value > 0);
+    let value = negamax(Board::START, 1, -INF, -100, &mut ctx).unwrap();
+    assert_eq!(value, -27);
+    assert!(value > -100);
 }
 
 #[test]
@@ -541,7 +541,7 @@ fn tt_deep_then_shallow() {
 fn tt_warm_nodes() {
     let config = config();
     let board = Board::START;
-    let limits = SearchLimits::depth(4);
+    let limits = SearchLimits::depth(8);
     let mut table = Table::new(1 << 16);
     let cold = search_tt(board, limits, &config, &mut table);
     let warm = search_tt(board, limits, &config, &mut table);
@@ -738,7 +738,7 @@ fn corpus_tt_nodes_deep() {
         if is_terminal(board) || legal_moves(board.me, board.opp) == 0 {
             continue;
         }
-        let limits = SearchLimits::depth(8);
+        let limits = SearchLimits::depth(9);
         cold_nodes += search_limited(board, limits, &config).nodes;
         let mut table = Table::new(1 << 20);
         tt_nodes += search_tt(board, limits, &config, &mut table).nodes;

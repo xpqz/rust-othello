@@ -3,7 +3,7 @@
 //! See [`crate::score`] for the heuristic-bound tradeoff.
 
 use crate::board::{Board, Dir, disc_count, legal_moves, shift};
-use crate::score::{EVAL_BOUND, SCORE_SCALE};
+use crate::score::EVAL_BOUND;
 
 const WEIGHTS: [[i32; 8]; 8] = [
     [100, -1, 10, 5, 5, 10, -1, 100],
@@ -23,6 +23,23 @@ const X_PENALTY: i32 = 49;
 const C_PENALTY: i32 = 19;
 
 pub const MOBILITY_SCALE: i32 = 1000;
+
+const MOBILITY_WEIGHTS: [i32; 2] = [500, 800];
+const FRONTIER_WEIGHTS: [i32; 2] = [10, 4];
+const RISK_WEIGHTS: [i32; 2] = [1000, 700];
+
+pub fn phase(empties: u32) -> i32 {
+    let empty = empties.clamp(12, 60);
+    (60 - empty) as i32 * 1000 / 48
+}
+
+pub fn disc_weight(empties: u32) -> i32 {
+    phase(empties) / 10
+}
+
+fn blend(weights: [i32; 2], phase: i32) -> i32 {
+    weights[0] + (weights[1] - weights[0]) * phase / 1000
+}
 
 fn neighbours(bits: u64) -> u64 {
     Dir::ALL.iter().fold(0, |acc, &dir| acc | shift(bits, dir))
@@ -67,7 +84,10 @@ fn corner_risk(board: Board, bits: u64) -> i32 {
 /// For non-terminal positions; terminals use
 /// [`crate::score::terminal_score`].
 pub fn evaluate(board: Board) -> i32 {
-    let mut value = (disc_count(board.me) as i32 - disc_count(board.opp) as i32) * SCORE_SCALE;
+    let (mine, theirs) = (disc_count(board.me) as i32, disc_count(board.opp) as i32);
+    let empties = 64 - mine - theirs;
+    let phase = phase(empties as u32);
+    let mut value = 0;
     for (square, weight) in WEIGHTS.as_flattened().iter().enumerate() {
         let bit = 1u64 << square;
         if board.me & bit != 0 {
@@ -76,8 +96,11 @@ pub fn evaluate(board: Board) -> i32 {
             value -= weight;
         }
     }
-    value -= corner_risk(board, board.me);
-    value += corner_risk(board, board.opp);
+    value += mobility(board) * blend(MOBILITY_WEIGHTS, phase) / 1000;
+    value += frontier(board) * blend(FRONTIER_WEIGHTS, phase);
+    let risk = corner_risk(board, board.opp) - corner_risk(board, board.me);
+    value += risk * blend(RISK_WEIGHTS, phase) / 1000;
+    value += (mine - theirs) * disc_weight(empties as u32);
     debug_assert!(value.abs() <= EVAL_BOUND, "evaluate out of bounds: {value}");
     value.clamp(-EVAL_BOUND, EVAL_BOUND)
 }

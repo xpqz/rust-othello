@@ -18,14 +18,14 @@ fn start_is_zero() {
 #[test]
 fn single_disc_values() {
     let cases = [
-        (at(0, 0), 200),
-        (at(1, 0), 80),
-        (at(1, 1), 50),
-        (at(2, 0), 110),
-        (at(3, 0), 105),
-        (at(2, 1), 98),
-        (at(3, 1), 98),
-        (at(2, 2), 99),
+        (at(0, 0), 90),
+        (at(1, 0), -30),
+        (at(1, 1), -60),
+        (at(2, 0), 0),
+        (at(3, 0), -5),
+        (at(2, 1), -12),
+        (at(3, 1), -12),
+        (at(2, 2), -11),
     ];
     for (me, expected) in cases {
         assert_eq!(evaluate(Board { me, opp: 0 }), expected, "{me:#x}");
@@ -36,7 +36,7 @@ fn single_disc_values() {
 fn mixed_table_sum() {
     let me = at(0, 0) | at(7, 7);
     let opp = at(1, 0) | at(6, 7);
-    assert_eq!(evaluate(Board { me, opp }), 202);
+    assert_eq!(evaluate(Board { me, opp }), 535);
 }
 
 #[test]
@@ -132,14 +132,14 @@ fn corner_risk_while_empty() {
             me: at(1, 1),
             opp: 0
         }),
-        50
+        -60
     );
     assert_eq!(
         evaluate(Board {
             me: at(1, 0),
             opp: 0
         }),
-        80
+        -30
     );
 }
 
@@ -151,21 +151,21 @@ fn corner_risk_disappears() {
             me: at(1, 1) | corner,
             opp: 0,
         }),
-        299
+        79
     );
     assert_eq!(
         evaluate(Board {
             me: at(1, 0) | corner,
             opp: 0,
         }),
-        299
+        79
     );
     assert_eq!(
         evaluate(Board {
             me: at(1, 1),
             opp: corner,
         }),
-        -101
+        -351
     );
 }
 
