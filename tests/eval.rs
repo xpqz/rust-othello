@@ -238,3 +238,28 @@ fn phase_end_value() {
     };
     assert_eq!(evaluate(board), 514);
 }
+
+#[test]
+fn phase_intermediate() {
+    assert_eq!(phase(48), 250);
+    assert_eq!(phase(18), 875);
+    assert_eq!(disc_weight(48), 25);
+    assert_eq!(disc_weight(18), 87);
+}
+
+#[test]
+fn bounded_playouts() {
+    let mut rng = Rng::new(0xB0A7);
+    let mut checked = 0;
+    for _ in 0..100 {
+        playout(&mut rng, |board| {
+            if is_terminal(board) {
+                return;
+            }
+            let value = evaluate(board);
+            assert!((-EVAL_BOUND..=EVAL_BOUND).contains(&value), "{value}");
+            checked += 1;
+        });
+    }
+    assert!(checked > 0);
+}
