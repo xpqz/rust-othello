@@ -884,10 +884,11 @@ fn solver_interior_is_heuristic() {
         endgame_threshold: 0,
         ..base
     };
+    let limits = SearchLimits::depth(3);
     let board = sample_positions(8, 8, 20)
         .into_iter()
         .find(|board| {
-            let heuristic = search_limited(*board, SearchLimits::depth(3), &probe);
+            let heuristic = search_limited(*board, limits, &probe);
             let mut ctx = Ctx::new(&base);
             heuristic.score != solve(*board, -INF, INF, &mut ctx).unwrap()
         })
@@ -900,13 +901,10 @@ fn solver_interior_is_heuristic() {
         endgame_threshold: 7,
         ..base
     };
-    let result = search_limited(board, SearchLimits::depth(10), &config);
+    let result = search_limited(board, limits, &config);
     assert_eq!(result.status, SearchStatus::Complete);
     assert!(!result.solved);
-    assert_eq!(
-        result.score,
-        search_limited(board, SearchLimits::depth(10), &probe).score
-    );
+    assert_eq!(result.score, search_limited(board, limits, &probe).score);
     assert_ne!(result.score, exact_score);
 }
 
