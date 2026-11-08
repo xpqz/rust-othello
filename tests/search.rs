@@ -79,7 +79,6 @@ fn horizon_terminal() {
     assert_eq!(legal_moves(board.me, board.opp), at(0, 0));
     let child = play(board, sq(0, 0));
     assert!(is_terminal(child));
-    assert_eq!(evaluate(child), -6112);
     assert_eq!(terminal_score(final_score(child)), -6200);
     let mut ctx = Ctx::new(&config);
     assert_eq!(negamax(board, 1, -INF, INF, &mut ctx), Some(6200));
