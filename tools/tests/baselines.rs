@@ -73,7 +73,7 @@ fn phase2_selectable() {
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(text.contains("pairs 1"), "{text}");
     assert!(
-        text.contains("phase2 (eval_phase2, depth 4, threshold 12)"),
+        text.contains("phase2 (eval_phase2, depth 4, time none, nodes 0, threshold 12)"),
         "{text}"
     );
 }
@@ -107,7 +107,8 @@ fn ab_selectable() {
     ]);
     assert!(output.status.success());
     assert!(
-        String::from_utf8_lossy(&output.stdout).contains("ab:2 (evaluate, depth 2, threshold 12)")
+        String::from_utf8_lossy(&output.stdout)
+            .contains("ab:2 (evaluate, depth 2, time none, nodes 0, threshold 12)")
     );
 }
 
@@ -211,7 +212,7 @@ fn timed_and_node_agents() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("ab:2 (evaluate, depth 2, time 1000"),
+        text.contains("ab:2:1000 (evaluate, depth 2, time 1000"),
         "{text}"
     );
 
@@ -229,7 +230,7 @@ fn timed_and_node_agents() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("phase2 (eval_phase2, depth 4, time 1000"),
+        text.contains("phase2:1000 (eval_phase2, depth 4, time 1000"),
         "{text}"
     );
 }
@@ -275,7 +276,7 @@ fn node_rule_records_limits() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("ab:2 (evaluate, depth 64, nodes 100, threshold 12)"),
+        text.contains("ab:2 (evaluate, depth 64, time none, nodes 100, threshold 12)"),
         "{text}"
     );
 

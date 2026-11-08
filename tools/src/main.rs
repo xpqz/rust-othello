@@ -53,26 +53,19 @@ fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
     Ok((kind, depth, time))
 }
 
-fn effective(kind: &str, depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
+fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
     if nodes == 0 {
         return Ok((depth, time.unwrap_or(NO_DEADLINE)));
     }
     if time.is_some() {
         return Err("time control conflicts with --nodes".into());
     }
-    Ok((
-        if kind == "phase2" || kind == "ab" {
-            64
-        } else {
-            depth
-        },
-        NO_DEADLINE,
-    ))
+    Ok((64, NO_DEADLINE))
 }
 
 fn make_agent(name: &str, seed: u64, nodes: u64) -> Result<Box<dyn Agent>, String> {
     let (kind, depth, time) = parse_name(name)?;
-    let (depth, time) = effective(kind, depth, time, nodes)?;
+    let (depth, time) = effective(depth, time, nodes)?;
     let limits = SearchLimits::new(depth, time, nodes);
     match kind {
         "random" => Ok(Box::new(random_agent(seed))),
@@ -88,28 +81,18 @@ fn describe(name: &str, nodes: u64) -> String {
         "random" => "random".into(),
         "greedy" => "greedy (disc-greedy)".into(),
         _ => {
-            let (effective_depth, effective_time) = effective(kind, depth, time, nodes).unwrap();
+            let (depth, time) = effective(depth, time, nodes).unwrap();
             let eval = if kind == "phase2" {
                 "eval_phase2"
             } else {
                 "evaluate"
             };
-            let base = if kind == "phase2" {
-                "phase2".to_string()
+            let time = if time == NO_DEADLINE {
+                "none".to_string()
             } else {
-                format!("ab:{depth}")
+                time.to_string()
             };
-            let suffix = if effective_time == NO_DEADLINE {
-                String::new()
-            } else {
-                format!(", time {effective_time}")
-            };
-            let node = if nodes > 0 {
-                format!(", nodes {nodes}")
-            } else {
-                String::new()
-            };
-            format!("{base} ({eval}, depth {effective_depth}{suffix}{node}, threshold 12)")
+            format!("{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold 12)")
         }
     }
 }
