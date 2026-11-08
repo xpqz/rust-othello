@@ -11,6 +11,15 @@ pub struct SearchConfig {
     pub endgame_threshold: u32,
 }
 
+impl SearchConfig {
+    pub fn standard() -> Self {
+        Self {
+            eval: crate::eval::evaluate,
+            endgame_threshold: 12,
+        }
+    }
+}
+
 pub const NO_DEADLINE: u64 = u64::MAX;
 
 #[derive(Clone, Copy, Debug)]
@@ -21,6 +30,14 @@ pub struct SearchLimits {
 }
 
 impl SearchLimits {
+    pub fn new(max_depth: u32, time_ms: u64, max_nodes: u64) -> Self {
+        Self {
+            max_depth,
+            time_ms,
+            max_nodes,
+        }
+    }
+
     pub fn depth(max_depth: u32) -> Self {
         Self {
             max_depth,

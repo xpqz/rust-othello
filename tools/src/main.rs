@@ -1,67 +1,88 @@
 use std::process::exit;
 
 use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
-use othello::eval::evaluate;
 use othello::rng::Rng;
-use othello::search::{SearchConfig, SearchLimits};
+use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits};
 use othello_tools::baselines::{PHASE2_DEPTH, phase2_config};
 use othello_tools::harness::{GameLog, play_game, points};
 use othello_tools::positions;
 use othello_tools::stats::{Interval, RESAMPLES, report_with};
 
 fn main() {
-    if let Err(message) = run() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let result = match args.split_first() {
+        Some((command, rest)) if command == "match" => match_command(rest),
+        _ => Err("usage: othello-tools match --a NAME --b NAME [--pairs N] [--seed S]".into()),
+    };
+    if let Err(message) = result {
         eprintln!("{message}");
         exit(2);
     }
 }
 
-fn run() -> Result<(), String> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.split_first() {
-        Some((command, rest)) if command == "match" => match_command(rest),
-        _ => Err("usage: othello-tools match --a NAME --b NAME [--pairs N] [--seed S]".into()),
-    }
+fn unknown(name: &str) -> String {
+    format!("unknown agent: {name}")
 }
 
-fn make_agent(name: &str, seed: u64) -> Result<Box<dyn Agent>, String> {
-    match name {
+fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
+    let mut parts = name.split(':');
+    let kind = parts.next().unwrap();
+    let time = |parts: &mut std::str::Split<char>| match parts.next() {
+        None => Ok(None),
+        Some(text) => text.parse().map(Some).map_err(|_| unknown(name)),
+    };
+    let (depth, time) = match kind {
+        "random" | "greedy" => (0, None),
+        "phase2" => (PHASE2_DEPTH, time(&mut parts)?),
+        "ab" => {
+            let depth = parts
+                .next()
+                .ok_or_else(|| unknown(name))?
+                .parse()
+                .map_err(|_| unknown(name))?;
+            if depth == 0 || depth > 10 {
+                return Err(unknown(name));
+            }
+            (depth, time(&mut parts)?)
+        }
+        _ => return Err(unknown(name)),
+    };
+    if parts.next().is_some() {
+        return Err(unknown(name));
+    }
+    Ok((kind, depth, time))
+}
+
+fn make_agent(name: &str, seed: u64, nodes: u64) -> Result<Box<dyn Agent>, String> {
+    let (kind, depth, time) = parse_name(name)?;
+    let time = time.unwrap_or(NO_DEADLINE);
+    let depth = if nodes > 0 && kind == "phase2" {
+        64
+    } else {
+        depth
+    };
+    let limits = SearchLimits::new(depth, if nodes > 0 { NO_DEADLINE } else { time }, nodes);
+    match kind {
         "random" => Ok(Box::new(random_agent(seed))),
         "greedy" => Ok(Box::new(greedy_agent())),
-        "phase2" => Ok(Box::new(search_agent(
-            phase2_config(),
-            SearchLimits::depth(PHASE2_DEPTH),
-        ))),
-        _ => {
-            let depth = name
-                .strip_prefix("ab:")
-                .ok_or_else(|| format!("unknown agent: {name}"))?
-                .parse::<u32>()
-                .map_err(|_| format!("unknown agent: {name}"))?;
-            if depth == 0 || depth > 10 {
-                return Err(format!("unknown agent: {name}"));
-            }
-            let config = SearchConfig {
-                eval: evaluate,
-                endgame_threshold: 12,
-            };
-            Ok(Box::new(search_agent(config, SearchLimits::depth(depth))))
-        }
+        "phase2" => Ok(Box::new(search_agent(phase2_config(), limits))),
+        _ => Ok(Box::new(search_agent(SearchConfig::standard(), limits))),
     }
 }
 
 fn describe(name: &str) -> String {
-    match name {
+    let (kind, depth, time) = parse_name(name).unwrap();
+    let suffix = time.map_or_else(String::new, |time| format!(", time {time}"));
+    match kind {
         "random" => "random".into(),
         "greedy" => "greedy (disc-greedy)".into(),
-        "phase2" => format!("phase2 (eval_phase2, depth {PHASE2_DEPTH}, threshold 12)"),
-        other => format!("{other} (evaluate, depth {}, threshold 12)", &other[3..]),
+        "phase2" => format!("phase2 (eval_phase2, depth {PHASE2_DEPTH}{suffix}, threshold 12)"),
+        _ => format!("ab:{depth} (evaluate, depth {depth}{suffix}, threshold 12)"),
     }
 }
 
 fn stream(seed: u64, pair: usize, game: u64, side: u64) -> u64 {
-    let id = ((pair as u64) << 2) | (game << 1) | side;
-    Rng::new(Rng::new(seed).next_u64() ^ id).next_u64()
+    Rng::new(Rng::new(seed).next_u64() ^ ((pair as u64) << 2 | (game << 1) | side)).next_u64()
 }
 
 fn match_command(args: &[String]) -> Result<(), String> {
@@ -70,7 +91,7 @@ fn match_command(args: &[String]) -> Result<(), String> {
         "/../bench/openings_validation.txt"
     )
     .to_string();
-    let (mut a, mut b, mut pairs, mut seed) = (None, None, 100usize, 1u64);
+    let (mut a, mut b, mut pairs, mut seed, mut nodes) = (None, None, 100usize, 1u64, 0u64);
     let mut index = 0;
     while index < args.len() {
         let value = args.get(index + 1).ok_or("missing option value")?;
@@ -80,6 +101,7 @@ fn match_command(args: &[String]) -> Result<(), String> {
             "--pairs" => pairs = value.parse().map_err(|_| "invalid pairs")?,
             "--seed" => seed = value.parse().map_err(|_| "invalid seed")?,
             "--openings" => openings_path = value.clone(),
+            "--nodes" => nodes = value.parse().map_err(|_| "invalid nodes")?,
             flag => return Err(format!("unknown option: {flag}")),
         }
         index += 2;
@@ -103,8 +125,8 @@ fn match_command(args: &[String]) -> Result<(), String> {
         {
             let black_seed = stream(seed, pair, game as u64, 0);
             let white_seed = stream(seed, pair, game as u64, 1);
-            let mut black_agent = make_agent(black, black_seed)?;
-            let mut white_agent = make_agent(white, white_seed)?;
+            let mut black_agent = make_agent(black, black_seed, nodes)?;
+            let mut white_agent = make_agent(white, white_seed, nodes)?;
             let result = play_game(&opening.squares, &mut *black_agent, &mut *white_agent)?;
             pair_points[game] = if game == 0 {
                 points(result.score)
@@ -149,7 +171,7 @@ fn match_command(args: &[String]) -> Result<(), String> {
     );
     println!("a {}", describe(&a));
     println!("b {}", describe(&b));
-    println!("seed {seed} resamples {RESAMPLES} evaluator-only");
+    println!("seed {seed} resamples {RESAMPLES} evaluator-only nodes {nodes}");
     for line in logs {
         println!("{line}");
     }

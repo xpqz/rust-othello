@@ -1,22 +1,19 @@
 use std::io::{self, BufRead};
+use std::time::Instant;
 
 use crate::agents::{Agent, greedy_agent};
 use crate::board::{Board, is_terminal, legal_moves, pass, play, squares};
-use crate::eval::evaluate;
 use crate::perft::perft;
-use crate::search::{SearchConfig, search};
+use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_limited};
 
 pub fn run() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.as_slice() {
         [command] if command == "play" => play_game(),
         [command, depth] if command == "perft" => {
-            parse_depth(depth).map(|depth| println!("{}", perft(Board::START, depth)))
+            parse_depth(depth, 10).map(|depth| println!("{}", perft(Board::START, depth)))
         }
-        [command] if command == "bench" => bench(4),
-        [command, flag, depth] if command == "bench" && flag == "--depth" => {
-            parse_depth(depth).and_then(bench)
-        }
+        [command, rest @ ..] if command == "bench" => bench(rest),
         _ => Err("usage: othello <play|perft <depth>|bench [--depth N]>".into()),
     };
     if let Err(message) = result {
@@ -25,29 +22,52 @@ pub fn run() {
     }
 }
 
-fn parse_depth(text: &str) -> Result<u32, String> {
+fn parse_depth(text: &str, limit: u32) -> Result<u32, String> {
     match text.parse() {
-        Ok(depth) if depth <= 10 => Ok(depth),
+        Ok(depth) if depth <= limit => Ok(depth),
         _ => Err("invalid depth".into()),
     }
 }
 
-fn bench(depth: u32) -> Result<(), String> {
-    let config = SearchConfig {
-        eval: evaluate,
-        endgame_threshold: 12,
-    };
-    let result = search(Board::START, depth, &config);
-    let (d, s, n) = (result.depth, result.score, result.nodes);
-    println!("depth {d} score {s} nodes {n}");
+fn bench(args: &[String]) -> Result<(), String> {
+    let (mut depth, mut time_ms, mut max_nodes) = (10, NO_DEADLINE, 0);
+    for pair in args.chunks(2) {
+        let value = pair.get(1).ok_or("missing bench value")?;
+        match pair[0].as_str() {
+            "--depth" => depth = parse_depth(value, 64)?,
+            "--time-ms" => time_ms = value.parse().map_err(|_| "invalid time")?,
+            "--max-nodes" => max_nodes = value.parse().map_err(|_| "invalid nodes")?,
+            flag => return Err(format!("unknown option: {flag}")),
+        }
+    }
+    let config = SearchConfig::standard();
+    let start = Instant::now();
+    let result = search_limited(
+        Board::START,
+        SearchLimits::new(depth, time_ms, max_nodes),
+        &config,
+    );
+    let elapsed = start.elapsed().as_secs_f64() * 1000.0;
+    let nps = result.nodes as f64 * 1000.0 / elapsed.max(1e-9);
+    println!(
+        "depth {} score {} nodes {} nps {nps:.0} elapsed {elapsed:.2}ms",
+        result.depth, result.score, result.nodes
+    );
     Ok(())
 }
 
+fn cell(black: u64, white: u64, bit: u64) -> char {
+    match (black & bit != 0, white & bit != 0) {
+        (true, _) => 'X',
+        (false, true) => 'O',
+        _ => '.',
+    }
+}
+
 fn colours(board: Board, black_to_move: bool) -> (u64, u64) {
-    if black_to_move {
-        (board.me, board.opp)
-    } else {
-        (board.opp, board.me)
+    match black_to_move {
+        true => (board.me, board.opp),
+        false => (board.opp, board.me),
     }
 }
 
@@ -55,24 +75,15 @@ pub fn render(board: Board, black_to_move: bool) -> String {
     let (black, white) = colours(board, black_to_move);
     let mut out = String::from(" abcdefgh\n");
     for rank in (0..8).rev() {
-        out.push((b'1' + rank as u8) as char);
-        for file in 0..8 {
-            let bit = 1u64 << (rank * 8 + file);
-            let cell = if black & bit != 0 {
-                'X'
-            } else if white & bit != 0 {
-                'O'
-            } else {
-                '.'
-            };
-            out.push(cell);
-        }
-        out.push('\n');
+        let row: String = (0..8)
+            .map(|file| cell(black, white, 1u64 << (rank * 8 + file)))
+            .collect();
+        out.push_str(&format!("{}{row}\n", rank + 1));
     }
-    let legal: Vec<_> = squares(legal_moves(board.me, board.opp))
+    let legal = squares(legal_moves(board.me, board.opp))
         .map(square_name)
-        .collect();
-    let legal = legal.join(" ");
+        .collect::<Vec<_>>()
+        .join(" ");
     let side = if black_to_move { "Black" } else { "White" };
     let (b, w) = (black.count_ones(), white.count_ones());
     out.push_str(&format!(
@@ -86,10 +97,10 @@ pub fn parse(text: &str) -> Option<(Board, bool)> {
     if lines.len() != 10 {
         return None;
     }
-    if !lines[9].starts_with("Black") && !lines[9].starts_with("White") {
+    let black_to_move = lines[9].starts_with("Black");
+    if !black_to_move && !lines[9].starts_with("White") {
         return None;
     }
-    let black_to_move = lines[9].starts_with("Black");
     let (mut black, mut white) = (0u64, 0u64);
     for (row, line) in lines[1..9].iter().enumerate() {
         let cells = line.as_bytes();
