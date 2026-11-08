@@ -194,3 +194,54 @@ fn log_seeds() {
     };
     assert_ne!(seeds(lines[0]), seeds(lines[1]));
 }
+
+#[test]
+fn timed_and_node_agents() {
+    let output = tools(&[
+        "match",
+        "--a",
+        "ab:2:1000",
+        "--b",
+        "greedy",
+        "--pairs",
+        "1",
+        "--seed",
+        "1",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("ab:2 (evaluate, depth 2, time 1000"),
+        "{text}"
+    );
+
+    let output = tools(&[
+        "match",
+        "--a",
+        "phase2:1000",
+        "--b",
+        "greedy",
+        "--pairs",
+        "1",
+        "--seed",
+        "1",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("phase2 (eval_phase2, depth 4, time 1000"),
+        "{text}"
+    );
+}
+
+#[test]
+fn node_limited_match() {
+    let args = [
+        "match", "--a", "phase2", "--b", "greedy", "--pairs", "2", "--seed", "1", "--nodes", "100",
+    ];
+    let first = tools(&args);
+    let second = tools(&args);
+    assert!(first.status.success());
+    assert_eq!(first.stdout, second.stdout);
+    assert!(String::from_utf8_lossy(&first.stdout).contains("nodes 100"));
+}

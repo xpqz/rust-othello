@@ -163,3 +163,18 @@ fn scripted_game() {
         "{text}"
     );
 }
+
+#[test]
+fn bench_time_controls() {
+    let output = run(&["bench", "--depth", "10", "--time-ms", "0"], "");
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("depth 0"), "{text}");
+    assert!(text.contains("nps"), "{text}");
+
+    let output = run(&["bench", "--depth", "10", "--max-nodes", "1"], "");
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("depth 0"), "{text}");
+    assert!(text.contains("nps"), "{text}");
+}
