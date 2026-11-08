@@ -108,4 +108,5 @@ fn index_collision() {
 #[test]
 fn memory_cap_is_64_mb() {
     assert_eq!(MAX_ENTRIES * std::mem::size_of::<Entry>(), 64 << 20);
+    assert_eq!(Table::new(MAX_ENTRIES + 1).capacity(), MAX_ENTRIES);
 }

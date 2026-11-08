@@ -4,7 +4,7 @@ use std::time::Instant;
 use crate::agents::{Agent, greedy_agent};
 use crate::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use crate::perft::perft;
-use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_limited};
+use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_tt};
 
 pub fn run() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -48,7 +48,9 @@ fn bench(args: &[String]) -> Result<(), String> {
         ..SearchConfig::standard()
     };
     let start = Instant::now();
-    let result = search_limited(board, SearchLimits::new(depth, time_ms, max_nodes), &config);
+    let mut table = crate::tt::Table::new(crate::tt::MAX_ENTRIES);
+    let limits = SearchLimits::new(depth, time_ms, max_nodes);
+    let result = search_tt(board, limits, &config, &mut table);
     let elapsed = start.elapsed().as_secs_f64() * 1000.0;
     let nps = result.nodes as f64 * 1000.0 / elapsed.max(1e-9);
     println!(

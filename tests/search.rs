@@ -1155,7 +1155,8 @@ fn endgame_bench() {
                 continue;
             }
             let start = Instant::now();
-            let result = search_limited(board, SearchLimits::new(64, 1000, 0), &config);
+            let mut table = Table::new(othello::tt::MAX_ENTRIES);
+            let result = search_tt(board, SearchLimits::new(64, 1000, 0), &config, &mut table);
             times.push(start.elapsed().as_secs_f64() * 1000.0);
             nodes += result.nodes;
             completed += result.solved as usize;
@@ -1182,7 +1183,8 @@ fn endgame_bench() {
                 }
                 let mut ctx = Ctx::new(&config);
                 let exact = solve(board, -INF, INF, &mut ctx).unwrap();
-                let result = search_limited(board, SearchLimits::new(64, 5, 0), &config);
+                let mut table = Table::new(othello::tt::MAX_ENTRIES);
+                let result = search_tt(board, SearchLimits::new(64, 5, 0), &config, &mut table);
                 let reply = {
                     let mut ctx = Ctx::new(&config);
                     solve(play(board, result.best), -INF, INF, &mut ctx).unwrap()
@@ -1222,6 +1224,7 @@ fn solver_full_game() {
     let mut slowest: f64 = 0.0;
     let mut solved = 0;
     let mut moves = 0;
+    let mut table = Table::new(othello::tt::MAX_ENTRIES);
     while !is_terminal(board) {
         let legal = legal_moves(board.me, board.opp);
         if legal == 0 {
@@ -1229,7 +1232,7 @@ fn solver_full_game() {
             continue;
         }
         let start = Instant::now();
-        let result = search_limited(board, SearchLimits::new(64, 200, 0), &config);
+        let result = search_tt(board, SearchLimits::new(64, 200, 0), &config, &mut table);
         let move_ms = start.elapsed().as_secs_f64() * 1000.0;
         elapsed += move_ms;
         slowest = slowest.max(move_ms);

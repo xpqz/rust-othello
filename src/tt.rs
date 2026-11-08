@@ -75,6 +75,10 @@ impl Table {
         Self(vec![Entry::default(); entries.min(MAX_ENTRIES)])
     }
 
+    pub fn capacity(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn clear(&mut self) {
         self.0.fill(Entry::default());
     }
