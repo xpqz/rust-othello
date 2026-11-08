@@ -108,7 +108,7 @@ fn ab_selectable() {
     assert!(output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stdout)
-            .contains("ab:2 (evaluate, depth 2, time none, nodes 0, threshold 12)")
+            .contains("ab:2 (evaluate, depth 2, time none, nodes 0, threshold 14)")
     );
 }
 
@@ -276,7 +276,7 @@ fn node_rule_records_limits() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("ab:2 (evaluate, depth 64, time none, nodes 100, threshold 12)"),
+        text.contains("ab:2 (evaluate, depth 64, time none, nodes 100, threshold 14)"),
         "{text}"
     );
 

@@ -31,7 +31,7 @@ fn parse_depth(text: &str, limit: u32) -> Result<u32, String> {
 
 fn bench(args: &[String]) -> Result<(), String> {
     let (mut depth, mut time_ms, mut max_nodes) = (10, NO_DEADLINE, 0);
-    let (mut board, mut threshold) = (Board::START, 12);
+    let (mut board, mut threshold) = (Board::START, SearchConfig::standard().endgame_threshold);
     for pair in args.chunks(2) {
         let value = pair.get(1).ok_or("missing bench value")?;
         match pair[0].as_str() {
@@ -152,7 +152,7 @@ fn parse_move(board: Board, text: &str) -> Option<u8> {
 fn play_game() -> Result<(), String> {
     let mut board = Board::START;
     let mut black_to_move = true;
-    let mut agent = search_agent(SearchConfig::standard(), SearchLimits::new(64, 1000, 0));
+    let mut agent = search_agent(SearchConfig::standard(), SearchLimits::new(64, 3000, 0));
     let mut input = io::stdin().lock();
     loop {
         print!("{}", render(board, black_to_move));

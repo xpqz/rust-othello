@@ -37,7 +37,7 @@ production source. The tools crate has its own 650-line budget. Future model
 assets get a separate budget.
 
 Timing and node-reduction targets are measured on the frozen corpus and
-recorded hardware. Default play is 1000 ms per move, but tuning uses fixed node
+recorded hardware. Default play is 3000 ms per move, but tuning uses fixed node
 budgets and short depth/time controls; 400 pairs at the full default budget
 would take many hours. Node-budget matches are deterministic and reproducible;
 wall-clock runs are reserved for final checks. Optional parallel matches remain
@@ -852,7 +852,7 @@ reusable endgame bounds and honest completion reporting.
   `(-INF, INF)` for exact margins.
 - **Root-only trigger:** when the root has `empty_count <= endgame_threshold`,
   run WDL then exact, with no heuristic iterations. Interior nodes never call
-  the solver. Default threshold 12; Phase 6 may raise it to 14-18 based on
+  the solver. Default threshold 14; Phase 6 may raise it to 14-18 based on
   measured completion.
 - Timeout integration: an aborted root solve returns the fallback with
   `solved = false`; a completed WDL-only solve is `Partial`. Test this here,

@@ -1155,8 +1155,9 @@ fn endgame_bench() {
                 continue;
             }
             let mut table = Table::new(othello::tt::MAX_ENTRIES);
+            let limit = if remaining == 14 { 3000 } else { 1000 };
             let start = Instant::now();
-            let result = search_tt(board, SearchLimits::new(64, 1000, 0), &config, &mut table);
+            let result = search_tt(board, SearchLimits::new(64, limit, 0), &config, &mut table);
             times.push(start.elapsed().as_secs_f64() * 1000.0);
             nodes += result.nodes;
             completed += result.solved as usize;

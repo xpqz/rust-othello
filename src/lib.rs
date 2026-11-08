@@ -14,8 +14,8 @@
 //!   `SearchStatus` is `Complete`, `Partial`, or `Fallback`; fallback is the
 //!   first legal move by square index (lowest index).
 //! - Endgame: the solver runs only at the root, at or below the configurable
-//!   endgame threshold (default 12).
-//! - Time control: default 1000 ms per move.
+//!   endgame threshold (default 14).
+//! - Time control: default 3000 ms per move.
 //! - TT: Zobrist keys with the full key stored, strict equal-depth heuristic
 //!   reuse, and separate heuristic and endgame domains.
 //! - Tools: pair bootstrap with a degeneracy policy, complete frozen

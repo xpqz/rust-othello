@@ -104,7 +104,14 @@ fn describe(name: &str, nodes: u64) -> String {
             } else {
                 time.to_string()
             };
-            format!("{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold 12)")
+            let threshold = if kind == "phase2" {
+                12
+            } else {
+                SearchConfig::standard().endgame_threshold
+            };
+            format!(
+                "{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold {threshold})"
+            )
         }
     }
 }

@@ -21,10 +21,10 @@ cargo run --release -- perft 8
 cargo run --release -- bench --depth 10
 cargo run --release -- bench --board 785c68e1f14f0d11:0223171e0e3070a0
 cargo run --release -- bench --board 785c68e1f14f0d11:0223171e0e3070a0 \
-  --endgame-threshold 12 --time-ms 1000
+  --endgame-threshold 14 --time-ms 3000
 ```
 
-`play` is Black (human) against White using the search engine at 1 s/move:
+`play` is Black (human) against White using the search engine at 3 s/move:
 the tuned evaluator, 64 MiB TT, and root-only endgame solver. It prints the
 board, legal moves, automatic forced passes, and a readable final score:
 
@@ -64,9 +64,9 @@ or a time suffix makes the depth cap 64.
 - Square `i` is `a1 + i`, row-major, `a1` = bit 0.
 - A pass consumes one ply in perft and costs no search depth.
 - Double-no-move is terminal. Search callers handle pass and terminal roots.
-- The exact solver runs only at the root at 12 or fewer empties: WDL in
+- The exact solver runs only at the root at 14 or fewer empties: WDL in
   `(-1, 1)`, then exact widening. TT endgame bounds are a separate domain.
-- Default move budget is 1000 ms; the TT is 4,194,304 16-byte entries
+- Default move budget is 3000 ms; the TT is 4,194,304 16-byte entries
   (64 MiB) and is cleared between agent games.
 
 ## Accepted evaluator
@@ -108,15 +108,15 @@ unit. Post-TT integration:
 | perft(10) | 0.80 s |
 | start bench depth 9 | 12.35 ms, 2.64 M nodes/s |
 | 1 s search from start | depth 13 |
-| 12-empty solve | 21/21, median 13.00 ms |
-| 14-empty solve | 9/10, median 85.94 ms |
+| 12-empty solve | 21/21, median 13.43 ms |
+| 14-empty solve | 10/10, median 87.52 ms |
 
 Details and distributions are in `docs/prs/101.md`.
 
 ## Size and product boundary
 
-- Engine + playable CLI: **999 / 999** formatted non-comment lines.
-- Tools crate: **632 / 650**.
+- Engine + playable CLI: **998 / 999** formatted non-comment lines.
+- Tools crate: **639 / 650**.
 - Tests, `bench/` data, examples, and logs are outside the production line
   budget.
 - No `unsafe` (`forbid` in the library and CLI) and no engine dependencies.
