@@ -149,3 +149,48 @@ fn degenerate_output() {
     assert!(zero.status.success());
     assert!(String::from_utf8_lossy(&zero.stdout).contains("insufficient"));
 }
+
+#[test]
+fn pairs_limit() {
+    let path = std::env::temp_dir().join(format!("othello_openings_{}.txt", std::process::id()));
+    std::fs::write(&path, "c4 e3 f2 c5\n").unwrap();
+    let output = tools(&[
+        "match",
+        "--a",
+        "greedy",
+        "--b",
+        "greedy",
+        "--pairs",
+        "2",
+        "--openings",
+        path.to_str().unwrap(),
+    ]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("exceeds"));
+}
+
+#[test]
+fn log_seeds() {
+    let output = tools(&[
+        "match", "--a", "random", "--b", "random", "--pairs", "1", "--seed", "7",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = text
+        .lines()
+        .filter(|line| line.starts_with("run "))
+        .collect();
+    assert_eq!(lines.len(), 2, "{text}");
+    assert!(lines[0].starts_with("run 7 pair 0 game 0"), "{text}");
+    assert!(lines[1].starts_with("run 7 pair 0 game 1"), "{text}");
+    let seeds = |line: &str| {
+        line.split("seeds ")
+            .nth(1)
+            .unwrap()
+            .split(" key")
+            .next()
+            .unwrap()
+            .to_string()
+    };
+    assert_ne!(seeds(lines[0]), seeds(lines[1]));
+}

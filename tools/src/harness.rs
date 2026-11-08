@@ -107,14 +107,13 @@ pub struct GameLog {
     pub opening: String,
     pub black: String,
     pub white: String,
-    pub depth: u32,
     pub score: i32,
 }
 
 impl GameLog {
     pub fn line(&self) -> String {
         format!(
-            "run {} pair {} game {} seeds ({}, {}) key ({}, {}) opening {} black {} white {} depth {} score {}",
+            "run {} pair {} game {} seeds ({}, {}) key ({}, {}) opening {} black {} white {} score {}",
             self.run,
             self.pair,
             self.game,
@@ -125,7 +124,6 @@ impl GameLog {
             self.opening,
             self.black,
             self.white,
-            self.depth,
             self.score
         )
     }

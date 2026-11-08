@@ -95,59 +95,43 @@ fn match_command(args: &[String]) -> Result<(), String> {
     if openings.is_empty() {
         return Err("no openings".into());
     }
-    let depth = |name: &str| match name {
-        "phase2" => PHASE2_DEPTH,
-        other => other
-            .strip_prefix("ab:")
-            .and_then(|depth| depth.parse().ok())
-            .unwrap_or(0),
-    };
+    if pairs > openings.len() {
+        return Err(format!("pairs {pairs} exceeds {} openings", openings.len()));
+    }
     let mut game_points = Vec::with_capacity(pairs);
     let mut logs = Vec::with_capacity(pairs * 2);
-    for pair in 0..pairs {
-        let opening = &openings[pair % openings.len()];
-        let a_seed = stream(seed, pair, 0, 0);
-        let b_seed = stream(seed, pair, 0, 1);
-        let mut a_black = make_agent(&a, a_seed)?;
-        let mut b_white = make_agent(&b, b_seed)?;
-        let first = play_game(&opening.squares, &mut *a_black, &mut *b_white)?;
-        let b_seed = stream(seed, pair, 1, 0);
-        let a_seed = stream(seed, pair, 1, 1);
-        let mut b_black = make_agent(&b, b_seed)?;
-        let mut a_white = make_agent(&a, a_seed)?;
-        let second = play_game(&opening.squares, &mut *b_black, &mut *a_white)?;
-        game_points.push((points(first.score), 1.0 - points(second.score)));
-        let depth = depth(&a).max(depth(&b));
-        logs.push(
-            GameLog {
-                run: 1,
-                pair,
-                game: 0,
-                agent_seeds: (a_seed, b_seed),
-                key: opening.key,
-                opening: opening.line(),
-                black: a.clone(),
-                white: b.clone(),
-                depth,
-                score: first.score,
-            }
-            .line(),
-        );
-        logs.push(
-            GameLog {
-                run: 1,
-                pair,
-                game: 1,
-                agent_seeds: (b_seed, a_seed),
-                key: opening.key,
-                opening: opening.line(),
-                black: b.clone(),
-                white: a.clone(),
-                depth,
-                score: second.score,
-            }
-            .line(),
-        );
+    for (pair, opening) in openings.iter().enumerate().take(pairs) {
+        let mut pair_points = [0.0, 0.0];
+        for (game, (black, white)) in [(a.as_str(), b.as_str()), (b.as_str(), a.as_str())]
+            .into_iter()
+            .enumerate()
+        {
+            let black_seed = stream(seed, pair, game as u64, 0);
+            let white_seed = stream(seed, pair, game as u64, 1);
+            let mut black_agent = make_agent(black, black_seed)?;
+            let mut white_agent = make_agent(white, white_seed)?;
+            let result = play_game(&opening.squares, &mut *black_agent, &mut *white_agent)?;
+            pair_points[game] = if game == 0 {
+                points(result.score)
+            } else {
+                1.0 - points(result.score)
+            };
+            logs.push(
+                GameLog {
+                    run: seed,
+                    pair,
+                    game: game as u64,
+                    agent_seeds: (black_seed, white_seed),
+                    key: opening.key,
+                    opening: opening.line(),
+                    black: black.to_string(),
+                    white: white.to_string(),
+                    score: result.score,
+                }
+                .line(),
+            );
+        }
+        game_points.push((pair_points[0], pair_points[1]));
     }
     let summary = report_with(&game_points, RESAMPLES, seed);
     let interval = match summary.interval {

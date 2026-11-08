@@ -188,9 +188,9 @@ fn frozen_sets() {
     positions::check_splits(&[&tune, &validation, &final_set]).unwrap();
     for set in [&tune, &validation, &final_set] {
         let stats = positions::stats(set);
-        assert_eq!(stats.openings, 4);
+        assert_eq!(stats.openings, 512);
         assert_eq!(stats.duplicates, 0);
-        assert_eq!(stats.lengths, vec![(8, 4)]);
+        assert_eq!(stats.lengths, vec![(8, 512)]);
     }
 }
 
@@ -205,7 +205,6 @@ fn log_line() {
         opening: "c4 e3 f2 c5".into(),
         black: "random".into(),
         white: "greedy".into(),
-        depth: 4,
         score: 120,
     };
     let line = log.line();
@@ -214,7 +213,7 @@ fn log_line() {
     assert!(line.contains("key (3, 4)"), "{line}");
     assert!(line.contains("opening c4 e3 f2 c5"), "{line}");
     assert!(
-        line.contains("black random white greedy depth 4 score 120"),
+        line.contains("black random white greedy score 120"),
         "{line}"
     );
 }
