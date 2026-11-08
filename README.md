@@ -56,7 +56,9 @@ or a time suffix makes the depth cap 64.
 
 ## Conventions and score
 
-- Scores are WTHOR centidiscs: `(black - white) * 100`.
+- Scores are side-to-move centidiscs (`100` = one disc). Terminal values use
+  the WTHOR rule: the winner also gets the empty squares, a tie scores 0, and
+  exact scores span `±6400`.
 - Black starts on d5/e4, White on d4/e5; Black opens c4/d3/e6/f5.
 - Square `i` is `a1 + i`, row-major, `a1` = bit 0.
 - A pass consumes one ply in perft and costs no search depth.
