@@ -50,11 +50,6 @@ fn ceil_div(n: i64, d: i64) -> i64 {
     if n > 0 && n % d != 0 { q + 1 } else { q }
 }
 
-fn ceil_div_i128(n: i128, d: i128) -> i128 {
-    let q = n / d;
-    if n > 0 && n % d != 0 { q + 1 } else { q }
-}
-
 impl ProbCut {
     pub fn new(
         t_centi: u32,
@@ -119,7 +114,8 @@ impl ProbCut {
                 let n = i128::from(q2_milli) * s * s
                     + i128::from(q1_milli) * s * 1000
                     + i128::from(q0_milli) * 1_000_000;
-                ceil_div_i128(n, 1_000_000_000).clamp(i64::MIN as i128, i64::MAX as i128) as i64
+                let sigma = -((-n).div_euclid(1_000_000_000));
+                sigma.clamp(i64::MIN as i128, i64::MAX as i128) as i64
             }
             SigmaModel::StageTable { buckets } => {
                 let (s0, g) = buckets[bucket(empties).min(buckets.len() - 1)];
