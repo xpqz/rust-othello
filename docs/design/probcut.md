@@ -200,8 +200,12 @@ here relies on parity holding exactly. The calibration also compares
 
 ### The σ model
 
-The fit chooses among three candidates, by the held-out decision criterion
-below and then by line cost:
+The fit chooses among three candidates. A candidate qualifies if it passes
+the 95% floor below in every supported cell, and, simulated on the held-out
+split at t = 1.5, every supported cell's false-high and false-low upper bounds
+are at most 12%. Among qualifying candidates, the one with the **most fired
+decisions** wins; ties go to fewer constants. (Choosing by lowest error alone
+is degenerate: a σ large enough that nothing fires has zero error.)
 
 1. **Linear:** `σ = S0 + S_GAP·(d − d') + S_EMPTY·e` (3 constants).
 2. **Edax-style:** `s = A·e + B·d + C·d'`, then `σ = q2·s² + q1·s + q0`

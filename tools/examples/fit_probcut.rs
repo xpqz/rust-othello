@@ -545,6 +545,19 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
             sigma: cell_sigma,
         });
     }
+    let slopes: Vec<f64> = cells
+        .iter()
+        .map(|cell| ols(&grouped[&(cell.depth as usize, cell.bucket)]).0)
+        .collect();
+    if let (Some(min), Some(max)) = (
+        slopes.iter().copied().reduce(f64::min),
+        slopes.iter().copied().reduce(f64::max),
+    ) {
+        log.push_str(&format!(
+            "per-cell slope range {min:.4}..{max:.4} material={}\n",
+            max - min > 0.2
+        ));
+    }
     let empty_min = measurements
         .iter()
         .map(|m| m.empties)

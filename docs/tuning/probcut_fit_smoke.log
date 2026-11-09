@@ -1,4 +1,4 @@
-seed 1 games 12 positions 1200 deep_positions 0 depth 6 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine e0383c2e8d9557b7c63d434298b04f425cc01657
+seed 1 games 12 positions 1200 deep_positions 0 depth 6 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine 9e02dcc9c8586f32a0804e3325886f3492c2c7aa
 sampled 1200 positions (requested 1200)
 variation infinite-bound fraction 0.3425
 global fit a=1.188611 b=-11.647 sigma=244.318 r2=0.6434
@@ -30,6 +30,7 @@ cell d=6 bucket=3 n=163 a=1.1555 b=-4.07 sigma=76.81 r2=0.9054
 cell d=6 bucket=4 n=157 a=1.0751 b=1.64 sigma=60.99 r2=0.9129
 cell d=6 bucket=5 n=64 a=0.9995 b=7.55 sigma=43.79 r2=0.8465
 cell d=6 bucket=6 n=4 insufficient
+per-cell slope range 0.9245..1.6923 material=true
 sigma-model constants=3 Linear { s0: 510, gap: 34, empty: -14 } floor-worst=None pass=false
 sigma-model constants=6 EdaxStyle { a_milli: 1000, b_milli: 0, c_milli: 0, q2_milli: 1, q1_milli: -69, q0_milli: 1337949 } floor-worst=Some(2.041625792031908) pass=true
 sigma-model constants=12 StageTable { buckets: [(123, 198), (17, 30), (15, 31), (12, 30), (5, 41), (2, 34)] } floor-worst=Some(1.1579217216531286) pass=true
