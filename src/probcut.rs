@@ -128,12 +128,15 @@ impl ProbCut {
         self.sigma_raw(depth, empties).max(1)
     }
 
+    fn margin(&self, depth: u32, empties: u32) -> i64 {
+        let sigma = self
+            .sigma(depth, empties)
+            .saturating_mul(i64::from(self.t_centi));
+        ceil_div(sigma, 100)
+    }
+
     pub fn high(&self, beta: i32, depth: u32, empties: u32) -> Option<i64> {
-        let margin = ceil_div(
-            self.sigma(depth, empties)
-                .saturating_mul(i64::from(self.t_centi)),
-            100,
-        );
+        let margin = self.margin(depth, empties);
         let n = i64::from(beta)
             .saturating_add(margin)
             .saturating_sub(i64::from(self.b));
@@ -142,11 +145,7 @@ impl ProbCut {
     }
 
     pub fn low(&self, alpha: i32, depth: u32, empties: u32) -> Option<i64> {
-        let margin = ceil_div(
-            self.sigma(depth, empties)
-                .saturating_mul(i64::from(self.t_centi)),
-            100,
-        );
+        let margin = self.margin(depth, empties);
         let n = i64::from(alpha)
             .saturating_sub(margin)
             .saturating_sub(i64::from(self.b));
