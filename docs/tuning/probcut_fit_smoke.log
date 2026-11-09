@@ -1,4 +1,4 @@
-seed 1 games 12 positions 1200 deep_positions 0 depth 6 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine 9a4667f5b7db8004da3a9cb768f14ad85707128d
+seed 1 games 12 positions 1200 deep_positions 0 depth 6 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine e0383c2e8d9557b7c63d434298b04f425cc01657
 sampled 1200 positions (requested 1200)
 variation infinite-bound fraction 0.3425
 global fit a=1.188611 b=-11.647 sigma=244.318 r2=0.6434
