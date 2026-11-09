@@ -53,11 +53,11 @@ pub fn mismatch(expected: &str, found: &str) -> String {
 }
 
 fn rewrite(path: &Path, text: &str) -> Result<(), String> {
-    let temporary = path.with_extension("tmp");
+    let temporary = PathBuf::from(format!("{}.tmp", path.display()));
     let mut file = File::create(&temporary).map_err(|error| error.to_string())?;
     file.write_all(text.as_bytes())
         .map_err(|error| error.to_string())?;
-    file.flush().map_err(|error| error.to_string())?;
+    file.sync_all().map_err(|error| error.to_string())?;
     fs::rename(&temporary, path).map_err(|error| error.to_string())
 }
 
