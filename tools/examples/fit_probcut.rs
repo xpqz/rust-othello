@@ -1,11 +1,9 @@
-use othello::board::{
-    Board, empty_count, final_score, is_terminal, legal_moves, pass, play, squares,
-};
+use othello::board::{Board, empty_count, final_score, is_terminal, legal_moves, pass, play};
 use othello::eval::evaluate;
 use othello::probcut::{ProbCut, SigmaModel, shallow_depth};
 use othello::rng::Rng;
 use othello::score::{INF, terminal_score};
-use othello::search::{Ctx, SearchConfig, SearchLimits, negamax, search_limited};
+use othello::search::{Ctx, SearchConfig, SearchLimits, negamax, ordered_moves, search_limited};
 use othello::tt::{Table, zobrist};
 use othello_tools::journal::Journal;
 use othello_tools::positions;
@@ -13,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 const STAGES: [&str; 2] = ["selfplay.journal", "measure.journal"];
 const T_VALUES: [f64; 5] = [1.0, 1.4, 1.5, 1.8, 2.2];
@@ -22,6 +21,7 @@ struct Config {
     dir: PathBuf,
     games: usize,
     positions: usize,
+    deep_positions: usize,
     depth: u32,
     seed: u64,
     delay_ms: u64,
@@ -45,6 +45,7 @@ struct Measurement {
     position: Position,
     empties: u32,
     values: Vec<i32>,
+    nodes: Vec<u64>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -70,6 +71,7 @@ impl Config {
             dir: PathBuf::from("probcut-run"),
             games: 200,
             positions: 4000,
+            deep_positions: 1000,
             depth: 12,
             seed: 1,
             delay_ms: 0,
@@ -81,6 +83,7 @@ impl Config {
                 "--dir" => config.dir = PathBuf::from(value),
                 "--games" => config.games = value.parse().unwrap(),
                 "--positions" => config.positions = value.parse().unwrap(),
+                "--deep-positions" => config.deep_positions = value.parse().unwrap(),
                 "--depth" => config.depth = value.parse().unwrap(),
                 "--seed" => config.seed = value.parse().unwrap(),
                 "--unit-delay-ms" => config.delay_ms = value.parse().unwrap(),
@@ -91,12 +94,21 @@ impl Config {
         config
     }
 
+    fn deep_limit(&self) -> usize {
+        if self.depth > 10 {
+            self.deep_positions
+        } else {
+            0
+        }
+    }
+
     fn header(&self) -> String {
         format!(
-            "header seed {} games {} positions {} depth {} openings {} hash {:016x} engine {}",
+            "header seed {} games {} positions {} deep_positions {} depth {} openings {} hash {:016x} engine {}",
             self.seed,
             self.games,
             self.positions,
+            self.deep_limit(),
             self.depth,
             openings_path().display(),
             file_hash(&openings_path()),
@@ -214,7 +226,7 @@ impl Reservoir {
 
 fn sample_positions(config: &Config, games: &[Vec<u8>]) -> Result<Vec<Sample>, String> {
     let mut reservoir = Reservoir {
-        limit: config.positions,
+        limit: config.positions + config.deep_limit(),
         seen: BTreeSet::new(),
         samples: Vec::new(),
         count: 0,
@@ -242,64 +254,96 @@ fn sample_positions(config: &Config, games: &[Vec<u8>]) -> Result<Vec<Sample>, S
                 board,
             });
             if index % 3 == 0 {
-                collect_nodes(board, search_depth, -INF, INF, game as u64, &mut reservoir);
+                let mut preferred = None;
+                for depth in 1..=search_depth {
+                    let (_, best) = collect_nodes(
+                        board,
+                        depth,
+                        -INF,
+                        INF,
+                        game as u64,
+                        preferred,
+                        depth == search_depth,
+                        &mut reservoir,
+                    );
+                    preferred = Some(best);
+                }
             }
         }
     }
     if reservoir.samples.is_empty() {
         return Err("no positions sampled".into());
     }
-    while reservoir.samples.len() < config.positions {
-        let copy = reservoir.samples[reservoir.samples.len() % reservoir.samples.len()];
-        reservoir.samples.push(copy);
-    }
     Ok(reservoir.samples)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_nodes(
     board: Board,
     depth: u32,
     alpha: i32,
     beta: i32,
     game: u64,
+    preferred: Option<u8>,
+    offer: bool,
     reservoir: &mut Reservoir,
-) -> i32 {
-    reservoir.offer(Sample {
-        position: Position {
-            key: zobrist(board),
-            game,
-            window: Some((alpha, beta)),
-        },
-        board,
-    });
+) -> (i32, u8) {
+    if offer {
+        reservoir.offer(Sample {
+            position: Position {
+                key: zobrist(board),
+                game,
+                window: Some((alpha, beta)),
+            },
+            board,
+        });
+    }
     let moves = legal_moves(board.me, board.opp);
     if moves == 0 {
         if legal_moves(board.opp, board.me) == 0 {
-            return terminal_score(final_score(board));
+            return (terminal_score(final_score(board)), 64);
         }
-        return -collect_nodes(pass(board), depth, -beta, -alpha, game, reservoir);
+        let (value, best) = collect_nodes(
+            pass(board),
+            depth,
+            -beta,
+            -alpha,
+            game,
+            preferred,
+            offer,
+            reservoir,
+        );
+        return (-value, best);
     }
     if depth == 0 {
-        return evaluate(board);
+        return (evaluate(board), 64);
     }
-    let mut best = -INF;
+    let (order, len) = ordered_moves(board, moves, depth, preferred);
+    let mut best_value = -INF;
+    let mut best_move = 64;
     let mut alpha = alpha;
-    for square in squares(moves) {
-        let value = -collect_nodes(
+    for &square in &order[..len] {
+        let (value, _) = collect_nodes(
             play(board, square),
             depth - 1,
             -beta,
             -alpha,
             game,
+            None,
+            offer,
             reservoir,
         );
-        best = best.max(value);
+        let value = -value;
+        if value > best_value {
+            best_value = value;
+            best_move = square;
+        }
         alpha = alpha.max(value);
         if alpha >= beta {
             break;
         }
     }
-    best
+    (best_value, best_move)
 }
 
 fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurement>, String> {
@@ -307,7 +351,9 @@ fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurem
     let (mut journal, done) = Journal::open(&path, &config.header())?;
     let mut measurements = Vec::new();
     let mut written = 0;
-    for sample in samples {
+    let start = Instant::now();
+    let mut last = Instant::now();
+    for (index, sample) in samples.iter().enumerate() {
         let id = format!("{:016x}", sample.position.key);
         if !done.contains(&id) {
             let mut table = Table::new(1 << 20);
@@ -315,17 +361,24 @@ fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurem
                 endgame_threshold: 0,
                 ..SearchConfig::standard()
             };
+            let max_depth = if index < config.positions {
+                config.depth.min(10)
+            } else {
+                config.depth
+            };
             let mut values = Vec::new();
-            for depth in 1..=config.depth {
+            let mut nodes = Vec::new();
+            for depth in 1..=max_depth {
                 let mut ctx = Ctx::new(&search);
                 ctx.set_table(&mut table);
                 let value =
                     negamax(sample.board, depth, -INF, INF, &mut ctx).ok_or("search aborted")?;
                 values.push(value);
+                nodes.push(ctx.nodes);
             }
             let window = sample.position.window.unwrap_or((-INF, INF));
             let payload = format!(
-                "game {} empties {} window {} {} values {}",
+                "game {} empties {} window {} {} values {} nodes {}",
                 sample.position.game,
                 empty_count(sample.board),
                 window.0,
@@ -333,6 +386,11 @@ fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurem
                 values
                     .iter()
                     .map(i32::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                nodes
+                    .iter()
+                    .map(u64::to_string)
                     .collect::<Vec<_>>()
                     .join(" ")
             );
@@ -342,8 +400,13 @@ fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurem
                 std::thread::sleep(std::time::Duration::from_millis(config.delay_ms));
             }
         }
-        if written % 100 == 0 {
-            eprintln!("measured {written}/{} positions", samples.len());
+        if last.elapsed() >= std::time::Duration::from_secs(60) {
+            eprintln!(
+                "measured {written}/{} positions elapsed {:.1}s",
+                samples.len(),
+                start.elapsed().as_secs_f64()
+            );
+            last = Instant::now();
         }
     }
     drop(journal);
@@ -358,12 +421,15 @@ fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurem
 fn parse_measurement(id: &str, line: &str) -> Result<Measurement, String> {
     let key = u64::from_str_radix(id, 16).map_err(|_| "invalid key")?;
     let parts: Vec<&str> = line.split_whitespace().collect();
-    if parts.len() < 9
-        || parts[0] != "game"
-        || parts[2] != "empties"
-        || parts[4] != "window"
-        || parts[7] != "values"
-    {
+    let values_at = parts
+        .iter()
+        .position(|part| *part == "values")
+        .ok_or("missing values")?;
+    let nodes_at = parts
+        .iter()
+        .position(|part| *part == "nodes")
+        .ok_or("missing nodes")?;
+    if values_at < 7 || nodes_at <= values_at {
         return Err("malformed measurement".into());
     }
     Ok(Measurement {
@@ -376,9 +442,13 @@ fn parse_measurement(id: &str, line: &str) -> Result<Measurement, String> {
             )),
         },
         empties: parts[3].parse().map_err(|_| "invalid empties")?,
-        values: parts[8..]
+        values: parts[values_at + 1..nodes_at]
             .iter()
-            .map(|value| value.parse().map_err(|_| "invalid value"))
+            .map(|v| v.parse().map_err(|_| "invalid value"))
+            .collect::<Result<_, _>>()?,
+        nodes: parts[nodes_at + 1..]
+            .iter()
+            .map(|v| v.parse().map_err(|_| "invalid node"))
             .collect::<Result<_, _>>()?,
     })
 }
@@ -401,11 +471,36 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         .iter()
         .filter(|m| held_set.contains(&m.position.game))
         .collect();
-    let mut log = String::new();
+    let infinite = measurements
+        .iter()
+        .filter(|m| {
+            m.position
+                .window
+                .is_some_and(|(a, b)| a == -INF || b == INF)
+        })
+        .count();
+    let mut log = format!(
+        "seed {} games {} positions {} deep_positions {} depth {} openings {} hash {:016x} engine {}\n",
+        config.seed,
+        config.games,
+        config.positions,
+        config.deep_limit(),
+        config.depth,
+        openings_path().display(),
+        file_hash(&openings_path()),
+        git_commit()
+    );
     log.push_str(&format!(
-        "seed {} games {} positions {} depth {}\n",
-        config.seed, config.games, config.positions, config.depth
+        "sampled {} positions (requested {})\n",
+        measurements.len(),
+        config.positions + config.deep_limit()
     ));
+    log.push_str(&format!(
+        "variation infinite-bound fraction {:.4}\n",
+        infinite as f64 / measurements.len().max(1) as f64
+    ));
+    let mut grouped: BTreeMap<(usize, u32), Vec<(f64, f64)>> = BTreeMap::new();
+    let mut empties: BTreeMap<(usize, u32), Vec<f64>> = BTreeMap::new();
     let mut pairs = Vec::new();
     for row in &fit_rows {
         for depth in 2..=row.values.len().min(12) {
@@ -413,9 +508,16 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
             if shallow == 0 || shallow > row.values.len() {
                 continue;
             }
-            pairs.push((row.values[shallow - 1] as f64, row.values[depth - 1] as f64));
             let bucket = row.empties.saturating_sub(18) / 6;
-            let _ = bucket;
+            grouped
+                .entry((depth, bucket))
+                .or_default()
+                .push((row.values[shallow - 1] as f64, row.values[depth - 1] as f64));
+            empties
+                .entry((depth, bucket))
+                .or_default()
+                .push(row.empties as f64);
+            pairs.push((row.values[shallow - 1] as f64, row.values[depth - 1] as f64));
         }
     }
     let (a, b, sigma) = ols(&pairs);
@@ -423,132 +525,420 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         "global fit a={a:.6} b={b:.3} sigma={sigma:.3} r2={:.4}\n",
         r2(&pairs, a, b)
     ));
-    let mut cells = BTreeMap::new();
-    for row in &fit_rows {
-        for depth in 2..=row.values.len().min(12) {
-            let shallow = shallow_depth(depth as u32) as usize;
-            if shallow == 0 || shallow > row.values.len() {
-                continue;
-            }
-            let key = (depth, shallow, row.empties.saturating_sub(18) / 6);
-            cells
-                .entry(key)
-                .or_insert_with(Vec::new)
-                .push((row.values[shallow - 1] as f64, row.values[depth - 1] as f64));
+    let mut cells = Vec::new();
+    for ((depth, bucket), rows) in &grouped {
+        if rows.len() < 30 {
+            log.push_str(&format!(
+                "cell d={depth} bucket={bucket} n={} insufficient\n",
+                rows.len()
+            ));
+            continue;
         }
+        let (cell_a, cell_b, cell_sigma) = ols(rows);
+        let empty_mean = empties[&(*depth, *bucket)].iter().sum::<f64>() / rows.len() as f64;
+        log.push_str(&format!("cell d={depth} bucket={bucket} n={} a={cell_a:.4} b={cell_b:.2} sigma={cell_sigma:.2} r2={:.4}\n", rows.len(), r2(rows,cell_a,cell_b)));
+        cells.push(CellStat {
+            depth: *depth as u32,
+            bucket: *bucket,
+            empties: empty_mean,
+            n: rows.len(),
+            sigma: cell_sigma,
+        });
     }
-    for ((depth, shallow, bucket), rows) in &cells {
-        let (a, b, sigma) = ols(rows);
-        log.push_str(&format!("cell d={depth} ds={shallow} bucket={bucket} n={} a={a:.4} b={b:.2} sigma={sigma:.2} r2={:.4}\n", rows.len(), r2(rows, a, b)));
-    }
-    let linear = SigmaModel::Linear {
-        s0: sigma.round() as i32,
-        gap: 0,
-        empty: 0,
-    };
-    let edax = SigmaModel::EdaxStyle {
-        a_milli: 1000,
-        b_milli: 0,
-        c_milli: 0,
-        q2_milli: 0,
-        q1_milli: 0,
-        q0_milli: sigma.round() as i32 * 1000,
-    };
-    let table = SigmaModel::StageTable {
-        buckets: [(sigma.round() as i32, 0); 6],
-    };
-    for (name, model) in [("linear", linear), ("edax", edax), ("stage", table)] {
-        log.push_str(&format!("sigma-model {name} fitted {model:?}\n"));
-    }
-    let a_milli = (a * 1000.0).round().clamp(500.0, 1500.0) as i32;
-    let b_int = b.round() as i32;
-    let depth_min = 3;
-    let depth_max = config.depth.min(12);
     let empty_min = measurements
         .iter()
         .map(|m| m.empties)
         .min()
         .unwrap_or(18)
-        .max(18);
+        .clamp(18, 52);
     let empty_max = measurements
         .iter()
         .map(|m| m.empties)
         .max()
         .unwrap_or(52)
-        .min(52);
-    log.push_str(&format!("supported-domain candidates depths {depth_min}..{depth_max} empties {empty_min}..{empty_max}\n"));
-    let mut supported = Vec::new();
+        .clamp(18, 52);
+    let depth_min = 3;
+    let depth_max = config.depth.min(12).max(depth_min);
+    let mut candidates = Vec::new();
+    if let Some(c) = fit_linear(&cells) {
+        candidates.push((
+            3,
+            SigmaModel::Linear {
+                s0: c[0].round() as i32,
+                gap: c[1].round() as i32,
+                empty: c[2].round() as i32,
+            },
+        ));
+    }
+    if let Some(c) = fit_edax(&cells) {
+        candidates.push((
+            6,
+            SigmaModel::EdaxStyle {
+                a_milli: 1000,
+                b_milli: 0,
+                c_milli: 0,
+                q2_milli: c[0].round() as i32,
+                q1_milli: c[1].round() as i32,
+                q0_milli: (c[2] * 1000.0).round() as i32,
+            },
+        ));
+    }
+    candidates.push((12, fit_stage(&cells, sigma)));
+    let a_milli = (a * 1000.0).round().clamp(500.0, 1500.0) as i32;
+    let b_int = b.round() as i32;
+    let mut passing = Vec::new();
+    for (constants, model) in &candidates {
+        let floor = if cells.is_empty() {
+            Some(0.0)
+        } else {
+            ProbCut::new(
+                150,
+                a_milli,
+                b_int,
+                *model,
+                (depth_min, depth_max),
+                (empty_min, empty_max),
+            )
+            .ok()
+            .map(|pc| {
+                let mut worst = f64::INFINITY;
+                for cell in &cells {
+                    let model_sigma = pc.sigma(
+                        cell.depth,
+                        cell.empties
+                            .round()
+                            .clamp(empty_min as f64, empty_max as f64)
+                            as u32,
+                    ) as f64;
+                    worst = worst.min(model_sigma / (0.95 * cell.sigma));
+                }
+                worst
+            })
+        };
+        let ok = floor.unwrap_or(-1.0) >= 1.0;
+        log.push_str(&format!(
+            "sigma-model constants={constants} {model:?} floor-worst={:?} pass={ok}\n",
+            floor
+        ));
+        if ok {
+            passing.push((*constants, *model));
+        }
+    }
+    let mut chosen = None;
+    for (constants, model) in &passing {
+        let Ok(pc) = ProbCut::new(
+            150,
+            a_milli,
+            b_int,
+            *model,
+            (depth_min, depth_max),
+            (empty_min, empty_max),
+        ) else {
+            continue;
+        };
+        let counts = aggregate_decisions(&held_rows, &pc);
+        let error = (counts.false_high + counts.false_low) as f64
+            / (counts.high_fired + counts.low_fired).max(1) as f64;
+        log.push_str(&format!(
+            "model-choice constants={constants} {model:?} error={error:.4}\n"
+        ));
+        if chosen.as_ref().is_none_or(
+            |(best_error, best_constants, _): &(f64, usize, SigmaModel)| {
+                error < *best_error || (error == *best_error && constants < best_constants)
+            },
+        ) {
+            chosen = Some((error, *constants, *model));
+        }
+    }
+    let Some((_, _, model)) = chosen else {
+        log.push_str("no sigma candidate passed the 95% floor; no supported domain\n");
+        log_tails(&mut log, &pairs, a, b, sigma);
+        return log;
+    };
+    let mut supported = BTreeSet::new();
     for t in T_VALUES {
         let Ok(pc) = ProbCut::new(
             (t * 100.0) as u32,
             a_milli,
             b_int,
-            linear,
+            model,
             (depth_min, depth_max),
             (empty_min, empty_max),
         ) else {
-            log.push_str(&format!("t={t:.1} invalid ProbCut parameters\n"));
+            log.push_str(&format!("t={t:.1} invalid parameters\n"));
             continue;
         };
-        let mut high_n = 0;
-        let mut high_bad = 0;
-        let mut low_n = 0;
-        let mut low_bad = 0;
+        let mut per_cell: BTreeMap<(u32, u32), DecisionCounts> = BTreeMap::new();
         for row in &held_rows {
             let Some((alpha, beta)) = row.position.window else {
                 continue;
             };
+            let bucket = row.empties.saturating_sub(18) / 6;
             for depth in 2..=row.values.len().min(12) {
                 let shallow = shallow_depth(depth as u32) as usize;
                 if shallow == 0 || shallow > row.values.len() {
                     continue;
                 }
-                let vs = row.values[shallow - 1];
-                let vd = row.values[depth - 1];
-                let counts =
-                    decision_counts(&[(vs, vd, alpha, beta)], &pc, depth as u32, row.empties);
-                high_n += counts.high_fired;
-                high_bad += counts.false_high;
-                low_n += counts.low_fired;
-                low_bad += counts.false_low;
+                let counts = decision_counts(
+                    &[(row.values[shallow - 1], row.values[depth - 1], alpha, beta)],
+                    &pc,
+                    depth as u32,
+                    row.empties,
+                );
+                let entry = per_cell.entry((depth as u32, bucket)).or_default();
+                entry.high_fired += counts.high_fired;
+                entry.false_high += counts.false_high;
+                entry.low_fired += counts.low_fired;
+                entry.false_low += counts.false_low;
             }
         }
-        let high_upper = cp_upper(high_bad as u32, high_n as u32);
-        let low_upper = cp_upper(low_bad as u32, low_n as u32);
-        log.push_str(&format!(
-            "decisions t={t:.1} high {high_bad}/{high_n} upper {high_upper:.4} low {low_bad}/{low_n} upper {low_upper:.4} nominal {:.4}\n",
-            1.0 - normal_cdf(t)
-        ));
-        if t == 1.5 && high_n >= 200 && low_n >= 200 && high_upper <= 0.12 && low_upper <= 0.12 {
-            supported.push((depth_min, depth_max, empty_min, empty_max));
+        for ((depth, bucket), counts) in &per_cell {
+            let high_upper = cp_upper(counts.false_high as u32, counts.high_fired as u32);
+            let low_upper = cp_upper(counts.false_low as u32, counts.low_fired as u32);
+            log.push_str(&format!("decisions t={t:.1} d={depth} bucket={bucket} high {}/{} upper {high_upper:.4} low {}/{} upper {low_upper:.4} nominal {:.4}\n", counts.false_high, counts.high_fired, counts.false_low, counts.low_fired, 1.0-normal_cdf(t)));
+            if t == 1.5
+                && counts.high_fired >= 200
+                && counts.low_fired >= 200
+                && high_upper <= 0.12
+                && low_upper <= 0.12
+            {
+                supported.insert((*depth, *bucket));
+            }
         }
     }
-    if supported.is_empty() {
-        log.push_str("supported-domain: none (epic stops pending design change)\n");
+    if let Some((d0, d1, b0, b1)) = largest_rectangle(&supported) {
+        let emin = 18 + 6 * b0;
+        let emax = (18 + 6 * (b1 + 1) - 1).min(52);
+        log.push_str(&format!(
+            "supported-domain depths {d0}..{d1} empties {emin}..{emax}\n"
+        ));
+        log.push_str(&format!("PROBCUT_FIT = ProbCut::new(150, {a_milli}, {b_int}, SigmaModel::{model:?}, ({d0}, {d1}), ({emin}, {emax})) // t=1.5\n"));
     } else {
-        log.push_str("supported-domain: passes at t=1.5\n");
+        log.push_str("supported-domain: none (epic stops pending design change)\n");
+        log.push_str("no PROBCUT_FIT: no 200-direction/12% cell rectangle\n");
     }
-    log.push_str(&format!(
-        "PROBCUT_FIT = ProbCut::new({}, {}, {}, {:?}, ({}, {}), ({}, {})) // t=1.5\n",
-        (1.5 * 100.0) as u32,
+    let Ok(pc) = ProbCut::new(
+        150,
         a_milli,
         b_int,
-        linear,
-        depth_min,
-        depth_max,
-        empty_min,
-        empty_max
-    ));
+        model,
+        (depth_min, depth_max),
+        (empty_min, empty_max),
+    ) else {
+        return log;
+    };
+    for (label, rule) in [("shallow", 0u32), ("d-2", 2), ("d-4", 4)] {
+        let mut fired = 0;
+        let mut bad = 0;
+        let mut probe_nodes = 0u64;
+        let mut deep_nodes = 0u64;
+        for row in &held_rows {
+            let Some((alpha, beta)) = row.position.window else {
+                continue;
+            };
+            for depth in 2..=row.values.len().min(12) {
+                let source = if rule == 0 {
+                    shallow_depth(depth as u32) as usize
+                } else {
+                    (depth as u32).saturating_sub(rule) as usize
+                };
+                if source == 0 || source > row.values.len() {
+                    continue;
+                }
+                let counts = decision_counts(
+                    &[(row.values[source - 1], row.values[depth - 1], alpha, beta)],
+                    &pc,
+                    depth as u32,
+                    row.empties,
+                );
+                fired += counts.high_fired + counts.low_fired;
+                bad += counts.false_high + counts.false_low;
+                probe_nodes += row.nodes.get(source - 1).copied().unwrap_or(0);
+                deep_nodes += row.nodes.get(depth - 1).copied().unwrap_or(0);
+            }
+        }
+        log.push_str(&format!(
+            "dprime {label} fired={fired} false={bad} error={:.4} probe-cost={:.4}\n",
+            bad as f64 / fired.max(1) as f64,
+            probe_nodes as f64 / deep_nodes.max(1) as f64
+        ));
+    }
+    log_tails(&mut log, &pairs, a, b, sigma);
+    log
+}
+
+#[derive(Clone, Copy)]
+struct CellStat {
+    depth: u32,
+    bucket: u32,
+    empties: f64,
+    n: usize,
+    sigma: f64,
+}
+
+fn aggregate_decisions(rows: &[&Measurement], pc: &ProbCut) -> DecisionCounts {
+    let mut total = DecisionCounts::default();
+    for row in rows {
+        let Some((alpha, beta)) = row.position.window else {
+            continue;
+        };
+        for depth in 2..=row.values.len().min(12) {
+            let shallow = shallow_depth(depth as u32) as usize;
+            if shallow == 0 || shallow > row.values.len() {
+                continue;
+            }
+            let counts = decision_counts(
+                &[(row.values[shallow - 1], row.values[depth - 1], alpha, beta)],
+                pc,
+                depth as u32,
+                row.empties,
+            );
+            total.high_fired += counts.high_fired;
+            total.false_high += counts.false_high;
+            total.low_fired += counts.low_fired;
+            total.false_low += counts.false_low;
+        }
+    }
+    total
+}
+
+fn fit_linear(cells: &[CellStat]) -> Option<[f64; 3]> {
+    let rows: Vec<([f64; 3], f64, f64)> = cells
+        .iter()
+        .map(|c| {
+            (
+                [1.0, (c.depth - shallow_depth(c.depth)) as f64, c.empties],
+                c.sigma,
+                c.n as f64,
+            )
+        })
+        .collect();
+    solve_weighted(&rows)
+}
+
+fn fit_edax(cells: &[CellStat]) -> Option<[f64; 3]> {
+    let rows: Vec<([f64; 3], f64, f64)> = cells
+        .iter()
+        .map(|c| {
+            let s = c.empties;
+            ([s * s, s, 1.0], c.sigma, c.n as f64)
+        })
+        .collect();
+    solve_weighted(&rows)
+}
+
+fn fit_stage(cells: &[CellStat], fallback: f64) -> SigmaModel {
+    let mut buckets = [(fallback.round() as i32, 0); 6];
+    for bucket in 0..6u32 {
+        let rows: Vec<([f64; 2], f64, f64)> = cells
+            .iter()
+            .filter(|c| c.bucket == bucket)
+            .map(|c| {
+                (
+                    [(c.depth - shallow_depth(c.depth)) as f64, 1.0],
+                    c.sigma,
+                    c.n as f64,
+                )
+            })
+            .collect();
+        if let Some((gap, s0)) = solve_weighted2(&rows) {
+            buckets[bucket as usize] = (s0.round() as i32, gap.round() as i32);
+        }
+    }
+    SigmaModel::StageTable { buckets }
+}
+
+fn solve_weighted(rows: &[([f64; 3], f64, f64)]) -> Option<[f64; 3]> {
+    let mut m = [[0.0; 3]; 3];
+    let mut r = [0.0; 3];
+    for (x, y, w) in rows {
+        for i in 0..3 {
+            r[i] += w * x[i] * y;
+            for j in 0..3 {
+                m[i][j] += w * x[i] * x[j];
+            }
+        }
+    }
+    solve3(m, r)
+}
+
+fn solve_weighted2(rows: &[([f64; 2], f64, f64)]) -> Option<(f64, f64)> {
+    let mut m = [[0.0; 2]; 2];
+    let mut r = [0.0; 2];
+    for (x, y, w) in rows {
+        for i in 0..2 {
+            r[i] += w * x[i] * y;
+            for j in 0..2 {
+                m[i][j] += w * x[i] * x[j];
+            }
+        }
+    }
+    let det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+    (det.abs() > 1e-9).then(|| {
+        (
+            ((r[1] * m[0][0] - r[0] * m[1][0]) / det),
+            ((r[0] * m[1][1] - r[1] * m[0][1]) / det),
+        )
+    })
+}
+
+#[allow(clippy::needless_range_loop)]
+fn solve3(mut m: [[f64; 3]; 3], mut r: [f64; 3]) -> Option<[f64; 3]> {
+    for col in 0..3 {
+        let pivot =
+            (col..3).max_by(|&a, &b| m[a][col].abs().partial_cmp(&m[b][col].abs()).unwrap())?;
+        if m[pivot][col].abs() < 1e-9 {
+            return None;
+        }
+        m.swap(col, pivot);
+        r.swap(col, pivot);
+        let d = m[col][col];
+        for j in col..3 {
+            m[col][j] /= d;
+        }
+        r[col] /= d;
+        for row in 0..3 {
+            if row != col {
+                let f = m[row][col];
+                for j in col..3 {
+                    m[row][j] -= f * m[col][j];
+                }
+                r[row] -= f * r[col];
+            }
+        }
+    }
+    Some(r)
+}
+
+fn largest_rectangle(cells: &BTreeSet<(u32, u32)>) -> Option<(u32, u32, u32, u32)> {
+    let mut best = None;
+    for d0 in 3..=12u32 {
+        for d1 in d0..=12u32 {
+            for b0 in 0..6u32 {
+                for b1 in b0..6u32 {
+                    if (d0..=d1).all(|d| (b0..=b1).all(|b| cells.contains(&(d, b)))) {
+                        let area = (d1 - d0 + 1) * (b1 - b0 + 1);
+                        if best.is_none_or(|(bd0, bd1, bb0, bb1)| {
+                            area > (bd1 - bd0 + 1) * (bb1 - bb0 + 1)
+                        }) {
+                            best = Some((d0, d1, b0, b1));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    best
+}
+
+fn log_tails(log: &mut String, pairs: &[(f64, f64)], a: f64, b: f64, sigma: f64) {
     let residuals: Vec<f64> = pairs.iter().map(|(x, y)| (y - (a * x + b)).abs()).collect();
-    let sigma_safe = sigma.max(1.0);
+    let s = sigma.max(1.0);
     log.push_str(&format!(
         "tails >2sigma {:.4} >3sigma {:.4}\n",
-        residuals.iter().filter(|r| **r > 2.0 * sigma_safe).count() as f64
-            / residuals.len().max(1) as f64,
-        residuals.iter().filter(|r| **r > 3.0 * sigma_safe).count() as f64
-            / residuals.len().max(1) as f64
+        residuals.iter().filter(|r| **r > 2.0 * s).count() as f64 / residuals.len().max(1) as f64,
+        residuals.iter().filter(|r| **r > 3.0 * s).count() as f64 / residuals.len().max(1) as f64
     ));
-    log
 }
 
 fn ols(pairs: &[(f64, f64)]) -> (f64, f64, f64) {
