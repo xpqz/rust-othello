@@ -205,11 +205,9 @@ fn header_mismatch_is_rejected() {
     let copy = temp("changed_openings.txt");
     let journal = temp("changed_openings.journal");
     fs::copy("../bench/openings_validation.txt", &copy).unwrap();
-    let opened = replace_arg(
-        &command(&journal, 1, None, "7"),
-        "--openings",
-        copy.to_str().unwrap(),
-    );
+    let mut opened = command(&journal, 1, None, "7");
+    opened.push("--openings".into());
+    opened.push(copy.display().to_string());
     assert!(run(&opened).status.success());
     let text = fs::read_to_string(&copy).unwrap();
     let mut lines: Vec<&str> = text.lines().collect();
