@@ -114,6 +114,12 @@ mod tests {
             .parent()
             .unwrap()
             .join("examples/fit_probcut");
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/fit_probcut.rs");
+        assert!(
+            example.metadata().unwrap().modified().unwrap()
+                >= source.metadata().unwrap().modified().unwrap(),
+            "fit_probcut example binary is missing or stale; run cargo build --release --example fit_probcut"
+        );
         let run = |dir: &Path, seed: u64| {
             Command::new(&example)
                 .args([
@@ -183,6 +189,25 @@ mod tests {
         let mismatch = run(&resumed, 8);
         assert!(!mismatch.status.success());
         assert!(String::from_utf8_lossy(&mismatch.stderr).contains("header"));
+        let depth = Command::new(&example)
+            .args([
+                "--dir",
+                resumed.to_str().unwrap(),
+                "--games",
+                "4",
+                "--positions",
+                "40",
+                "--depth",
+                "5",
+                "--unit-delay-ms",
+                "20",
+                "--seed",
+                "7",
+            ])
+            .output()
+            .unwrap();
+        assert!(!depth.status.success());
+        assert!(String::from_utf8_lossy(&depth.stderr).contains("header"));
         fs::remove_dir_all(reference).unwrap();
         fs::remove_dir_all(resumed).unwrap();
     }
