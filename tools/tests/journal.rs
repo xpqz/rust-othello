@@ -138,20 +138,8 @@ fn journal_roundtrip_and_torn_line() {
 fn kill_and_resume_matches_uninterrupted() {
     let reference = temp("reference");
     let resumed = temp("resumed");
-    let base = command(&reference, 2, None, "7");
-    let done = run(&base);
-    assert!(
-        done.status.success(),
-        "{}",
-        String::from_utf8_lossy(&done.stderr)
-    );
-
-    let mut args = command(&resumed, 2, None, "7");
-    args.push("--nodes".into());
-    args.push("20000".into());
-    let mut reference_args = command(&reference, 2, None, "7");
-    reference_args.push("--nodes".into());
-    reference_args.push("20000".into());
+    let args = replace_arg(&command(&resumed, 2, None, "7"), "--nodes", "20000");
+    let reference_args = replace_arg(&command(&reference, 2, None, "7"), "--nodes", "20000");
     assert!(run(&reference_args).status.success());
     let mut child = Command::new(env!("CARGO_BIN_EXE_othello-tools"))
         .args(&args)
@@ -204,25 +192,40 @@ fn header_mismatch_is_rejected() {
     assert!(String::from_utf8_lossy(&seed.stderr).contains("header"));
 
     let base = command(&path, 1, None, "7");
-    let mut nodes = base.clone();
-    nodes.push("--nodes".into());
-    nodes.push("4000".into());
-    assert!(!run(&nodes).status.success());
+    let nodes = replace_arg(&base, "--nodes", "4000");
+    let output = run(&nodes);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("header"));
 
     let agent = replace_arg(&base, "--a", "ab:2");
-    assert!(!run(&agent).status.success());
+    let output = run(&agent);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("header"));
 
-    let openings = temp("changed_openings.txt");
-    let text = fs::read_to_string("../bench/openings_validation.txt").unwrap();
-    let changed = text.replacen("d3", "c4", 1);
-    fs::write(&openings, changed).unwrap();
-    let mut opened = base.clone();
-    opened.push("--openings".into());
-    opened.push(openings.display().to_string());
-    assert!(!run(&opened).status.success());
+    let copy = temp("changed_openings.txt");
+    let journal = temp("changed_openings.journal");
+    fs::copy("../bench/openings_validation.txt", &copy).unwrap();
+    let opened = replace_arg(
+        &command(&journal, 1, None, "7"),
+        "--openings",
+        copy.to_str().unwrap(),
+    );
+    assert!(run(&opened).status.success());
+    let text = fs::read_to_string(&copy).unwrap();
+    let mut lines: Vec<&str> = text.lines().collect();
+    let first = lines
+        .iter()
+        .position(|line| !line.starts_with('#') && !line.is_empty())
+        .unwrap();
+    lines.swap(first, first + 1);
+    fs::write(&copy, lines.join("\n") + "\n").unwrap();
+    let output = run(&opened);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("header"));
 
     fs::remove_file(path).unwrap();
-    fs::remove_file(openings).unwrap();
+    fs::remove_file(copy).unwrap();
+    fs::remove_file(journal).unwrap();
 }
 
 #[test]
@@ -334,7 +337,7 @@ fn half_pair_is_replayed_once() {
     let resumed = temp("halfresumed");
     let args = command(&reference, 1, None, "7");
     assert!(run(&args).status.success());
-    let mut args = command(&resumed, 1, None, "7");
+    let args = command(&resumed, 1, None, "7");
     assert!(run(&args).status.success());
 
     let text = fs::read_to_string(&resumed).unwrap();
