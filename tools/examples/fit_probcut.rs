@@ -463,13 +463,18 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
     let (fit_games, held_games) = split_games(&games);
     let fit_set: BTreeSet<u64> = fit_games.iter().copied().collect();
     let held_set: BTreeSet<u64> = held_games.iter().copied().collect();
+    let in_range = |m: &&Measurement| (18..=52).contains(&m.empties);
+    let excluded = measurements
+        .iter()
+        .filter(|m| !(18..=52).contains(&m.empties))
+        .count();
     let fit_rows: Vec<&Measurement> = measurements
         .iter()
-        .filter(|m| fit_set.contains(&m.position.game))
+        .filter(|m| fit_set.contains(&m.position.game) && in_range(m))
         .collect();
     let held_rows: Vec<&Measurement> = measurements
         .iter()
-        .filter(|m| held_set.contains(&m.position.game))
+        .filter(|m| held_set.contains(&m.position.game) && in_range(m))
         .collect();
     let infinite = measurements
         .iter()
@@ -499,6 +504,7 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         "variation infinite-bound fraction {:.4}\n",
         infinite as f64 / measurements.len().max(1) as f64
     ));
+    log.push_str(&format!("excluded outside empties 18..52: {excluded}\n"));
     let mut grouped: BTreeMap<(usize, u32), Vec<(f64, f64)>> = BTreeMap::new();
     let mut empties: BTreeMap<(usize, u32), Vec<f64>> = BTreeMap::new();
     let mut pairs = Vec::new();
@@ -597,6 +603,27 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         ));
     }
     candidates.push((12, fit_stage(&cells, sigma)));
+    for cell in &cells {
+        let mut line = format!(
+            "cell-sigma d={} bucket={} empirical={:.2}",
+            cell.depth, cell.bucket, cell.sigma
+        );
+        for (constants, model) in &candidates {
+            let sigma = ProbCut::new(
+                150,
+                (a * 1000.0).round().clamp(500.0, 1500.0) as i32,
+                b.round() as i32,
+                *model,
+                (cell.depth, cell.depth),
+                (cell.empties.round() as u32, cell.empties.round() as u32),
+            )
+            .ok()
+            .map(|pc| pc.sigma(cell.depth, cell.empties.round() as u32));
+            line.push_str(&format!(" c{constants}={sigma:?}"));
+        }
+        log.push_str(&line);
+        log.push('\n');
+    }
     let a_milli = (a * 1000.0).round().clamp(500.0, 1500.0) as i32;
     let b_int = b.round() as i32;
     let mut passing = Vec::new();
@@ -647,24 +674,33 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
             (depth_min, depth_max),
             (empty_min, empty_max),
         ) else {
+            log.push_str(&format!(
+                "model-choice constants={constants} {model:?} invalid-domain\n"
+            ));
             continue;
         };
-        let counts = aggregate_decisions(&held_rows, &pc);
-        let error = (counts.false_high + counts.false_low) as f64
-            / (counts.high_fired + counts.low_fired).max(1) as f64;
-        log.push_str(&format!(
-            "model-choice constants={constants} {model:?} error={error:.4}\n"
-        ));
-        if chosen.as_ref().is_none_or(
-            |(best_error, best_constants, _): &(f64, usize, SigmaModel)| {
-                error < *best_error || (error == *best_error && constants < best_constants)
-            },
-        ) {
-            chosen = Some((error, *constants, *model));
+        let per_cell = cell_decisions(&held_rows, &pc);
+        let fired: usize = per_cell.values().map(|c| c.high_fired + c.low_fired).sum();
+        let bad: usize = per_cell.values().map(|c| c.false_high + c.false_low).sum();
+        let error = bad as f64 / fired.max(1) as f64;
+        let qualified = per_cell.values().all(|c| {
+            !(c.high_fired >= 200 && c.low_fired >= 200)
+                || (cp_upper(c.false_high as u32, c.high_fired as u32) <= 0.12
+                    && cp_upper(c.false_low as u32, c.low_fired as u32) <= 0.12)
+        });
+        log.push_str(&format!("model-choice constants={constants} {model:?} fired={fired} error={error:.4} qualified={qualified}\n"));
+        if qualified
+            && chosen.as_ref().is_none_or(
+                |(best_fired, best_constants, _): &(usize, usize, SigmaModel)| {
+                    fired > *best_fired || (fired == *best_fired && constants < best_constants)
+                },
+            )
+        {
+            chosen = Some((fired, *constants, *model));
         }
     }
     let Some((_, _, model)) = chosen else {
-        log.push_str("no sigma candidate passed the 95% floor; no supported domain\n");
+        log.push_str("no sigma candidate qualified; no supported domain\n");
         log_tails(&mut log, &pairs, a, b, sigma);
         return log;
     };
@@ -681,30 +717,7 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
             log.push_str(&format!("t={t:.1} invalid parameters\n"));
             continue;
         };
-        let mut per_cell: BTreeMap<(u32, u32), DecisionCounts> = BTreeMap::new();
-        for row in &held_rows {
-            let Some((alpha, beta)) = row.position.window else {
-                continue;
-            };
-            let bucket = row.empties.saturating_sub(18) / 6;
-            for depth in 2..=row.values.len().min(12) {
-                let shallow = shallow_depth(depth as u32) as usize;
-                if shallow == 0 || shallow > row.values.len() {
-                    continue;
-                }
-                let counts = decision_counts(
-                    &[(row.values[shallow - 1], row.values[depth - 1], alpha, beta)],
-                    &pc,
-                    depth as u32,
-                    row.empties,
-                );
-                let entry = per_cell.entry((depth as u32, bucket)).or_default();
-                entry.high_fired += counts.high_fired;
-                entry.false_high += counts.false_high;
-                entry.low_fired += counts.low_fired;
-                entry.false_low += counts.false_low;
-            }
-        }
+        let per_cell = cell_decisions(&held_rows, &pc);
         for ((depth, bucket), counts) in &per_cell {
             let high_upper = cp_upper(counts.false_high as u32, counts.high_fired as u32);
             let low_upper = cp_upper(counts.false_low as u32, counts.low_fired as u32);
@@ -789,12 +802,13 @@ struct CellStat {
     sigma: f64,
 }
 
-fn aggregate_decisions(rows: &[&Measurement], pc: &ProbCut) -> DecisionCounts {
-    let mut total = DecisionCounts::default();
+fn cell_decisions(rows: &[&Measurement], pc: &ProbCut) -> BTreeMap<(u32, u32), DecisionCounts> {
+    let mut per_cell: BTreeMap<(u32, u32), DecisionCounts> = BTreeMap::new();
     for row in rows {
         let Some((alpha, beta)) = row.position.window else {
             continue;
         };
+        let bucket = row.empties.saturating_sub(18) / 6;
         for depth in 2..=row.values.len().min(12) {
             let shallow = shallow_depth(depth as u32) as usize;
             if shallow == 0 || shallow > row.values.len() {
@@ -806,13 +820,14 @@ fn aggregate_decisions(rows: &[&Measurement], pc: &ProbCut) -> DecisionCounts {
                 depth as u32,
                 row.empties,
             );
-            total.high_fired += counts.high_fired;
-            total.false_high += counts.false_high;
-            total.low_fired += counts.low_fired;
-            total.false_low += counts.false_low;
+            let entry = per_cell.entry((depth as u32, bucket)).or_default();
+            entry.high_fired += counts.high_fired;
+            entry.false_high += counts.false_high;
+            entry.low_fired += counts.low_fired;
+            entry.false_low += counts.false_low;
         }
     }
-    total
+    per_cell
 }
 
 fn fit_linear(cells: &[CellStat]) -> Option<[f64; 3]> {
