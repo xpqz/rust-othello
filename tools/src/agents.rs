@@ -92,9 +92,9 @@ pub fn build(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<dy
     match kind {
         "random" => Ok(Box::new(random_agent(seed))),
         "greedy" => Ok(Box::new(greedy_agent())),
-        _ => Ok(Box::new(search_agent(
-            config(name, nodes, ordering)?.0,
-            config(name, nodes, ordering)?.1,
-        ))),
+        _ => {
+            let (config, limits) = config(name, nodes, ordering)?;
+            Ok(Box::new(search_agent(config, limits)))
+        }
     }
 }
