@@ -1,4 +1,6 @@
-# Othello
+# Rusthello
+
+> **Note** this was written with the help of AI. The aims were to implement a competent engine in 1000 disciplined lines of code. If you're interested in the flow of that, see the `docs/` folder. Models used: DeepSeek 4.1 Flash. Claude Opus 5.5 served as the reviewer, and wrote the GUI.
 
 A Rust Othello engine with a terminal front end and an optional egui desktop
 GUI. The engine uses iterative-deepening alpha-beta search, move ordering, a
