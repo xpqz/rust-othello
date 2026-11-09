@@ -11,7 +11,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::Instant;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 const STAGES: [&str; 2] = ["selfplay.journal", "measure.journal"];
 const T_VALUES: [f64; 5] = [1.0, 1.4, 1.5, 1.8, 2.2];
@@ -25,6 +29,7 @@ struct Config {
     depth: u32,
     seed: u64,
     delay_ms: u64,
+    fit_only: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -75,9 +80,15 @@ impl Config {
             depth: 12,
             seed: 1,
             delay_ms: 0,
+            fit_only: false,
         };
         let mut index = 0;
         while index < args.len() {
+            if args[index] == "--fit-only" {
+                config.fit_only = true;
+                index += 1;
+                continue;
+            }
             let value = &args[index + 1];
             match args[index].as_str() {
                 "--dir" => config.dir = PathBuf::from(value),
@@ -143,6 +154,30 @@ fn git_commit() -> String {
 
 fn run_pipeline(config: &Config) -> Result<(), String> {
     fs::create_dir_all(&config.dir).map_err(|error| error.to_string())?;
+    if config.fit_only {
+        let (_, records) =
+            othello_tools::journal::read(&config.dir.join(STAGES[1])).map_err(|e| e.to_string())?;
+        let mut measurements = Vec::new();
+        let mut abandoned = 0;
+        for record in records {
+            let measurement = parse_measurement(&record.id, &record.line)?;
+            if measurement.values.len() <= 10 {
+                measurements.push(measurement);
+            } else {
+                abandoned += 1;
+            }
+        }
+        measurements.sort_by_key(|measurement| measurement.position.key);
+        let mut log = fit(config, &measurements);
+        log.insert_str(
+            0,
+            &format!(
+                "deep tier abandoned after {abandoned} positions: depth-12 cost ~54 s/position\n"
+            ),
+        );
+        fs::write(config.dir.join("fit.log"), log).map_err(|error| error.to_string())?;
+        return Ok(());
+    }
     let games = self_play(config)?;
     let samples = sample_positions(config, &games)?;
     let measurements = measure_positions(config, &samples)?;
@@ -352,7 +387,23 @@ fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurem
     let mut measurements = Vec::new();
     let mut written = 0;
     let start = Instant::now();
-    let mut last = Instant::now();
+    let progress = Arc::new(AtomicUsize::new(0));
+    let (heartbeat_tx, heartbeat_rx) = mpsc::channel();
+    let heartbeat_progress = Arc::clone(&progress);
+    let expected = samples.len();
+    let heartbeat = thread::spawn(move || {
+        loop {
+            match heartbeat_rx.recv_timeout(Duration::from_secs(60)) {
+                Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(mpsc::RecvTimeoutError::Timeout) => eprintln!(
+                    "measured {}/{} positions elapsed {:.1}s",
+                    heartbeat_progress.load(Ordering::Relaxed),
+                    expected,
+                    start.elapsed().as_secs_f64()
+                ),
+            }
+        }
+    });
     for (index, sample) in samples.iter().enumerate() {
         let id = format!("{:016x}", sample.position.key);
         if !done.contains(&id) {
@@ -396,19 +447,14 @@ fn measure_positions(config: &Config, samples: &[Sample]) -> Result<Vec<Measurem
             );
             journal.append(&id, &payload)?;
             written += 1;
+            progress.store(written, Ordering::Relaxed);
             if config.delay_ms > 0 {
                 std::thread::sleep(std::time::Duration::from_millis(config.delay_ms));
             }
         }
-        if last.elapsed() >= std::time::Duration::from_secs(60) {
-            eprintln!(
-                "measured {written}/{} positions elapsed {:.1}s",
-                samples.len(),
-                start.elapsed().as_secs_f64()
-            );
-            last = Instant::now();
-        }
     }
+    drop(heartbeat_tx);
+    heartbeat.join().unwrap();
     drop(journal);
     let (_, records) = othello_tools::journal::read(&path)?;
     for record in records {
@@ -577,7 +623,7 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         .unwrap_or(52)
         .clamp(18, 52);
     let depth_min = 3;
-    let depth_max = config.depth.min(12).max(depth_min);
+    let depth_max = config.depth.min(10).max(depth_min);
     let mut candidates = Vec::new();
     if let Some(c) = fit_linear(&cells) {
         candidates.push((
@@ -734,12 +780,12 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         for ((depth, bucket), counts) in &per_cell {
             let high_upper = cp_upper(counts.false_high as u32, counts.high_fired as u32);
             let low_upper = cp_upper(counts.false_low as u32, counts.low_fired as u32);
-            log.push_str(&format!("decisions t={t:.1} d={depth} bucket={bucket} high {}/{} upper {high_upper:.4} low {}/{} upper {low_upper:.4} nominal {:.4}\n", counts.false_high, counts.high_fired, counts.false_low, counts.low_fired, 1.0-normal_cdf(t)));
+            log.push_str(&format!("descriptive decisions t={t:.1} d={depth} bucket={bucket} high {}/{} upper {high_upper:.4} low {}/{} upper {low_upper:.4} nominal {:.4}\n", counts.false_high, counts.high_fired, counts.false_low, counts.low_fired, 1.0-normal_cdf(t)));
         }
     }
     if let Some((b0, b1)) = largest_bucket_run(&supported) {
         let depths = per_cell_depths(&held_rows, b0, b1);
-        let d0 = depths.iter().copied().min().unwrap_or(depth_min);
+        let d0 = depths.iter().copied().min().unwrap_or(depth_min).max(3);
         let d1 = depths.iter().copied().max().unwrap_or(depth_max);
         let emin = 18 + 6 * b0;
         let emax = (18 + 6 * (b1 + 1) - 1).min(52);
@@ -748,8 +794,8 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         ));
         log.push_str(&format!("PROBCUT_FIT = ProbCut::new(150, {a_milli}, {b_int}, SigmaModel::{model:?}, ({d0}, {d1}), ({emin}, {emax})) // t=1.5\n"));
     } else {
-        log.push_str("supported-domain: none (epic stops pending design change)\n");
-        log.push_str("no PROBCUT_FIT: no 200-direction/12% cell rectangle\n");
+        log.push_str("supported-domain: none (no passing bucket run)\n");
+        log.push_str("no PROBCUT_FIT: no passing bucket run\n");
     }
     let Ok(pc) = ProbCut::new(
         150,
@@ -1292,6 +1338,23 @@ mod tests {
         fs::write(&measure, cut).unwrap();
         assert!(run(&resumed, 7, "4").status.success());
         assert_eq!(fs::read(resumed.join("fit.log")).unwrap(), reference_fit);
+        let before = fs::read(&measure).unwrap();
+        let fit_only = Command::new(&example)
+            .args([
+                "--dir",
+                resumed.to_str().unwrap(),
+                "--fit-only",
+                "--depth",
+                "4",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            fit_only.status.success(),
+            "{}",
+            String::from_utf8_lossy(&fit_only.stderr)
+        );
+        assert_eq!(fs::read(&measure).unwrap(), before);
         let mismatch = run(&resumed, 8, "4");
         assert!(!mismatch.status.success());
         assert!(String::from_utf8_lossy(&mismatch.stderr).contains("header"));
