@@ -1,375 +1,376 @@
-deep tier abandoned after 552 positions: depth-12 cost ~54 s/position
-seed 1 games 200 positions 4000 deep_positions 0 depth 10 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine 68ac1e16197b4a7a49546dfa9a58f49261a6c2fe
-sampled 4000 positions (requested 4000)
+data-source header seed 1 games 200 positions 4000 deep_positions 1000 depth 12 openings /Users/stefan/work/crust/othello-probcut-run/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine e012aa895b76ec5636aa34686c116cdc79531af7
+fit-only engine 9e1e12d5ed634bce95757220c62754c87440db38 truncated 552 records to depth 10
+seed 1 games 200 positions 4000 deep_positions 0 depth 10 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine 9e1e12d5ed634bce95757220c62754c87440db38
+sampled 4552 positions (requested 4000)
 variation infinite-bound fraction 0.2392
-excluded outside empties 18..52: 363
-global fit a=1.134989 b=0.017 sigma=72.413 r2=0.9420
-cell d=3 bucket=0 n=340 a=1.0672 b=-1.33 sigma=68.17 r2=0.9614
-cell d=3 bucket=1 n=546 a=1.0799 b=-9.20 sigma=64.42 r2=0.9477
-cell d=3 bucket=2 n=715 a=1.0713 b=-9.40 sigma=56.61 r2=0.9493
-cell d=3 bucket=3 n=642 a=1.0273 b=-8.31 sigma=51.51 r2=0.9343
-cell d=3 bucket=4 n=277 a=0.9748 b=-8.19 sigma=47.58 r2=0.9124
-cell d=3 bucket=5 n=8 insufficient
-cell d=4 bucket=0 n=340 a=1.0851 b=8.10 sigma=74.34 r2=0.9601
-cell d=4 bucket=1 n=546 a=1.0809 b=8.35 sigma=62.34 r2=0.9566
-cell d=4 bucket=2 n=715 a=1.0677 b=3.07 sigma=47.93 r2=0.9675
-cell d=4 bucket=3 n=642 a=1.0626 b=-0.94 sigma=47.57 r2=0.9497
-cell d=4 bucket=4 n=277 a=1.0351 b=-2.20 sigma=42.84 r2=0.9370
-cell d=4 bucket=5 n=8 insufficient
-cell d=5 bucket=0 n=340 a=1.0998 b=-3.94 sigma=77.77 r2=0.9602
-cell d=5 bucket=1 n=546 a=1.1048 b=0.92 sigma=58.95 r2=0.9654
-cell d=5 bucket=2 n=715 a=1.0627 b=-1.77 sigma=43.64 r2=0.9740
-cell d=5 bucket=3 n=642 a=1.0563 b=-5.90 sigma=41.49 r2=0.9632
-cell d=5 bucket=4 n=277 a=1.0385 b=-4.55 sigma=33.14 r2=0.9621
-cell d=5 bucket=5 n=8 insufficient
-cell d=6 bucket=0 n=340 a=1.1696 b=12.60 sigma=116.85 r2=0.9187
-cell d=6 bucket=1 n=546 a=1.1756 b=13.01 sigma=92.46 r2=0.9222
-cell d=6 bucket=2 n=715 a=1.1291 b=7.70 sigma=70.21 r2=0.9395
-cell d=6 bucket=3 n=642 a=1.1190 b=0.50 sigma=66.29 r2=0.9151
-cell d=6 bucket=4 n=277 a=1.0573 b=1.63 sigma=54.15 r2=0.9067
-cell d=6 bucket=5 n=8 insufficient
-cell d=7 bucket=0 n=340 a=1.1906 b=-2.11 sigma=111.73 r2=0.9319
-cell d=7 bucket=1 n=546 a=1.1888 b=2.37 sigma=88.42 r2=0.9348
-cell d=7 bucket=2 n=715 a=1.1423 b=-2.19 sigma=62.93 r2=0.9542
-cell d=7 bucket=3 n=642 a=1.1285 b=-9.38 sigma=57.97 r2=0.9386
-cell d=7 bucket=4 n=277 a=1.0677 b=-6.00 sigma=44.44 r2=0.9372
-cell d=7 bucket=5 n=8 insufficient
-cell d=8 bucket=0 n=340 a=1.1522 b=9.89 sigma=113.47 r2=0.9345
-cell d=8 bucket=1 n=546 a=1.1800 b=4.81 sigma=76.83 r2=0.9548
-cell d=8 bucket=2 n=715 a=1.1368 b=6.31 sigma=64.47 r2=0.9565
-cell d=8 bucket=3 n=642 a=1.1296 b=3.15 sigma=53.85 r2=0.9519
-cell d=8 bucket=4 n=277 a=1.0636 b=7.38 sigma=46.89 r2=0.9375
-cell d=8 bucket=5 n=8 insufficient
-cell d=9 bucket=0 n=340 a=1.1495 b=3.86 sigma=100.40 r2=0.9522
-cell d=9 bucket=1 n=546 a=1.1570 b=-1.70 sigma=75.91 r2=0.9589
-cell d=9 bucket=2 n=715 a=1.1570 b=-2.20 sigma=58.16 r2=0.9667
-cell d=9 bucket=3 n=642 a=1.1464 b=-5.45 sigma=50.35 r2=0.9604
-cell d=9 bucket=4 n=277 a=1.0967 b=-2.99 sigma=44.22 r2=0.9469
-cell d=9 bucket=5 n=8 insufficient
-cell d=10 bucket=0 n=340 a=1.2181 b=18.23 sigma=147.42 r2=0.9043
-cell d=10 bucket=1 n=546 a=1.2588 b=6.75 sigma=98.20 r2=0.9364
-cell d=10 bucket=2 n=715 a=1.2216 b=9.18 sigma=83.08 r2=0.9386
-cell d=10 bucket=3 n=642 a=1.2076 b=4.55 sigma=69.70 r2=0.9310
-cell d=10 bucket=4 n=277 a=1.1359 b=10.75 sigma=59.81 r2=0.9132
-cell d=10 bucket=5 n=8 insufficient
-per-cell slope range 0.9748..1.2588 material=true
+excluded outside empties 18..52: 418
+global fit a=1.134335 b=0.437 sigma=72.671 r2=0.9410
+cell d=3 bucket=0 n=370 a=1.0674 b=-1.40 sigma=67.81 r2=0.9612
+cell d=3 bucket=1 n=620 a=1.0724 b=-9.66 sigma=64.61 r2=0.9478
+cell d=3 bucket=2 n=830 a=1.0671 b=-8.60 sigma=56.64 r2=0.9482
+cell d=3 bucket=3 n=733 a=1.0311 b=-7.39 sigma=51.69 r2=0.9336
+cell d=3 bucket=4 n=308 a=0.9729 b=-9.12 sigma=46.91 r2=0.9152
+cell d=3 bucket=5 n=9 insufficient
+cell d=4 bucket=0 n=370 a=1.0833 b=8.59 sigma=73.90 r2=0.9597
+cell d=4 bucket=1 n=620 a=1.0716 b=8.46 sigma=62.22 r2=0.9571
+cell d=4 bucket=2 n=830 a=1.0678 b=3.37 sigma=49.23 r2=0.9652
+cell d=4 bucket=3 n=733 a=1.0699 b=-0.04 sigma=48.97 r2=0.9469
+cell d=4 bucket=4 n=308 a=1.0247 b=-1.41 sigma=42.24 r2=0.9387
+cell d=4 bucket=5 n=9 insufficient
+cell d=5 bucket=0 n=370 a=1.0948 b=-2.56 sigma=76.70 r2=0.9602
+cell d=5 bucket=1 n=620 a=1.0964 b=-0.05 sigma=57.93 r2=0.9662
+cell d=5 bucket=2 n=830 a=1.0667 b=-1.79 sigma=44.76 r2=0.9724
+cell d=5 bucket=3 n=733 a=1.0631 b=-6.10 sigma=42.52 r2=0.9617
+cell d=5 bucket=4 n=308 a=1.0363 b=-4.09 sigma=33.65 r2=0.9610
+cell d=5 bucket=5 n=9 insufficient
+cell d=6 bucket=0 n=370 a=1.1621 b=15.05 sigma=118.52 r2=0.9142
+cell d=6 bucket=1 n=620 a=1.1566 b=13.38 sigma=93.28 r2=0.9204
+cell d=6 bucket=2 n=830 a=1.1367 b=8.04 sigma=71.97 r2=0.9363
+cell d=6 bucket=3 n=733 a=1.1291 b=2.00 sigma=68.02 r2=0.9115
+cell d=6 bucket=4 n=308 a=1.0487 b=1.98 sigma=54.84 r2=0.9050
+cell d=6 bucket=5 n=9 insufficient
+cell d=7 bucket=0 n=370 a=1.1836 b=-0.82 sigma=112.08 r2=0.9296
+cell d=7 bucket=1 n=620 a=1.1781 b=2.13 sigma=87.65 r2=0.9352
+cell d=7 bucket=2 n=830 a=1.1505 b=-2.77 sigma=64.13 r2=0.9522
+cell d=7 bucket=3 n=733 a=1.1320 b=-8.93 sigma=58.41 r2=0.9379
+cell d=7 bucket=4 n=308 a=1.0697 b=-6.53 sigma=46.32 r2=0.9326
+cell d=7 bucket=5 n=9 insufficient
+cell d=8 bucket=0 n=370 a=1.1509 b=11.19 sigma=113.30 r2=0.9333
+cell d=8 bucket=1 n=620 a=1.1721 b=6.39 sigma=79.09 r2=0.9520
+cell d=8 bucket=2 n=830 a=1.1437 b=5.29 sigma=64.93 r2=0.9557
+cell d=8 bucket=3 n=733 a=1.1286 b=4.47 sigma=53.31 r2=0.9529
+cell d=8 bucket=4 n=308 a=1.0689 b=6.81 sigma=49.23 r2=0.9321
+cell d=8 bucket=5 n=9 insufficient
+cell d=9 bucket=0 n=370 a=1.1589 b=2.80 sigma=101.13 r2=0.9510
+cell d=9 bucket=1 n=620 a=1.1574 b=1.14 sigma=78.02 r2=0.9563
+cell d=9 bucket=2 n=830 a=1.1597 b=-2.77 sigma=58.28 r2=0.9663
+cell d=9 bucket=3 n=733 a=1.1421 b=-4.56 sigma=49.56 r2=0.9617
+cell d=9 bucket=4 n=308 a=1.0996 b=-3.76 sigma=45.85 r2=0.9435
+cell d=9 bucket=5 n=9 insufficient
+cell d=10 bucket=0 n=370 a=1.2248 b=18.37 sigma=146.41 r2=0.9047
+cell d=10 bucket=1 n=620 a=1.2498 b=9.52 sigma=99.96 r2=0.9338
+cell d=10 bucket=2 n=830 a=1.2290 b=8.11 sigma=82.80 r2=0.9387
+cell d=10 bucket=3 n=733 a=1.2049 b=5.90 sigma=69.32 r2=0.9318
+cell d=10 bucket=4 n=308 a=1.1434 b=10.15 sigma=62.77 r2=0.9062
+cell d=10 bucket=5 n=9 insufficient
+per-cell slope range 0.9729..1.2498 material=true
 sigma-model edax excluded: non-linear A/B/C fit not implemented
-cell-sigma d=3 bucket=0 empirical=68.17 c3=Some(87) c12=Some(91)
-cell-sigma d=3 bucket=1 empirical=64.42 c3=Some(75) c12=Some(98)
-cell-sigma d=3 bucket=2 empirical=56.61 c3=Some(63) c12=Some(74)
-cell-sigma d=3 bucket=3 empirical=51.51 c3=Some(51) c12=Some(76)
-cell-sigma d=3 bucket=4 empirical=47.58 c3=Some(41) c12=Some(68)
-cell-sigma d=4 bucket=0 empirical=74.34 c3=Some(87) c12=Some(91)
-cell-sigma d=4 bucket=1 empirical=62.34 c3=Some(75) c12=Some(98)
-cell-sigma d=4 bucket=2 empirical=47.93 c3=Some(63) c12=Some(74)
-cell-sigma d=4 bucket=3 empirical=47.57 c3=Some(51) c12=Some(76)
-cell-sigma d=4 bucket=4 empirical=42.84 c3=Some(41) c12=Some(68)
-cell-sigma d=5 bucket=0 empirical=77.77 c3=Some(87) c12=Some(91)
-cell-sigma d=5 bucket=1 empirical=58.95 c3=Some(75) c12=Some(98)
-cell-sigma d=5 bucket=2 empirical=43.64 c3=Some(63) c12=Some(74)
-cell-sigma d=5 bucket=3 empirical=41.49 c3=Some(51) c12=Some(76)
-cell-sigma d=5 bucket=4 empirical=33.14 c3=Some(41) c12=Some(68)
-cell-sigma d=6 bucket=0 empirical=116.85 c3=Some(105) c12=Some(163)
-cell-sigma d=6 bucket=1 empirical=92.46 c3=Some(93) c12=Some(186)
-cell-sigma d=6 bucket=2 empirical=70.21 c3=Some(81) c12=Some(140)
-cell-sigma d=6 bucket=3 empirical=66.29 c3=Some(69) c12=Some(146)
-cell-sigma d=6 bucket=4 empirical=54.15 c3=Some(59) c12=Some(132)
-cell-sigma d=7 bucket=0 empirical=111.73 c3=Some(105) c12=Some(163)
-cell-sigma d=7 bucket=1 empirical=88.42 c3=Some(93) c12=Some(186)
-cell-sigma d=7 bucket=2 empirical=62.93 c3=Some(81) c12=Some(140)
-cell-sigma d=7 bucket=3 empirical=57.97 c3=Some(69) c12=Some(146)
-cell-sigma d=7 bucket=4 empirical=44.44 c3=Some(59) c12=Some(132)
-cell-sigma d=8 bucket=0 empirical=113.47 c3=Some(105) c12=Some(163)
-cell-sigma d=8 bucket=1 empirical=76.83 c3=Some(93) c12=Some(186)
-cell-sigma d=8 bucket=2 empirical=64.47 c3=Some(81) c12=Some(140)
-cell-sigma d=8 bucket=3 empirical=53.85 c3=Some(69) c12=Some(146)
-cell-sigma d=8 bucket=4 empirical=46.89 c3=Some(59) c12=Some(132)
-cell-sigma d=9 bucket=0 empirical=100.40 c3=Some(105) c12=Some(163)
-cell-sigma d=9 bucket=1 empirical=75.91 c3=Some(93) c12=Some(186)
-cell-sigma d=9 bucket=2 empirical=58.16 c3=Some(81) c12=Some(140)
-cell-sigma d=9 bucket=3 empirical=50.35 c3=Some(69) c12=Some(146)
-cell-sigma d=9 bucket=4 empirical=44.22 c3=Some(59) c12=Some(132)
-cell-sigma d=10 bucket=0 empirical=147.42 c3=Some(123) c12=Some(235)
-cell-sigma d=10 bucket=1 empirical=98.20 c3=Some(111) c12=Some(274)
-cell-sigma d=10 bucket=2 empirical=83.08 c3=Some(99) c12=Some(206)
-cell-sigma d=10 bucket=3 empirical=69.70 c3=Some(87) c12=Some(216)
-cell-sigma d=10 bucket=4 empirical=59.81 c3=Some(77) c12=Some(196)
-sigma-model constants=3 Linear { s0: 111, gap: 9, empty: -2 } floor-worst=Some(0.8782786825045275) pass=false
-sigma-model constants=12 StageTable { buckets: [(19, 36), (10, 44), (8, 33), (6, 35), (4, 32), (72, 0)] } floor-worst=Some(1.2317189925554295) pass=true
-model-choice constants=12 StageTable { buckets: [(19, 36), (10, 44), (8, 33), (6, 35), (4, 32), (72, 0)] } fired=4274 error=0.0012 qualified=true
-bucket-decisions t=1.0 bucket=0 high 2/655 upper 0.0096 low 1/283 upper 0.0167
-bucket-decisions t=1.0 bucket=1 high 1/931 upper 0.0051 low 1/275 upper 0.0171
-bucket-decisions t=1.0 bucket=2 high 1/1323 upper 0.0036 low 0/277 upper 0.0108
-bucket-decisions t=1.0 bucket=3 high 3/1054 upper 0.0073 low 0/296 upper 0.0101
-bucket-decisions t=1.0 bucket=4 high 2/401 upper 0.0156 low 0/67 upper 0.0437
+cell-sigma d=3 bucket=0 empirical=67.81 c3=Some(86) c12=Some(91)
+cell-sigma d=3 bucket=1 empirical=64.61 c3=Some(74) c12=Some(94)
+cell-sigma d=3 bucket=2 empirical=56.64 c3=Some(62) c12=Some(76)
+cell-sigma d=3 bucket=3 empirical=51.69 c3=Some(50) c12=Some(79)
+cell-sigma d=3 bucket=4 empirical=46.91 c3=Some(40) c12=Some(65)
+cell-sigma d=4 bucket=0 empirical=73.90 c3=Some(86) c12=Some(91)
+cell-sigma d=4 bucket=1 empirical=62.22 c3=Some(74) c12=Some(94)
+cell-sigma d=4 bucket=2 empirical=49.23 c3=Some(62) c12=Some(76)
+cell-sigma d=4 bucket=3 empirical=48.97 c3=Some(50) c12=Some(79)
+cell-sigma d=4 bucket=4 empirical=42.24 c3=Some(40) c12=Some(65)
+cell-sigma d=5 bucket=0 empirical=76.70 c3=Some(86) c12=Some(91)
+cell-sigma d=5 bucket=1 empirical=57.93 c3=Some(74) c12=Some(94)
+cell-sigma d=5 bucket=2 empirical=44.76 c3=Some(62) c12=Some(76)
+cell-sigma d=5 bucket=3 empirical=42.52 c3=Some(50) c12=Some(79)
+cell-sigma d=5 bucket=4 empirical=33.65 c3=Some(40) c12=Some(65)
+cell-sigma d=6 bucket=0 empirical=118.52 c3=Some(104) c12=Some(163)
+cell-sigma d=6 bucket=1 empirical=93.28 c3=Some(92) c12=Some(178)
+cell-sigma d=6 bucket=2 empirical=71.97 c3=Some(80) c12=Some(144)
+cell-sigma d=6 bucket=3 empirical=68.02 c3=Some(68) c12=Some(153)
+cell-sigma d=6 bucket=4 empirical=54.84 c3=Some(58) c12=Some(125)
+cell-sigma d=7 bucket=0 empirical=112.08 c3=Some(104) c12=Some(163)
+cell-sigma d=7 bucket=1 empirical=87.65 c3=Some(92) c12=Some(178)
+cell-sigma d=7 bucket=2 empirical=64.13 c3=Some(80) c12=Some(144)
+cell-sigma d=7 bucket=3 empirical=58.41 c3=Some(68) c12=Some(153)
+cell-sigma d=7 bucket=4 empirical=46.32 c3=Some(58) c12=Some(125)
+cell-sigma d=8 bucket=0 empirical=113.30 c3=Some(104) c12=Some(163)
+cell-sigma d=8 bucket=1 empirical=79.09 c3=Some(92) c12=Some(178)
+cell-sigma d=8 bucket=2 empirical=64.93 c3=Some(80) c12=Some(144)
+cell-sigma d=8 bucket=3 empirical=53.31 c3=Some(68) c12=Some(153)
+cell-sigma d=8 bucket=4 empirical=49.23 c3=Some(58) c12=Some(125)
+cell-sigma d=9 bucket=0 empirical=101.13 c3=Some(104) c12=Some(163)
+cell-sigma d=9 bucket=1 empirical=78.02 c3=Some(92) c12=Some(178)
+cell-sigma d=9 bucket=2 empirical=58.28 c3=Some(80) c12=Some(144)
+cell-sigma d=9 bucket=3 empirical=49.56 c3=Some(68) c12=Some(153)
+cell-sigma d=9 bucket=4 empirical=45.85 c3=Some(58) c12=Some(125)
+cell-sigma d=10 bucket=0 empirical=146.41 c3=Some(122) c12=Some(235)
+cell-sigma d=10 bucket=1 empirical=99.96 c3=Some(110) c12=Some(262)
+cell-sigma d=10 bucket=2 empirical=82.80 c3=Some(98) c12=Some(212)
+cell-sigma d=10 bucket=3 empirical=69.32 c3=Some(86) c12=Some(227)
+cell-sigma d=10 bucket=4 empirical=62.77 c3=Some(76) c12=Some(185)
+sigma-model constants=3 Linear { s0: 110, gap: 9, empty: -2 } floor-worst=Some(0.8771619927817568) pass=false
+sigma-model constants=12 StageTable { buckets: [(19, 36), (10, 42), (8, 34), (5, 37), (5, 30), (73, 0)] } floor-worst=Some(1.2488325930169064) pass=true
+model-choice constants=12 StageTable { buckets: [(19, 36), (10, 42), (8, 34), (5, 37), (5, 30), (73, 0)] } fired=4804 error=0.0010 qualified=true
+bucket-decisions t=1.0 bucket=0 high 2/742 upper 0.0085 low 2/316 upper 0.0198
+bucket-decisions t=1.0 bucket=1 high 1/1084 upper 0.0044 low 3/337 upper 0.0228
+bucket-decisions t=1.0 bucket=2 high 2/1446 upper 0.0043 low 0/330 upper 0.0090
+bucket-decisions t=1.0 bucket=3 high 3/1146 upper 0.0068 low 0/327 upper 0.0091
+bucket-decisions t=1.0 bucket=4 high 3/465 upper 0.0166 low 1/73 upper 0.0633
 bucket-decisions t=1.0 bucket=5 high 0/16 upper 0.1707 low 0/0 upper 1.0000
-descriptive decisions t=1.0 d=3 bucket=0 high 0/93 upper 0.0317 low 0/40 upper 0.0722 nominal 0.1587
-descriptive decisions t=1.0 d=3 bucket=1 high 0/142 upper 0.0209 low 0/49 upper 0.0593 nominal 0.1587
-descriptive decisions t=1.0 d=3 bucket=2 high 1/191 upper 0.0246 low 0/40 upper 0.0722 nominal 0.1587
-descriptive decisions t=1.0 d=3 bucket=3 high 2/170 upper 0.0366 low 0/43 upper 0.0673 nominal 0.1587
-descriptive decisions t=1.0 d=3 bucket=4 high 1/78 upper 0.0594 low 0/8 upper 0.3123 nominal 0.1587
+descriptive decisions t=1.0 d=3 bucket=0 high 0/106 upper 0.0279 low 0/44 upper 0.0658 nominal 0.1587
+descriptive decisions t=1.0 d=3 bucket=1 high 0/162 upper 0.0183 low 0/57 upper 0.0512 nominal 0.1587
+descriptive decisions t=1.0 d=3 bucket=2 high 1/212 upper 0.0222 low 0/51 upper 0.0570 nominal 0.1587
+descriptive decisions t=1.0 d=3 bucket=3 high 2/190 upper 0.0328 low 0/50 upper 0.0582 nominal 0.1587
+descriptive decisions t=1.0 d=3 bucket=4 high 1/88 upper 0.0528 low 0/10 upper 0.2589 nominal 0.1587
 descriptive decisions t=1.0 d=3 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-descriptive decisions t=1.0 d=4 bucket=0 high 1/92 upper 0.0505 low 0/39 upper 0.0739 nominal 0.1587
-descriptive decisions t=1.0 d=4 bucket=1 high 0/137 upper 0.0216 low 0/45 upper 0.0644 nominal 0.1587
-descriptive decisions t=1.0 d=4 bucket=2 high 0/185 upper 0.0161 low 0/43 upper 0.0673 nominal 0.1587
-descriptive decisions t=1.0 d=4 bucket=3 high 0/156 upper 0.0190 low 0/56 upper 0.0521 nominal 0.1587
-descriptive decisions t=1.0 d=4 bucket=4 high 0/61 upper 0.0479 low 0/16 upper 0.1707 nominal 0.1587
+descriptive decisions t=1.0 d=4 bucket=0 high 1/105 upper 0.0444 low 0/43 upper 0.0673 nominal 0.1587
+descriptive decisions t=1.0 d=4 bucket=1 high 0/159 upper 0.0187 low 0/54 upper 0.0540 nominal 0.1587
+descriptive decisions t=1.0 d=4 bucket=2 high 1/208 upper 0.0226 low 0/53 upper 0.0550 nominal 0.1587
+descriptive decisions t=1.0 d=4 bucket=3 high 0/175 upper 0.0170 low 0/64 upper 0.0457 nominal 0.1587
+descriptive decisions t=1.0 d=4 bucket=4 high 1/72 upper 0.0642 low 1/18 upper 0.2377 nominal 0.1587
 descriptive decisions t=1.0 d=4 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-descriptive decisions t=1.0 d=5 bucket=0 high 0/89 upper 0.0331 low 0/42 upper 0.0688 nominal 0.1587
-descriptive decisions t=1.0 d=5 bucket=1 high 1/142 upper 0.0330 low 0/47 upper 0.0618 nominal 0.1587
-descriptive decisions t=1.0 d=5 bucket=2 high 0/188 upper 0.0158 low 0/45 upper 0.0644 nominal 0.1587
-descriptive decisions t=1.0 d=5 bucket=3 high 1/166 upper 0.0283 low 0/51 upper 0.0570 nominal 0.1587
-descriptive decisions t=1.0 d=5 bucket=4 high 1/75 upper 0.0617 low 0/9 upper 0.2831 nominal 0.1587
+descriptive decisions t=1.0 d=5 bucket=0 high 0/101 upper 0.0292 low 0/47 upper 0.0618 nominal 0.1587
+descriptive decisions t=1.0 d=5 bucket=1 high 1/162 upper 0.0289 low 0/59 upper 0.0495 nominal 0.1587
+descriptive decisions t=1.0 d=5 bucket=2 high 0/204 upper 0.0146 low 0/54 upper 0.0540 nominal 0.1587
+descriptive decisions t=1.0 d=5 bucket=3 high 1/187 upper 0.0251 low 0/58 upper 0.0503 nominal 0.1587
+descriptive decisions t=1.0 d=5 bucket=4 high 1/83 upper 0.0559 low 0/10 upper 0.2589 nominal 0.1587
 descriptive decisions t=1.0 d=5 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-descriptive decisions t=1.0 d=6 bucket=0 high 0/79 upper 0.0372 low 0/31 upper 0.0921 nominal 0.1587
-descriptive decisions t=1.0 d=6 bucket=1 high 0/105 upper 0.0281 low 0/30 upper 0.0950 nominal 0.1587
-descriptive decisions t=1.0 d=6 bucket=2 high 0/159 upper 0.0187 low 0/32 upper 0.0894 nominal 0.1587
-descriptive decisions t=1.0 d=6 bucket=3 high 0/115 upper 0.0257 low 0/32 upper 0.0894 nominal 0.1587
-descriptive decisions t=1.0 d=6 bucket=4 high 0/40 upper 0.0722 low 0/8 upper 0.3123 nominal 0.1587
+descriptive decisions t=1.0 d=6 bucket=0 high 0/90 upper 0.0327 low 0/34 upper 0.0843 nominal 0.1587
+descriptive decisions t=1.0 d=6 bucket=1 high 0/120 upper 0.0247 low 1/36 upper 0.1251 nominal 0.1587
+descriptive decisions t=1.0 d=6 bucket=2 high 0/174 upper 0.0171 low 0/37 upper 0.0778 nominal 0.1587
+descriptive decisions t=1.0 d=6 bucket=3 high 0/117 upper 0.0253 low 0/35 upper 0.0820 nominal 0.1587
+descriptive decisions t=1.0 d=6 bucket=4 high 0/46 upper 0.0630 low 0/8 upper 0.3123 nominal 0.1587
 descriptive decisions t=1.0 d=6 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-descriptive decisions t=1.0 d=7 bucket=0 high 1/76 upper 0.0609 low 0/34 upper 0.0843 nominal 0.1587
-descriptive decisions t=1.0 d=7 bucket=1 high 0/109 upper 0.0271 low 0/28 upper 0.1015 nominal 0.1587
-descriptive decisions t=1.0 d=7 bucket=2 high 0/156 upper 0.0190 low 0/30 upper 0.0950 nominal 0.1587
-descriptive decisions t=1.0 d=7 bucket=3 high 0/127 upper 0.0233 low 0/29 upper 0.0981 nominal 0.1587
-descriptive decisions t=1.0 d=7 bucket=4 high 0/47 upper 0.0618 low 0/7 upper 0.3482 nominal 0.1587
+descriptive decisions t=1.0 d=7 bucket=0 high 1/86 upper 0.0540 low 0/39 upper 0.0739 nominal 0.1587
+descriptive decisions t=1.0 d=7 bucket=1 high 0/127 upper 0.0233 low 0/36 upper 0.0798 nominal 0.1587
+descriptive decisions t=1.0 d=7 bucket=2 high 0/170 upper 0.0175 low 0/36 upper 0.0798 nominal 0.1587
+descriptive decisions t=1.0 d=7 bucket=3 high 0/135 upper 0.0219 low 0/31 upper 0.0921 nominal 0.1587
+descriptive decisions t=1.0 d=7 bucket=4 high 0/58 upper 0.0503 low 0/7 upper 0.3482 nominal 0.1587
 descriptive decisions t=1.0 d=7 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-descriptive decisions t=1.0 d=8 bucket=0 high 0/77 upper 0.0382 low 1/33 upper 0.1359 nominal 0.1587
-descriptive decisions t=1.0 d=8 bucket=1 high 0/111 upper 0.0266 low 0/25 upper 0.1129 nominal 0.1587
-descriptive decisions t=1.0 d=8 bucket=2 high 0/158 upper 0.0188 low 0/32 upper 0.0894 nominal 0.1587
-descriptive decisions t=1.0 d=8 bucket=3 high 0/121 upper 0.0245 low 0/36 upper 0.0798 nominal 0.1587
-descriptive decisions t=1.0 d=8 bucket=4 high 0/38 upper 0.0758 low 0/8 upper 0.3123 nominal 0.1587
+descriptive decisions t=1.0 d=8 bucket=0 high 0/87 upper 0.0338 low 2/38 upper 0.1566 nominal 0.1587
+descriptive decisions t=1.0 d=8 bucket=1 high 0/131 upper 0.0226 low 1/32 upper 0.1398 nominal 0.1587
+descriptive decisions t=1.0 d=8 bucket=2 high 0/173 upper 0.0172 low 0/37 upper 0.0778 nominal 0.1587
+descriptive decisions t=1.0 d=8 bucket=3 high 0/130 upper 0.0228 low 0/38 upper 0.0758 nominal 0.1587
+descriptive decisions t=1.0 d=8 bucket=4 high 0/45 upper 0.0644 low 0/8 upper 0.3123 nominal 0.1587
 descriptive decisions t=1.0 d=8 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-descriptive decisions t=1.0 d=9 bucket=0 high 0/81 upper 0.0363 low 0/35 upper 0.0820 nominal 0.1587
-descriptive decisions t=1.0 d=9 bucket=1 high 0/104 upper 0.0284 low 0/33 upper 0.0868 nominal 0.1587
-descriptive decisions t=1.0 d=9 bucket=2 high 0/159 upper 0.0187 low 0/32 upper 0.0894 nominal 0.1587
-descriptive decisions t=1.0 d=9 bucket=3 high 0/126 upper 0.0235 low 0/33 upper 0.0868 nominal 0.1587
-descriptive decisions t=1.0 d=9 bucket=4 high 0/42 upper 0.0688 low 0/7 upper 0.3482 nominal 0.1587
+descriptive decisions t=1.0 d=9 bucket=0 high 0/91 upper 0.0324 low 0/39 upper 0.0739 nominal 0.1587
+descriptive decisions t=1.0 d=9 bucket=1 high 0/125 upper 0.0237 low 0/40 upper 0.0722 nominal 0.1587
+descriptive decisions t=1.0 d=9 bucket=2 high 0/170 upper 0.0175 low 0/37 upper 0.0778 nominal 0.1587
+descriptive decisions t=1.0 d=9 bucket=3 high 0/136 upper 0.0218 low 0/34 upper 0.0843 nominal 0.1587
+descriptive decisions t=1.0 d=9 bucket=4 high 0/49 upper 0.0593 low 0/7 upper 0.3482 nominal 0.1587
 descriptive decisions t=1.0 d=9 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-descriptive decisions t=1.0 d=10 bucket=0 high 0/68 upper 0.0431 low 0/29 upper 0.0981 nominal 0.1587
-descriptive decisions t=1.0 d=10 bucket=1 high 0/81 upper 0.0363 low 1/18 upper 0.2377 nominal 0.1587
-descriptive decisions t=1.0 d=10 bucket=2 high 0/127 upper 0.0233 low 0/23 upper 0.1221 nominal 0.1587
-descriptive decisions t=1.0 d=10 bucket=3 high 0/73 upper 0.0402 low 0/16 upper 0.1707 nominal 0.1587
-descriptive decisions t=1.0 d=10 bucket=4 high 0/20 upper 0.1391 low 0/4 upper 0.5271 nominal 0.1587
+descriptive decisions t=1.0 d=10 bucket=0 high 0/76 upper 0.0387 low 0/32 upper 0.0894 nominal 0.1587
+descriptive decisions t=1.0 d=10 bucket=1 high 0/98 upper 0.0301 low 1/23 upper 0.1902 nominal 0.1587
+descriptive decisions t=1.0 d=10 bucket=2 high 0/135 upper 0.0219 low 0/25 upper 0.1129 nominal 0.1587
+descriptive decisions t=1.0 d=10 bucket=3 high 0/76 upper 0.0387 low 0/17 upper 0.1616 nominal 0.1587
+descriptive decisions t=1.0 d=10 bucket=4 high 0/24 upper 0.1173 low 0/5 upper 0.4507 nominal 0.1587
 descriptive decisions t=1.0 d=10 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.1587
-bucket-decisions t=1.4 bucket=0 high 0/573 upper 0.0052 low 1/246 upper 0.0191
-bucket-decisions t=1.4 bucket=1 high 1/738 upper 0.0064 low 0/210 upper 0.0142
-bucket-decisions t=1.4 bucket=2 high 1/1121 upper 0.0042 low 0/227 upper 0.0131
-bucket-decisions t=1.4 bucket=3 high 1/822 upper 0.0058 low 0/202 upper 0.0147
-bucket-decisions t=1.4 bucket=4 high 1/298 upper 0.0158 low 0/44 upper 0.0658
-bucket-decisions t=1.4 bucket=5 high 0/16 upper 0.1707 low 0/0 upper 1.0000
-descriptive decisions t=1.4 d=3 bucket=0 high 0/88 upper 0.0335 low 0/36 upper 0.0798 nominal 0.0808
-descriptive decisions t=1.4 d=3 bucket=1 high 0/123 upper 0.0241 low 0/41 upper 0.0705 nominal 0.0808
-descriptive decisions t=1.4 d=3 bucket=2 high 1/177 upper 0.0265 low 0/35 upper 0.0820 nominal 0.0808
-descriptive decisions t=1.4 d=3 bucket=3 high 1/148 upper 0.0317 low 0/34 upper 0.0843 nominal 0.0808
-descriptive decisions t=1.4 d=3 bucket=4 high 0/71 upper 0.0413 low 0/8 upper 0.3123 nominal 0.0808
+bucket-decisions t=1.4 bucket=0 high 0/647 upper 0.0046 low 1/272 upper 0.0173
+bucket-decisions t=1.4 bucket=1 high 1/861 upper 0.0055 low 0/264 upper 0.0113
+bucket-decisions t=1.4 bucket=2 high 1/1219 upper 0.0039 low 0/260 upper 0.0115
+bucket-decisions t=1.4 bucket=3 high 1/876 upper 0.0054 low 0/231 upper 0.0129
+bucket-decisions t=1.4 bucket=4 high 1/341 upper 0.0138 low 0/49 upper 0.0593
+bucket-decisions t=1.4 bucket=5 high 0/14 upper 0.1926 low 0/0 upper 1.0000
+descriptive decisions t=1.4 d=3 bucket=0 high 0/100 upper 0.0295 low 0/40 upper 0.0722 nominal 0.0808
+descriptive decisions t=1.4 d=3 bucket=1 high 0/141 upper 0.0210 low 0/52 upper 0.0560 nominal 0.0808
+descriptive decisions t=1.4 d=3 bucket=2 high 1/195 upper 0.0241 low 0/44 upper 0.0658 nominal 0.0808
+descriptive decisions t=1.4 d=3 bucket=3 high 1/168 upper 0.0279 low 0/40 upper 0.0722 nominal 0.0808
+descriptive decisions t=1.4 d=3 bucket=4 high 0/82 upper 0.0359 low 0/9 upper 0.2831 nominal 0.0808
 descriptive decisions t=1.4 d=3 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-descriptive decisions t=1.4 d=4 bucket=0 high 0/85 upper 0.0346 low 0/34 upper 0.0843 nominal 0.0808
-descriptive decisions t=1.4 d=4 bucket=1 high 0/122 upper 0.0243 low 0/38 upper 0.0758 nominal 0.0808
-descriptive decisions t=1.4 d=4 bucket=2 high 0/172 upper 0.0173 low 0/37 upper 0.0778 nominal 0.0808
-descriptive decisions t=1.4 d=4 bucket=3 high 0/142 upper 0.0209 low 0/43 upper 0.0673 nominal 0.0808
-descriptive decisions t=1.4 d=4 bucket=4 high 0/53 upper 0.0550 low 0/11 upper 0.2384 nominal 0.0808
+descriptive decisions t=1.4 d=4 bucket=0 high 0/97 upper 0.0304 low 0/37 upper 0.0778 nominal 0.0808
+descriptive decisions t=1.4 d=4 bucket=1 high 0/145 upper 0.0204 low 0/46 upper 0.0630 nominal 0.0808
+descriptive decisions t=1.4 d=4 bucket=2 high 0/188 upper 0.0158 low 0/44 upper 0.0658 nominal 0.0808
+descriptive decisions t=1.4 d=4 bucket=3 high 0/156 upper 0.0190 low 0/50 upper 0.0582 nominal 0.0808
+descriptive decisions t=1.4 d=4 bucket=4 high 0/60 upper 0.0487 low 0/11 upper 0.2384 nominal 0.0808
 descriptive decisions t=1.4 d=4 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-descriptive decisions t=1.4 d=5 bucket=0 high 0/82 upper 0.0359 low 0/39 upper 0.0739 nominal 0.0808
-descriptive decisions t=1.4 d=5 bucket=1 high 1/126 upper 0.0371 low 0/39 upper 0.0739 nominal 0.0808
-descriptive decisions t=1.4 d=5 bucket=2 high 0/174 upper 0.0171 low 0/40 upper 0.0722 nominal 0.0808
-descriptive decisions t=1.4 d=5 bucket=3 high 0/147 upper 0.0202 low 0/43 upper 0.0673 nominal 0.0808
-descriptive decisions t=1.4 d=5 bucket=4 high 1/63 upper 0.0731 low 0/8 upper 0.3123 nominal 0.0808
+descriptive decisions t=1.4 d=5 bucket=0 high 0/93 upper 0.0317 low 0/44 upper 0.0658 nominal 0.0808
+descriptive decisions t=1.4 d=5 bucket=1 high 1/144 upper 0.0325 low 0/48 upper 0.0605 nominal 0.0808
+descriptive decisions t=1.4 d=5 bucket=2 high 0/191 upper 0.0156 low 0/49 upper 0.0593 nominal 0.0808
+descriptive decisions t=1.4 d=5 bucket=3 high 0/160 upper 0.0185 low 0/47 upper 0.0618 nominal 0.0808
+descriptive decisions t=1.4 d=5 bucket=4 high 1/70 upper 0.0660 low 0/9 upper 0.2831 nominal 0.0808
 descriptive decisions t=1.4 d=5 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-descriptive decisions t=1.4 d=6 bucket=0 high 0/65 upper 0.0450 low 0/28 upper 0.1015 nominal 0.0808
-descriptive decisions t=1.4 d=6 bucket=1 high 0/76 upper 0.0387 low 0/21 upper 0.1329 nominal 0.0808
-descriptive decisions t=1.4 d=6 bucket=2 high 0/128 upper 0.0231 low 0/21 upper 0.1329 nominal 0.0808
-descriptive decisions t=1.4 d=6 bucket=3 high 0/79 upper 0.0372 low 0/18 upper 0.1533 nominal 0.0808
-descriptive decisions t=1.4 d=6 bucket=4 high 0/24 upper 0.1173 low 0/4 upper 0.5271 nominal 0.0808
+descriptive decisions t=1.4 d=6 bucket=0 high 0/74 upper 0.0397 low 0/30 upper 0.0950 nominal 0.0808
+descriptive decisions t=1.4 d=6 bucket=1 high 0/88 upper 0.0335 low 0/26 upper 0.1088 nominal 0.0808
+descriptive decisions t=1.4 d=6 bucket=2 high 0/139 upper 0.0213 low 0/23 upper 0.1221 nominal 0.0808
+descriptive decisions t=1.4 d=6 bucket=3 high 0/83 upper 0.0354 low 0/21 upper 0.1329 nominal 0.0808
+descriptive decisions t=1.4 d=6 bucket=4 high 0/27 upper 0.1050 low 0/4 upper 0.5271 nominal 0.0808
 descriptive decisions t=1.4 d=6 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-descriptive decisions t=1.4 d=7 bucket=0 high 0/66 upper 0.0444 low 0/27 upper 0.1050 nominal 0.0808
-descriptive decisions t=1.4 d=7 bucket=1 high 0/80 upper 0.0368 low 0/21 upper 0.1329 nominal 0.0808
-descriptive decisions t=1.4 d=7 bucket=2 high 0/127 upper 0.0233 low 0/24 upper 0.1173 nominal 0.0808
-descriptive decisions t=1.4 d=7 bucket=3 high 0/87 upper 0.0338 low 0/18 upper 0.1533 nominal 0.0808
-descriptive decisions t=1.4 d=7 bucket=4 high 0/27 upper 0.1050 low 0/3 upper 0.6316 nominal 0.0808
+descriptive decisions t=1.4 d=7 bucket=0 high 0/74 upper 0.0397 low 0/31 upper 0.0921 nominal 0.0808
+descriptive decisions t=1.4 d=7 bucket=1 high 0/91 upper 0.0324 low 0/28 upper 0.1015 nominal 0.0808
+descriptive decisions t=1.4 d=7 bucket=2 high 0/137 upper 0.0216 low 0/27 upper 0.1050 nominal 0.0808
+descriptive decisions t=1.4 d=7 bucket=3 high 0/87 upper 0.0338 low 0/20 upper 0.1391 nominal 0.0808
+descriptive decisions t=1.4 d=7 bucket=4 high 0/33 upper 0.0868 low 0/3 upper 0.6316 nominal 0.0808
 descriptive decisions t=1.4 d=7 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-descriptive decisions t=1.4 d=8 bucket=0 high 0/69 upper 0.0425 low 1/29 upper 0.1534 nominal 0.0808
-descriptive decisions t=1.4 d=8 bucket=1 high 0/85 upper 0.0346 low 0/21 upper 0.1329 nominal 0.0808
-descriptive decisions t=1.4 d=8 bucket=2 high 0/133 upper 0.0223 low 0/26 upper 0.1088 nominal 0.0808
-descriptive decisions t=1.4 d=8 bucket=3 high 0/82 upper 0.0359 low 0/16 upper 0.1707 nominal 0.0808
-descriptive decisions t=1.4 d=8 bucket=4 high 0/23 upper 0.1221 low 0/5 upper 0.4507 nominal 0.0808
-descriptive decisions t=1.4 d=8 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-descriptive decisions t=1.4 d=9 bucket=0 high 0/66 upper 0.0444 low 0/33 upper 0.0868 nominal 0.0808
-descriptive decisions t=1.4 d=9 bucket=1 high 0/86 upper 0.0342 low 0/19 upper 0.1459 nominal 0.0808
-descriptive decisions t=1.4 d=9 bucket=2 high 0/130 upper 0.0228 low 0/25 upper 0.1129 nominal 0.0808
-descriptive decisions t=1.4 d=9 bucket=3 high 0/92 upper 0.0320 low 0/21 upper 0.1329 nominal 0.0808
-descriptive decisions t=1.4 d=9 bucket=4 high 0/27 upper 0.1050 low 0/4 upper 0.5271 nominal 0.0808
+descriptive decisions t=1.4 d=8 bucket=0 high 0/77 upper 0.0382 low 1/32 upper 0.1398 nominal 0.0808
+descriptive decisions t=1.4 d=8 bucket=1 high 0/101 upper 0.0292 low 0/25 upper 0.1129 nominal 0.0808
+descriptive decisions t=1.4 d=8 bucket=2 high 0/141 upper 0.0210 low 0/27 upper 0.1050 nominal 0.0808
+descriptive decisions t=1.4 d=8 bucket=3 high 0/81 upper 0.0363 low 0/19 upper 0.1459 nominal 0.0808
+descriptive decisions t=1.4 d=8 bucket=4 high 0/26 upper 0.1088 low 0/5 upper 0.4507 nominal 0.0808
+descriptive decisions t=1.4 d=8 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0808
+descriptive decisions t=1.4 d=9 bucket=0 high 0/74 upper 0.0397 low 0/37 upper 0.0778 nominal 0.0808
+descriptive decisions t=1.4 d=9 bucket=1 high 0/97 upper 0.0304 low 0/26 upper 0.1088 nominal 0.0808
+descriptive decisions t=1.4 d=9 bucket=2 high 0/141 upper 0.0210 low 0/27 upper 0.1050 nominal 0.0808
+descriptive decisions t=1.4 d=9 bucket=3 high 0/94 upper 0.0314 low 0/23 upper 0.1221 nominal 0.0808
+descriptive decisions t=1.4 d=9 bucket=4 high 0/33 upper 0.0868 low 0/5 upper 0.4507 nominal 0.0808
 descriptive decisions t=1.4 d=9 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-descriptive decisions t=1.4 d=10 bucket=0 high 0/52 upper 0.0560 low 0/20 upper 0.1391 nominal 0.0808
-descriptive decisions t=1.4 d=10 bucket=1 high 0/40 upper 0.0722 low 0/10 upper 0.2589 nominal 0.0808
-descriptive decisions t=1.4 d=10 bucket=2 high 0/80 upper 0.0368 low 0/19 upper 0.1459 nominal 0.0808
-descriptive decisions t=1.4 d=10 bucket=3 high 0/45 upper 0.0644 low 0/9 upper 0.2831 nominal 0.0808
-descriptive decisions t=1.4 d=10 bucket=4 high 0/10 upper 0.2589 low 0/1 upper 0.9500 nominal 0.0808
-descriptive decisions t=1.4 d=10 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0808
-bucket-decisions t=1.5 bucket=0 high 0/559 upper 0.0053 low 1/238 upper 0.0198
-bucket-decisions t=1.5 bucket=1 high 1/700 upper 0.0068 low 0/189 upper 0.0157
-bucket-decisions t=1.5 bucket=2 high 1/1074 upper 0.0044 low 0/215 upper 0.0138
-bucket-decisions t=1.5 bucket=3 high 1/775 upper 0.0061 low 0/192 upper 0.0155
-bucket-decisions t=1.5 bucket=4 high 1/280 upper 0.0168 low 0/40 upper 0.0722
-bucket-decisions t=1.5 bucket=5 high 0/12 upper 0.2209 low 0/0 upper 1.0000
-descriptive decisions t=1.5 d=3 bucket=0 high 0/88 upper 0.0335 low 0/35 upper 0.0820 nominal 0.0668
-descriptive decisions t=1.5 d=3 bucket=1 high 0/117 upper 0.0253 low 0/38 upper 0.0758 nominal 0.0668
-descriptive decisions t=1.5 d=3 bucket=2 high 1/175 upper 0.0268 low 0/34 upper 0.0843 nominal 0.0668
-descriptive decisions t=1.5 d=3 bucket=3 high 1/146 upper 0.0321 low 0/34 upper 0.0843 nominal 0.0668
-descriptive decisions t=1.5 d=3 bucket=4 high 0/69 upper 0.0425 low 0/8 upper 0.3123 nominal 0.0668
+descriptive decisions t=1.4 d=10 bucket=0 high 0/58 upper 0.0503 low 0/21 upper 0.1329 nominal 0.0808
+descriptive decisions t=1.4 d=10 bucket=1 high 0/54 upper 0.0540 low 0/13 upper 0.2058 nominal 0.0808
+descriptive decisions t=1.4 d=10 bucket=2 high 0/87 upper 0.0338 low 0/19 upper 0.1459 nominal 0.0808
+descriptive decisions t=1.4 d=10 bucket=3 high 0/47 upper 0.0618 low 0/11 upper 0.2384 nominal 0.0808
+descriptive decisions t=1.4 d=10 bucket=4 high 0/10 upper 0.2589 low 0/3 upper 0.6316 nominal 0.0808
+descriptive decisions t=1.4 d=10 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0808
+bucket-decisions t=1.5 bucket=0 high 0/630 upper 0.0047 low 1/262 upper 0.0180
+bucket-decisions t=1.5 bucket=1 high 1/827 upper 0.0057 low 0/248 upper 0.0120
+bucket-decisions t=1.5 bucket=2 high 1/1176 upper 0.0040 low 0/245 upper 0.0122
+bucket-decisions t=1.5 bucket=3 high 1/829 upper 0.0057 low 0/214 upper 0.0139
+bucket-decisions t=1.5 bucket=4 high 1/318 upper 0.0148 low 0/44 upper 0.0658
+bucket-decisions t=1.5 bucket=5 high 0/11 upper 0.2384 low 0/0 upper 1.0000
+descriptive decisions t=1.5 d=3 bucket=0 high 0/99 upper 0.0298 low 0/39 upper 0.0739 nominal 0.0668
+descriptive decisions t=1.5 d=3 bucket=1 high 0/137 upper 0.0216 low 0/49 upper 0.0593 nominal 0.0668
+descriptive decisions t=1.5 d=3 bucket=2 high 1/193 upper 0.0243 low 0/42 upper 0.0688 nominal 0.0668
+descriptive decisions t=1.5 d=3 bucket=3 high 1/163 upper 0.0288 low 0/38 upper 0.0758 nominal 0.0668
+descriptive decisions t=1.5 d=3 bucket=4 high 0/80 upper 0.0368 low 0/9 upper 0.2831 nominal 0.0668
 descriptive decisions t=1.5 d=3 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0668
-descriptive decisions t=1.5 d=4 bucket=0 high 0/84 upper 0.0350 low 0/34 upper 0.0843 nominal 0.0668
-descriptive decisions t=1.5 d=4 bucket=1 high 0/117 upper 0.0253 low 0/36 upper 0.0798 nominal 0.0668
-descriptive decisions t=1.5 d=4 bucket=2 high 0/168 upper 0.0177 low 0/35 upper 0.0820 nominal 0.0668
-descriptive decisions t=1.5 d=4 bucket=3 high 0/138 upper 0.0215 low 0/41 upper 0.0705 nominal 0.0668
-descriptive decisions t=1.5 d=4 bucket=4 high 0/51 upper 0.0570 low 0/9 upper 0.2831 nominal 0.0668
+descriptive decisions t=1.5 d=4 bucket=0 high 0/96 upper 0.0307 low 0/37 upper 0.0778 nominal 0.0668
+descriptive decisions t=1.5 d=4 bucket=1 high 0/135 upper 0.0219 low 0/45 upper 0.0644 nominal 0.0668
+descriptive decisions t=1.5 d=4 bucket=2 high 0/187 upper 0.0159 low 0/40 upper 0.0722 nominal 0.0668
+descriptive decisions t=1.5 d=4 bucket=3 high 0/149 upper 0.0199 low 0/48 upper 0.0605 nominal 0.0668
+descriptive decisions t=1.5 d=4 bucket=4 high 0/56 upper 0.0521 low 0/10 upper 0.2589 nominal 0.0668
 descriptive decisions t=1.5 d=4 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0668
-descriptive decisions t=1.5 d=5 bucket=0 high 0/79 upper 0.0372 low 0/37 upper 0.0778 nominal 0.0668
-descriptive decisions t=1.5 d=5 bucket=1 high 1/122 upper 0.0383 low 0/39 upper 0.0739 nominal 0.0668
-descriptive decisions t=1.5 d=5 bucket=2 high 0/172 upper 0.0173 low 0/39 upper 0.0739 nominal 0.0668
-descriptive decisions t=1.5 d=5 bucket=3 high 0/140 upper 0.0212 low 0/38 upper 0.0758 nominal 0.0668
-descriptive decisions t=1.5 d=5 bucket=4 high 1/61 upper 0.0754 low 0/8 upper 0.3123 nominal 0.0668
+descriptive decisions t=1.5 d=5 bucket=0 high 0/90 upper 0.0327 low 0/42 upper 0.0688 nominal 0.0668
+descriptive decisions t=1.5 d=5 bucket=1 high 1/143 upper 0.0327 low 0/47 upper 0.0618 nominal 0.0668
+descriptive decisions t=1.5 d=5 bucket=2 high 0/188 upper 0.0158 low 0/46 upper 0.0630 nominal 0.0668
+descriptive decisions t=1.5 d=5 bucket=3 high 0/157 upper 0.0189 low 0/43 upper 0.0673 nominal 0.0668
+descriptive decisions t=1.5 d=5 bucket=4 high 1/68 upper 0.0679 low 0/8 upper 0.3123 nominal 0.0668
 descriptive decisions t=1.5 d=5 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0668
-descriptive decisions t=1.5 d=6 bucket=0 high 0/64 upper 0.0457 low 0/28 upper 0.1015 nominal 0.0668
-descriptive decisions t=1.5 d=6 bucket=1 high 0/74 upper 0.0397 low 0/18 upper 0.1533 nominal 0.0668
-descriptive decisions t=1.5 d=6 bucket=2 high 0/121 upper 0.0245 low 0/20 upper 0.1391 nominal 0.0668
-descriptive decisions t=1.5 d=6 bucket=3 high 0/74 upper 0.0397 low 0/18 upper 0.1533 nominal 0.0668
-descriptive decisions t=1.5 d=6 bucket=4 high 0/22 upper 0.1273 low 0/3 upper 0.6316 nominal 0.0668
+descriptive decisions t=1.5 d=6 bucket=0 high 0/72 upper 0.0408 low 0/29 upper 0.0981 nominal 0.0668
+descriptive decisions t=1.5 d=6 bucket=1 high 0/86 upper 0.0342 low 0/25 upper 0.1129 nominal 0.0668
+descriptive decisions t=1.5 d=6 bucket=2 high 0/131 upper 0.0226 low 0/23 upper 0.1221 nominal 0.0668
+descriptive decisions t=1.5 d=6 bucket=3 high 0/79 upper 0.0372 low 0/18 upper 0.1533 nominal 0.0668
+descriptive decisions t=1.5 d=6 bucket=4 high 0/24 upper 0.1173 low 0/4 upper 0.5271 nominal 0.0668
 descriptive decisions t=1.5 d=6 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0668
-descriptive decisions t=1.5 d=7 bucket=0 high 0/66 upper 0.0444 low 0/27 upper 0.1050 nominal 0.0668
-descriptive decisions t=1.5 d=7 bucket=1 high 0/76 upper 0.0387 low 0/18 upper 0.1533 nominal 0.0668
-descriptive decisions t=1.5 d=7 bucket=2 high 0/119 upper 0.0249 low 0/24 upper 0.1173 nominal 0.0668
-descriptive decisions t=1.5 d=7 bucket=3 high 0/79 upper 0.0372 low 0/17 upper 0.1616 nominal 0.0668
-descriptive decisions t=1.5 d=7 bucket=4 high 0/26 upper 0.1088 low 0/3 upper 0.6316 nominal 0.0668
+descriptive decisions t=1.5 d=7 bucket=0 high 0/74 upper 0.0397 low 0/30 upper 0.0950 nominal 0.0668
+descriptive decisions t=1.5 d=7 bucket=1 high 0/89 upper 0.0331 low 0/27 upper 0.1050 nominal 0.0668
+descriptive decisions t=1.5 d=7 bucket=2 high 0/130 upper 0.0228 low 0/26 upper 0.1088 nominal 0.0668
+descriptive decisions t=1.5 d=7 bucket=3 high 0/77 upper 0.0382 low 0/17 upper 0.1616 nominal 0.0668
+descriptive decisions t=1.5 d=7 bucket=4 high 0/27 upper 0.1050 low 0/3 upper 0.6316 nominal 0.0668
 descriptive decisions t=1.5 d=7 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0668
-descriptive decisions t=1.5 d=8 bucket=0 high 0/66 upper 0.0444 low 1/28 upper 0.1585 nominal 0.0668
-descriptive decisions t=1.5 d=8 bucket=1 high 0/78 upper 0.0377 low 0/16 upper 0.1707 nominal 0.0668
-descriptive decisions t=1.5 d=8 bucket=2 high 0/124 upper 0.0239 low 0/22 upper 0.1273 nominal 0.0668
-descriptive decisions t=1.5 d=8 bucket=3 high 0/73 upper 0.0402 low 0/15 upper 0.1810 nominal 0.0668
-descriptive decisions t=1.5 d=8 bucket=4 high 0/19 upper 0.1459 low 0/4 upper 0.5271 nominal 0.0668
+descriptive decisions t=1.5 d=8 bucket=0 high 0/74 upper 0.0397 low 1/31 upper 0.1441 nominal 0.0668
+descriptive decisions t=1.5 d=8 bucket=1 high 0/96 upper 0.0307 low 0/21 upper 0.1329 nominal 0.0668
+descriptive decisions t=1.5 d=8 bucket=2 high 0/134 upper 0.0221 low 0/25 upper 0.1129 nominal 0.0668
+descriptive decisions t=1.5 d=8 bucket=3 high 0/75 upper 0.0392 low 0/17 upper 0.1616 nominal 0.0668
+descriptive decisions t=1.5 d=8 bucket=4 high 0/24 upper 0.1173 low 0/5 upper 0.4507 nominal 0.0668
 descriptive decisions t=1.5 d=8 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0668
-descriptive decisions t=1.5 d=9 bucket=0 high 0/66 upper 0.0444 low 0/30 upper 0.0950 nominal 0.0668
-descriptive decisions t=1.5 d=9 bucket=1 high 0/77 upper 0.0382 low 0/17 upper 0.1616 nominal 0.0668
-descriptive decisions t=1.5 d=9 bucket=2 high 0/125 upper 0.0237 low 0/23 upper 0.1221 nominal 0.0668
-descriptive decisions t=1.5 d=9 bucket=3 high 0/84 upper 0.0350 low 0/20 upper 0.1391 nominal 0.0668
-descriptive decisions t=1.5 d=9 bucket=4 high 0/25 upper 0.1129 low 0/4 upper 0.5271 nominal 0.0668
-descriptive decisions t=1.5 d=9 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0668
-descriptive decisions t=1.5 d=10 bucket=0 high 0/46 upper 0.0630 low 0/19 upper 0.1459 nominal 0.0668
-descriptive decisions t=1.5 d=10 bucket=1 high 0/39 upper 0.0739 low 0/7 upper 0.3482 nominal 0.0668
-descriptive decisions t=1.5 d=10 bucket=2 high 0/70 upper 0.0419 low 0/18 upper 0.1533 nominal 0.0668
-descriptive decisions t=1.5 d=10 bucket=3 high 0/41 upper 0.0705 low 0/9 upper 0.2831 nominal 0.0668
-descriptive decisions t=1.5 d=10 bucket=4 high 0/7 upper 0.3482 low 0/1 upper 0.9500 nominal 0.0668
+descriptive decisions t=1.5 d=9 bucket=0 high 0/74 upper 0.0397 low 0/34 upper 0.0843 nominal 0.0668
+descriptive decisions t=1.5 d=9 bucket=1 high 0/94 upper 0.0314 low 0/25 upper 0.1129 nominal 0.0668
+descriptive decisions t=1.5 d=9 bucket=2 high 0/135 upper 0.0219 low 0/26 upper 0.1088 nominal 0.0668
+descriptive decisions t=1.5 d=9 bucket=3 high 0/87 upper 0.0338 low 0/22 upper 0.1273 nominal 0.0668
+descriptive decisions t=1.5 d=9 bucket=4 high 0/30 upper 0.0950 low 0/4 upper 0.5271 nominal 0.0668
+descriptive decisions t=1.5 d=9 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0668
+descriptive decisions t=1.5 d=10 bucket=0 high 0/51 upper 0.0570 low 0/20 upper 0.1391 nominal 0.0668
+descriptive decisions t=1.5 d=10 bucket=1 high 0/47 upper 0.0618 low 0/9 upper 0.2831 nominal 0.0668
+descriptive decisions t=1.5 d=10 bucket=2 high 0/78 upper 0.0377 low 0/17 upper 0.1616 nominal 0.0668
+descriptive decisions t=1.5 d=10 bucket=3 high 0/42 upper 0.0688 low 0/11 upper 0.2384 nominal 0.0668
+descriptive decisions t=1.5 d=10 bucket=4 high 0/9 upper 0.2831 low 0/1 upper 0.9500 nominal 0.0668
 descriptive decisions t=1.5 d=10 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0668
-bucket-decisions t=1.8 bucket=0 high 0/492 upper 0.0061 low 0/211 upper 0.0141
-bucket-decisions t=1.8 bucket=1 high 0/586 upper 0.0051 low 0/149 upper 0.0199
-bucket-decisions t=1.8 bucket=2 high 0/932 upper 0.0032 low 0/181 upper 0.0164
-bucket-decisions t=1.8 bucket=3 high 0/646 upper 0.0046 low 0/148 upper 0.0200
-bucket-decisions t=1.8 bucket=4 high 0/227 upper 0.0131 low 0/32 upper 0.0894
+bucket-decisions t=1.8 bucket=0 high 0/558 upper 0.0054 low 0/230 upper 0.0129
+bucket-decisions t=1.8 bucket=1 high 0/692 upper 0.0043 low 0/194 upper 0.0153
+bucket-decisions t=1.8 bucket=2 high 0/1010 upper 0.0030 low 0/201 upper 0.0148
+bucket-decisions t=1.8 bucket=3 high 0/674 upper 0.0044 low 0/167 upper 0.0178
+bucket-decisions t=1.8 bucket=4 high 0/262 upper 0.0114 low 0/32 upper 0.0894
 bucket-decisions t=1.8 bucket=5 high 0/10 upper 0.2589 low 0/0 upper 1.0000
-descriptive decisions t=1.8 d=3 bucket=0 high 0/81 upper 0.0363 low 0/33 upper 0.0868 nominal 0.0359
-descriptive decisions t=1.8 d=3 bucket=1 high 0/110 upper 0.0269 low 0/32 upper 0.0894 nominal 0.0359
-descriptive decisions t=1.8 d=3 bucket=2 high 0/161 upper 0.0184 low 0/28 upper 0.1015 nominal 0.0359
-descriptive decisions t=1.8 d=3 bucket=3 high 0/129 upper 0.0230 low 0/31 upper 0.0921 nominal 0.0359
-descriptive decisions t=1.8 d=3 bucket=4 high 0/63 upper 0.0464 low 0/8 upper 0.3123 nominal 0.0359
+descriptive decisions t=1.8 d=3 bucket=0 high 0/92 upper 0.0320 low 0/36 upper 0.0798 nominal 0.0359
+descriptive decisions t=1.8 d=3 bucket=1 high 0/125 upper 0.0237 low 0/38 upper 0.0758 nominal 0.0359
+descriptive decisions t=1.8 d=3 bucket=2 high 0/177 upper 0.0168 low 0/34 upper 0.0843 nominal 0.0359
+descriptive decisions t=1.8 d=3 bucket=3 high 0/142 upper 0.0209 low 0/36 upper 0.0798 nominal 0.0359
+descriptive decisions t=1.8 d=3 bucket=4 high 0/74 upper 0.0397 low 0/8 upper 0.3123 nominal 0.0359
 descriptive decisions t=1.8 d=3 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0359
-descriptive decisions t=1.8 d=4 bucket=0 high 0/79 upper 0.0372 low 0/31 upper 0.0921 nominal 0.0359
-descriptive decisions t=1.8 d=4 bucket=1 high 0/105 upper 0.0281 low 0/31 upper 0.0921 nominal 0.0359
-descriptive decisions t=1.8 d=4 bucket=2 high 0/161 upper 0.0184 low 0/32 upper 0.0894 nominal 0.0359
-descriptive decisions t=1.8 d=4 bucket=3 high 0/125 upper 0.0237 low 0/38 upper 0.0758 nominal 0.0359
-descriptive decisions t=1.8 d=4 bucket=4 high 0/41 upper 0.0705 low 0/8 upper 0.3123 nominal 0.0359
+descriptive decisions t=1.8 d=4 bucket=0 high 0/90 upper 0.0327 low 0/34 upper 0.0843 nominal 0.0359
+descriptive decisions t=1.8 d=4 bucket=1 high 0/123 upper 0.0241 low 0/41 upper 0.0705 nominal 0.0359
+descriptive decisions t=1.8 d=4 bucket=2 high 0/178 upper 0.0167 low 0/37 upper 0.0778 nominal 0.0359
+descriptive decisions t=1.8 d=4 bucket=3 high 0/127 upper 0.0233 low 0/40 upper 0.0722 nominal 0.0359
+descriptive decisions t=1.8 d=4 bucket=4 high 0/50 upper 0.0582 low 0/8 upper 0.3123 nominal 0.0359
 descriptive decisions t=1.8 d=4 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0359
-descriptive decisions t=1.8 d=5 bucket=0 high 0/76 upper 0.0387 low 0/34 upper 0.0843 nominal 0.0359
-descriptive decisions t=1.8 d=5 bucket=1 high 0/113 upper 0.0262 low 0/30 upper 0.0950 nominal 0.0359
-descriptive decisions t=1.8 d=5 bucket=2 high 0/159 upper 0.0187 low 0/32 upper 0.0894 nominal 0.0359
-descriptive decisions t=1.8 d=5 bucket=3 high 0/130 upper 0.0228 low 0/31 upper 0.0921 nominal 0.0359
-descriptive decisions t=1.8 d=5 bucket=4 high 0/53 upper 0.0550 low 0/7 upper 0.3482 nominal 0.0359
+descriptive decisions t=1.8 d=5 bucket=0 high 0/86 upper 0.0342 low 0/39 upper 0.0739 nominal 0.0359
+descriptive decisions t=1.8 d=5 bucket=1 high 0/127 upper 0.0233 low 0/38 upper 0.0758 nominal 0.0359
+descriptive decisions t=1.8 d=5 bucket=2 high 0/173 upper 0.0172 low 0/37 upper 0.0778 nominal 0.0359
+descriptive decisions t=1.8 d=5 bucket=3 high 0/143 upper 0.0207 low 0/34 upper 0.0843 nominal 0.0359
+descriptive decisions t=1.8 d=5 bucket=4 high 0/59 upper 0.0495 low 0/7 upper 0.3482 nominal 0.0359
 descriptive decisions t=1.8 d=5 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0359
-descriptive decisions t=1.8 d=6 bucket=0 high 0/54 upper 0.0540 low 0/23 upper 0.1221 nominal 0.0359
-descriptive decisions t=1.8 d=6 bucket=1 high 0/57 upper 0.0512 low 0/11 upper 0.2384 nominal 0.0359
-descriptive decisions t=1.8 d=6 bucket=2 high 0/95 upper 0.0310 low 0/18 upper 0.1533 nominal 0.0359
-descriptive decisions t=1.8 d=6 bucket=3 high 0/57 upper 0.0512 low 0/9 upper 0.2831 nominal 0.0359
-descriptive decisions t=1.8 d=6 bucket=4 high 0/16 upper 0.1707 low 0/3 upper 0.6316 nominal 0.0359
+descriptive decisions t=1.8 d=6 bucket=0 high 0/61 upper 0.0479 low 0/24 upper 0.1173 nominal 0.0359
+descriptive decisions t=1.8 d=6 bucket=1 high 0/71 upper 0.0413 low 0/15 upper 0.1810 nominal 0.0359
+descriptive decisions t=1.8 d=6 bucket=2 high 0/102 upper 0.0289 low 0/18 upper 0.1533 nominal 0.0359
+descriptive decisions t=1.8 d=6 bucket=3 high 0/54 upper 0.0540 low 0/11 upper 0.2384 nominal 0.0359
+descriptive decisions t=1.8 d=6 bucket=4 high 0/17 upper 0.1616 low 0/3 upper 0.6316 nominal 0.0359
 descriptive decisions t=1.8 d=6 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0359
-descriptive decisions t=1.8 d=7 bucket=0 high 0/51 upper 0.0570 low 0/25 upper 0.1129 nominal 0.0359
-descriptive decisions t=1.8 d=7 bucket=1 high 0/58 upper 0.0503 low 0/14 upper 0.1926 nominal 0.0359
-descriptive decisions t=1.8 d=7 bucket=2 high 0/96 upper 0.0307 low 0/21 upper 0.1329 nominal 0.0359
-descriptive decisions t=1.8 d=7 bucket=3 high 0/62 upper 0.0472 low 0/9 upper 0.2831 nominal 0.0359
-descriptive decisions t=1.8 d=7 bucket=4 high 0/17 upper 0.1616 low 0/2 upper 0.7764 nominal 0.0359
+descriptive decisions t=1.8 d=7 bucket=0 high 0/58 upper 0.0503 low 0/26 upper 0.1088 nominal 0.0359
+descriptive decisions t=1.8 d=7 bucket=1 high 0/72 upper 0.0408 low 0/22 upper 0.1273 nominal 0.0359
+descriptive decisions t=1.8 d=7 bucket=2 high 0/107 upper 0.0276 low 0/23 upper 0.1221 nominal 0.0359
+descriptive decisions t=1.8 d=7 bucket=3 high 0/61 upper 0.0479 low 0/11 upper 0.2384 nominal 0.0359
+descriptive decisions t=1.8 d=7 bucket=4 high 0/20 upper 0.1391 low 0/2 upper 0.7764 nominal 0.0359
 descriptive decisions t=1.8 d=7 bucket=5 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0359
-descriptive decisions t=1.8 d=8 bucket=0 high 0/59 upper 0.0495 low 0/24 upper 0.1173 nominal 0.0359
-descriptive decisions t=1.8 d=8 bucket=1 high 0/58 upper 0.0503 low 0/15 upper 0.1810 nominal 0.0359
-descriptive decisions t=1.8 d=8 bucket=2 high 0/99 upper 0.0298 low 0/22 upper 0.1273 nominal 0.0359
-descriptive decisions t=1.8 d=8 bucket=3 high 0/56 upper 0.0521 low 0/11 upper 0.2384 nominal 0.0359
-descriptive decisions t=1.8 d=8 bucket=4 high 0/15 upper 0.1810 low 0/3 upper 0.6316 nominal 0.0359
+descriptive decisions t=1.8 d=8 bucket=0 high 0/67 upper 0.0437 low 0/26 upper 0.1088 nominal 0.0359
+descriptive decisions t=1.8 d=8 bucket=1 high 0/67 upper 0.0437 low 0/18 upper 0.1533 nominal 0.0359
+descriptive decisions t=1.8 d=8 bucket=2 high 0/106 upper 0.0279 low 0/23 upper 0.1221 nominal 0.0359
+descriptive decisions t=1.8 d=8 bucket=3 high 0/59 upper 0.0495 low 0/14 upper 0.1926 nominal 0.0359
+descriptive decisions t=1.8 d=8 bucket=4 high 0/17 upper 0.1616 low 0/3 upper 0.6316 nominal 0.0359
 descriptive decisions t=1.8 d=8 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0359
-descriptive decisions t=1.8 d=9 bucket=0 high 0/55 upper 0.0530 low 0/26 upper 0.1088 nominal 0.0359
-descriptive decisions t=1.8 d=9 bucket=1 high 0/58 upper 0.0503 low 0/12 upper 0.2209 nominal 0.0359
-descriptive decisions t=1.8 d=9 bucket=2 high 0/103 upper 0.0287 low 0/22 upper 0.1273 nominal 0.0359
-descriptive decisions t=1.8 d=9 bucket=3 high 0/62 upper 0.0472 low 0/13 upper 0.2058 nominal 0.0359
-descriptive decisions t=1.8 d=9 bucket=4 high 0/16 upper 0.1707 low 0/1 upper 0.9500 nominal 0.0359
+descriptive decisions t=1.8 d=9 bucket=0 high 0/63 upper 0.0464 low 0/29 upper 0.0981 nominal 0.0359
+descriptive decisions t=1.8 d=9 bucket=1 high 0/69 upper 0.0425 low 0/17 upper 0.1616 nominal 0.0359
+descriptive decisions t=1.8 d=9 bucket=2 high 0/107 upper 0.0276 low 0/23 upper 0.1221 nominal 0.0359
+descriptive decisions t=1.8 d=9 bucket=3 high 0/64 upper 0.0457 low 0/15 upper 0.1810 nominal 0.0359
+descriptive decisions t=1.8 d=9 bucket=4 high 0/19 upper 0.1459 low 0/1 upper 0.9500 nominal 0.0359
 descriptive decisions t=1.8 d=9 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0359
-descriptive decisions t=1.8 d=10 bucket=0 high 0/37 upper 0.0778 low 0/15 upper 0.1810 nominal 0.0359
-descriptive decisions t=1.8 d=10 bucket=1 high 0/27 upper 0.1050 low 0/4 upper 0.5271 nominal 0.0359
-descriptive decisions t=1.8 d=10 bucket=2 high 0/58 upper 0.0503 low 0/6 upper 0.3930 nominal 0.0359
-descriptive decisions t=1.8 d=10 bucket=3 high 0/25 upper 0.1129 low 0/6 upper 0.3930 nominal 0.0359
+descriptive decisions t=1.8 d=10 bucket=0 high 0/41 upper 0.0705 low 0/16 upper 0.1707 nominal 0.0359
+descriptive decisions t=1.8 d=10 bucket=1 high 0/38 upper 0.0758 low 0/5 upper 0.4507 nominal 0.0359
+descriptive decisions t=1.8 d=10 bucket=2 high 0/60 upper 0.0487 low 0/6 upper 0.3930 nominal 0.0359
+descriptive decisions t=1.8 d=10 bucket=3 high 0/24 upper 0.1173 low 0/6 upper 0.3930 nominal 0.0359
 descriptive decisions t=1.8 d=10 bucket=4 high 0/6 upper 0.3930 low 0/0 upper 1.0000 nominal 0.0359
 descriptive decisions t=1.8 d=10 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0359
-bucket-decisions t=2.2 bucket=0 high 0/416 upper 0.0072 low 0/173 upper 0.0172
-bucket-decisions t=2.2 bucket=1 high 0/448 upper 0.0067 low 0/104 upper 0.0284
-bucket-decisions t=2.2 bucket=2 high 0/758 upper 0.0039 low 0/143 upper 0.0207
-bucket-decisions t=2.2 bucket=3 high 0/492 upper 0.0061 low 0/114 upper 0.0259
-bucket-decisions t=2.2 bucket=4 high 0/164 upper 0.0181 low 0/18 upper 0.1533
+bucket-decisions t=2.2 bucket=0 high 0/465 upper 0.0064 low 0/187 upper 0.0159
+bucket-decisions t=2.2 bucket=1 high 0/539 upper 0.0055 low 0/133 upper 0.0223
+bucket-decisions t=2.2 bucket=2 high 0/827 upper 0.0036 low 0/154 upper 0.0193
+bucket-decisions t=2.2 bucket=3 high 0/507 upper 0.0059 low 0/127 upper 0.0233
+bucket-decisions t=2.2 bucket=4 high 0/199 upper 0.0149 low 0/22 upper 0.1273
 bucket-decisions t=2.2 bucket=5 high 0/6 upper 0.3930 low 0/0 upper 1.0000
-descriptive decisions t=2.2 d=3 bucket=0 high 0/72 upper 0.0408 low 0/29 upper 0.0981 nominal 0.0139
-descriptive decisions t=2.2 d=3 bucket=1 high 0/93 upper 0.0317 low 0/23 upper 0.1221 nominal 0.0139
-descriptive decisions t=2.2 d=3 bucket=2 high 0/144 upper 0.0206 low 0/24 upper 0.1173 nominal 0.0139
-descriptive decisions t=2.2 d=3 bucket=3 high 0/112 upper 0.0264 low 0/24 upper 0.1173 nominal 0.0139
-descriptive decisions t=2.2 d=3 bucket=4 high 0/48 upper 0.0605 low 0/4 upper 0.5271 nominal 0.0139
+descriptive decisions t=2.2 d=3 bucket=0 high 0/82 upper 0.0359 low 0/31 upper 0.0921 nominal 0.0139
+descriptive decisions t=2.2 d=3 bucket=1 high 0/106 upper 0.0279 low 0/31 upper 0.0921 nominal 0.0139
+descriptive decisions t=2.2 d=3 bucket=2 high 0/160 upper 0.0185 low 0/29 upper 0.0981 nominal 0.0139
+descriptive decisions t=2.2 d=3 bucket=3 high 0/118 upper 0.0251 low 0/27 upper 0.1050 nominal 0.0139
+descriptive decisions t=2.2 d=3 bucket=4 high 0/60 upper 0.0487 low 0/6 upper 0.3930 nominal 0.0139
 descriptive decisions t=2.2 d=3 bucket=5 high 0/0 upper 1.0000 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=4 bucket=0 high 0/71 upper 0.0413 low 0/28 upper 0.1015 nominal 0.0139
-descriptive decisions t=2.2 d=4 bucket=1 high 0/89 upper 0.0331 low 0/29 upper 0.0981 nominal 0.0139
-descriptive decisions t=2.2 d=4 bucket=2 high 0/148 upper 0.0200 low 0/27 upper 0.1050 nominal 0.0139
-descriptive decisions t=2.2 d=4 bucket=3 high 0/96 upper 0.0307 low 0/28 upper 0.1015 nominal 0.0139
-descriptive decisions t=2.2 d=4 bucket=4 high 0/35 upper 0.0820 low 0/7 upper 0.3482 nominal 0.0139
+descriptive decisions t=2.2 d=4 bucket=0 high 0/79 upper 0.0372 low 0/30 upper 0.0950 nominal 0.0139
+descriptive decisions t=2.2 d=4 bucket=1 high 0/108 upper 0.0274 low 0/34 upper 0.0843 nominal 0.0139
+descriptive decisions t=2.2 d=4 bucket=2 high 0/161 upper 0.0184 low 0/31 upper 0.0921 nominal 0.0139
+descriptive decisions t=2.2 d=4 bucket=3 high 0/102 upper 0.0289 low 0/32 upper 0.0894 nominal 0.0139
+descriptive decisions t=2.2 d=4 bucket=4 high 0/40 upper 0.0722 low 0/8 upper 0.3123 nominal 0.0139
 descriptive decisions t=2.2 d=4 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=5 bucket=0 high 0/70 upper 0.0419 low 0/29 upper 0.0981 nominal 0.0139
-descriptive decisions t=2.2 d=5 bucket=1 high 0/96 upper 0.0307 low 0/26 upper 0.1088 nominal 0.0139
-descriptive decisions t=2.2 d=5 bucket=2 high 0/149 upper 0.0199 low 0/27 upper 0.1050 nominal 0.0139
-descriptive decisions t=2.2 d=5 bucket=3 high 0/109 upper 0.0271 low 0/26 upper 0.1088 nominal 0.0139
-descriptive decisions t=2.2 d=5 bucket=4 high 0/42 upper 0.0688 low 0/4 upper 0.5271 nominal 0.0139
+descriptive decisions t=2.2 d=5 bucket=0 high 0/78 upper 0.0377 low 0/33 upper 0.0868 nominal 0.0139
+descriptive decisions t=2.2 d=5 bucket=1 high 0/112 upper 0.0264 low 0/33 upper 0.0868 nominal 0.0139
+descriptive decisions t=2.2 d=5 bucket=2 high 0/162 upper 0.0183 low 0/29 upper 0.0981 nominal 0.0139
+descriptive decisions t=2.2 d=5 bucket=3 high 0/116 upper 0.0255 low 0/29 upper 0.0981 nominal 0.0139
+descriptive decisions t=2.2 d=5 bucket=4 high 0/47 upper 0.0618 low 0/4 upper 0.5271 nominal 0.0139
 descriptive decisions t=2.2 d=5 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=6 bucket=0 high 0/40 upper 0.0722 low 0/20 upper 0.1391 nominal 0.0139
-descriptive decisions t=2.2 d=6 bucket=1 high 0/39 upper 0.0739 low 0/4 upper 0.5271 nominal 0.0139
-descriptive decisions t=2.2 d=6 bucket=2 high 0/69 upper 0.0425 low 0/12 upper 0.2209 nominal 0.0139
-descriptive decisions t=2.2 d=6 bucket=3 high 0/34 upper 0.0843 low 0/7 upper 0.3482 nominal 0.0139
-descriptive decisions t=2.2 d=6 bucket=4 high 0/7 upper 0.3482 low 0/0 upper 1.0000 nominal 0.0139
+descriptive decisions t=2.2 d=6 bucket=0 high 0/45 upper 0.0644 low 0/21 upper 0.1329 nominal 0.0139
+descriptive decisions t=2.2 d=6 bucket=1 high 0/46 upper 0.0630 low 0/6 upper 0.3930 nominal 0.0139
+descriptive decisions t=2.2 d=6 bucket=2 high 0/74 upper 0.0397 low 0/12 upper 0.2209 nominal 0.0139
+descriptive decisions t=2.2 d=6 bucket=3 high 0/33 upper 0.0868 low 0/8 upper 0.3123 nominal 0.0139
+descriptive decisions t=2.2 d=6 bucket=4 high 0/12 upper 0.2209 low 0/1 upper 0.9500 nominal 0.0139
 descriptive decisions t=2.2 d=6 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=7 bucket=0 high 0/43 upper 0.0673 low 0/21 upper 0.1329 nominal 0.0139
-descriptive decisions t=2.2 d=7 bucket=1 high 0/36 upper 0.0798 low 0/6 upper 0.3930 nominal 0.0139
-descriptive decisions t=2.2 d=7 bucket=2 high 0/70 upper 0.0419 low 0/16 upper 0.1707 nominal 0.0139
-descriptive decisions t=2.2 d=7 bucket=3 high 0/44 upper 0.0658 low 0/7 upper 0.3482 nominal 0.0139
-descriptive decisions t=2.2 d=7 bucket=4 high 0/11 upper 0.2384 low 0/1 upper 0.9500 nominal 0.0139
+descriptive decisions t=2.2 d=7 bucket=0 high 0/47 upper 0.0618 low 0/22 upper 0.1273 nominal 0.0139
+descriptive decisions t=2.2 d=7 bucket=1 high 0/45 upper 0.0644 low 0/8 upper 0.3123 nominal 0.0139
+descriptive decisions t=2.2 d=7 bucket=2 high 0/73 upper 0.0402 low 0/17 upper 0.1616 nominal 0.0139
+descriptive decisions t=2.2 d=7 bucket=3 high 0/41 upper 0.0705 low 0/7 upper 0.3482 nominal 0.0139
+descriptive decisions t=2.2 d=7 bucket=4 high 0/12 upper 0.2209 low 0/1 upper 0.9500 nominal 0.0139
 descriptive decisions t=2.2 d=7 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=8 bucket=0 high 0/45 upper 0.0644 low 0/19 upper 0.1459 nominal 0.0139
-descriptive decisions t=2.2 d=8 bucket=1 high 0/39 upper 0.0739 low 0/7 upper 0.3482 nominal 0.0139
-descriptive decisions t=2.2 d=8 bucket=2 high 0/70 upper 0.0419 low 0/18 upper 0.1533 nominal 0.0139
-descriptive decisions t=2.2 d=8 bucket=3 high 0/41 upper 0.0705 low 0/9 upper 0.2831 nominal 0.0139
-descriptive decisions t=2.2 d=8 bucket=4 high 0/8 upper 0.3123 low 0/1 upper 0.9500 nominal 0.0139
+descriptive decisions t=2.2 d=8 bucket=0 high 0/50 upper 0.0582 low 0/20 upper 0.1391 nominal 0.0139
+descriptive decisions t=2.2 d=8 bucket=1 high 0/47 upper 0.0618 low 0/9 upper 0.2831 nominal 0.0139
+descriptive decisions t=2.2 d=8 bucket=2 high 0/79 upper 0.0372 low 0/17 upper 0.1616 nominal 0.0139
+descriptive decisions t=2.2 d=8 bucket=3 high 0/42 upper 0.0688 low 0/11 upper 0.2384 nominal 0.0139
+descriptive decisions t=2.2 d=8 bucket=4 high 0/10 upper 0.2589 low 0/1 upper 0.9500 nominal 0.0139
 descriptive decisions t=2.2 d=8 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=9 bucket=0 high 0/47 upper 0.0618 low 0/18 upper 0.1533 nominal 0.0139
-descriptive decisions t=2.2 d=9 bucket=1 high 0/40 upper 0.0722 low 0/9 upper 0.2831 nominal 0.0139
-descriptive decisions t=2.2 d=9 bucket=2 high 0/74 upper 0.0397 low 0/16 upper 0.1707 nominal 0.0139
-descriptive decisions t=2.2 d=9 bucket=3 high 0/42 upper 0.0688 low 0/10 upper 0.2589 nominal 0.0139
-descriptive decisions t=2.2 d=9 bucket=4 high 0/11 upper 0.2384 low 0/1 upper 0.9500 nominal 0.0139
+descriptive decisions t=2.2 d=9 bucket=0 high 0/53 upper 0.0550 low 0/20 upper 0.1391 nominal 0.0139
+descriptive decisions t=2.2 d=9 bucket=1 high 0/54 upper 0.0540 low 0/11 upper 0.2384 nominal 0.0139
+descriptive decisions t=2.2 d=9 bucket=2 high 0/82 upper 0.0359 low 0/17 upper 0.1616 nominal 0.0139
+descriptive decisions t=2.2 d=9 bucket=3 high 0/41 upper 0.0705 low 0/12 upper 0.2209 nominal 0.0139
+descriptive decisions t=2.2 d=9 bucket=4 high 0/14 upper 0.1926 low 0/1 upper 0.9500 nominal 0.0139
 descriptive decisions t=2.2 d=9 bucket=5 high 0/0 upper 1.0000 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=10 bucket=0 high 0/28 upper 0.1015 low 0/9 upper 0.2831 nominal 0.0139
-descriptive decisions t=2.2 d=10 bucket=1 high 0/16 upper 0.1707 low 0/0 upper 1.0000 nominal 0.0139
-descriptive decisions t=2.2 d=10 bucket=2 high 0/34 upper 0.0843 low 0/3 upper 0.6316 nominal 0.0139
-descriptive decisions t=2.2 d=10 bucket=3 high 0/14 upper 0.1926 low 0/3 upper 0.6316 nominal 0.0139
-descriptive decisions t=2.2 d=10 bucket=4 high 0/2 upper 0.7764 low 0/0 upper 1.0000 nominal 0.0139
+descriptive decisions t=2.2 d=10 bucket=0 high 0/31 upper 0.0921 low 0/10 upper 0.2589 nominal 0.0139
+descriptive decisions t=2.2 d=10 bucket=1 high 0/21 upper 0.1329 low 0/1 upper 0.9500 nominal 0.0139
+descriptive decisions t=2.2 d=10 bucket=2 high 0/36 upper 0.0798 low 0/2 upper 0.7764 nominal 0.0139
+descriptive decisions t=2.2 d=10 bucket=3 high 0/14 upper 0.1926 low 0/1 upper 0.9500 nominal 0.0139
+descriptive decisions t=2.2 d=10 bucket=4 high 0/4 upper 0.5271 low 0/0 upper 1.0000 nominal 0.0139
 descriptive decisions t=2.2 d=10 bucket=5 high 0/1 upper 0.9500 low 0/0 upper 1.0000 nominal 0.0139
-supported-domain depths 3..10 empties 18..23
-PROBCUT_FIT = ProbCut::new(150, 1135, 0, SigmaModel::StageTable { buckets: [(19, 36), (10, 44), (8, 33), (6, 35), (4, 32), (72, 0)] }, (3, 10), (18, 23)) // t=1.5
-dprime shallow fired=4274 false=5 error=0.0012 probe-cost=0.0028
-dprime d-2 fired=4394 false=4 error=0.0009 probe-cost=0.0878
-dprime d-4 fired=2851 false=8 error=0.0028 probe-cost=0.0074
-tails >2sigma 0.0546 >3sigma 0.0159
+supported-domain depths 3..10 empties 18..41
+PROBCUT_FIT = ProbCut::new(150, 1134, 0, SigmaModel::StageTable { buckets: [(19, 36), (10, 42), (8, 34), (5, 37), (5, 30), (73, 0)] }, (3, 10), (18, 41)) // t=1.5
+dprime shallow fired=4804 false=5 error=0.0010 probe-cost=0.0028
+dprime d-2 fired=4953 false=4 error=0.0008 probe-cost=0.0886
+dprime d-4 fired=3200 false=8 error=0.0025 probe-cost=0.0075
+tails >2sigma 0.0551 >3sigma 0.0156

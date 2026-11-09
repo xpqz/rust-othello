@@ -155,24 +155,26 @@ fn git_commit() -> String {
 fn run_pipeline(config: &Config) -> Result<(), String> {
     fs::create_dir_all(&config.dir).map_err(|error| error.to_string())?;
     if config.fit_only {
-        let (_, records) =
+        let (source_header, records) =
             othello_tools::journal::read(&config.dir.join(STAGES[1])).map_err(|e| e.to_string())?;
         let mut measurements = Vec::new();
-        let mut abandoned = 0;
+        let mut truncated = 0;
         for record in records {
-            let measurement = parse_measurement(&record.id, &record.line)?;
-            if measurement.values.len() <= 10 {
-                measurements.push(measurement);
-            } else {
-                abandoned += 1;
+            let mut measurement = parse_measurement(&record.id, &record.line)?;
+            if measurement.values.len() > 10 {
+                measurement.values.truncate(10);
+                measurement.nodes.truncate(10);
+                truncated += 1;
             }
+            measurements.push(measurement);
         }
         measurements.sort_by_key(|measurement| measurement.position.key);
         let mut log = fit(config, &measurements);
         log.insert_str(
             0,
             &format!(
-                "deep tier abandoned after {abandoned} positions: depth-12 cost ~54 s/position\n"
+                "data-source {source_header}\nfit-only engine {} truncated {truncated} records to depth 10\n",
+                git_commit()
             ),
         );
         fs::write(config.dir.join("fit.log"), log).map_err(|error| error.to_string())?;
@@ -1158,6 +1160,7 @@ fn erf(x: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use othello_tools::journal::Journal;
     use std::os::unix::process::ExitStatusExt;
     use std::process::{Command, Stdio};
     use std::thread;
