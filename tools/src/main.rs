@@ -8,10 +8,9 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
 use othello::rng::Rng;
-use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits, probcut_at};
-use othello_tools::baselines::{PHASE2_DEPTH, phase2_config};
+use othello::search::{NO_DEADLINE, SearchConfig};
+use othello_tools::agents::{build, effective, parse_name};
 use othello_tools::harness::{GameLog, play_game, points};
 use othello_tools::journal::{Journal, Record, mismatch};
 use othello_tools::positions::{self, Opening};
@@ -27,99 +26,6 @@ fn main() {
     if let Err(message) = result {
         eprintln!("{message}");
         exit(2);
-    }
-}
-
-fn unknown(name: &str) -> String {
-    format!("unknown agent: {name}")
-}
-
-fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
-    let mut parts = name.split(':');
-    let kind = parts.next().unwrap();
-    let time = |parts: &mut std::str::Split<char>| match parts.next() {
-        None => Ok(None),
-        Some(text) => text.parse().map(Some).map_err(|_| unknown(name)),
-    };
-    let (depth, time) = match kind {
-        "random" | "greedy" => (0, None),
-        "phase2" => (PHASE2_DEPTH, time(&mut parts)?),
-        "pc" => {
-            let parameter = parts.next().ok_or_else(|| unknown(name))?;
-            if parameter != "off" {
-                parameter.parse::<u32>().map_err(|_| unknown(name))?;
-                if probcut_at(parameter.parse().map_err(|_| unknown(name))?).is_err() {
-                    return Err(unknown(name));
-                }
-            }
-            (64, time(&mut parts)?)
-        }
-        "ab" => {
-            let depth = parts
-                .next()
-                .ok_or_else(|| unknown(name))?
-                .parse()
-                .map_err(|_| unknown(name))?;
-            if depth == 0 || depth > 10 {
-                return Err(unknown(name));
-            }
-            (depth, time(&mut parts)?)
-        }
-        _ => return Err(unknown(name)),
-    };
-    if parts.next().is_some() {
-        return Err(unknown(name));
-    }
-    Ok((kind, depth, time))
-}
-
-fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
-    if nodes == 0 && time.is_none() {
-        return Ok((depth, NO_DEADLINE));
-    }
-    if nodes > 0 && time.is_some() {
-        return Err("time control conflicts with --nodes".into());
-    }
-    Ok((64, time.unwrap_or(NO_DEADLINE)))
-}
-
-fn make_agent(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<dyn Agent>, String> {
-    let (kind, depth, time) = parse_name(name)?;
-    let (depth, time) = effective(depth, time, nodes)?;
-    let limits = SearchLimits::new(depth, time, nodes);
-    match kind {
-        "random" => Ok(Box::new(random_agent(seed))),
-        "greedy" => Ok(Box::new(greedy_agent())),
-        "pc" => {
-            let parameter = name.split(':').nth(1).ok_or_else(|| unknown(name))?;
-            let probcut = if parameter == "off" {
-                None
-            } else {
-                Some(probcut_at(parameter.parse().map_err(|_| unknown(name))?)?)
-            };
-            Ok(Box::new(search_agent(
-                SearchConfig {
-                    ordering,
-                    probcut,
-                    ..SearchConfig::standard()
-                },
-                limits,
-            )))
-        }
-        "phase2" => Ok(Box::new(search_agent(
-            SearchConfig {
-                ordering,
-                ..phase2_config()
-            },
-            limits,
-        ))),
-        _ => Ok(Box::new(search_agent(
-            SearchConfig {
-                ordering,
-                ..SearchConfig::standard()
-            },
-            limits,
-        ))),
     }
 }
 
@@ -379,8 +285,8 @@ impl Run {
             } else {
                 (&self.b, &self.a)
             };
-            let mut black_agent = make_agent(black, seeds.0, self.nodes, self.ordering)?;
-            let mut white_agent = make_agent(white, seeds.1, self.nodes, self.ordering)?;
+            let mut black_agent = build(black, seeds.0, self.nodes, self.ordering)?;
+            let mut white_agent = build(white, seeds.1, self.nodes, self.ordering)?;
             let result = play_game(&opening.squares, &mut *black_agent, &mut *white_agent)?;
             points_a[game as usize] = if game == 0 {
                 points(result.score)

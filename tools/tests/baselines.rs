@@ -318,14 +318,11 @@ fn pc_agents_parse() {
 #[test]
 fn pc_off_uses_the_full_node_budget() {
     use othello::board::{Board, empty_count, legal_moves};
-    use othello::search::{SearchConfig, SearchLimits, search_limited};
+    use othello::search::search_limited;
+    use othello_tools::agents::config;
     let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/corpus.txt"))
         .unwrap();
-    let config = SearchConfig {
-        probcut: None,
-        ..SearchConfig::standard()
-    };
-    let found = text
+    let boards: Vec<Board> = text
         .lines()
         .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
         .filter_map(|line| {
@@ -336,11 +333,14 @@ fn pc_off_uses_the_full_node_budget() {
             ((20..=40).contains(&empty_count(board)) && legal_moves(board.me, board.opp) != 0)
                 .then_some(board)
         })
-        .find(|&board| {
-            search_limited(board, SearchLimits::new(64, u64::MAX, 1000), &config).nodes >= 900
-        });
-    assert!(
-        found.is_some(),
-        "no midgame corpus position used the full budget"
-    );
+        .collect();
+    for name in ["pc:off", "pc:150"] {
+        let (config, limits) = config(name, 1000, true).unwrap();
+        assert!(
+            boards
+                .iter()
+                .any(|&board| search_limited(board, limits, &config).nodes >= 900),
+            "{name} did not use the budget"
+        );
+    }
 }

@@ -244,32 +244,36 @@ fn probcut_calibration_fingerprint() {
 
 #[test]
 fn probcut_decision_error_tripwire() {
-    let config = SearchConfig {
+    let selective = SearchConfig {
         probcut: Some(probcut_fit()),
         ..SearchConfig::standard()
     };
-    let mut wrong = 0;
-    let mut total = 0;
+    let plain = SearchConfig {
+        probcut: None,
+        ..SearchConfig::standard()
+    };
+    let (mut wrong, mut total) = (0, 0);
     for board in corpus() {
         if empty_count(board) <= 12 || legal_moves(board.me, board.opp) == 0 {
             continue;
         }
-        let plain = SearchConfig {
-            probcut: None,
-            ..SearchConfig::standard()
-        };
         let mut ctx = Ctx::new(&plain);
         let exact = negamax(board, 8, -INF, INF, &mut ctx).unwrap();
-        let (alpha, beta) = (exact - 100, exact + 100);
-        let mut ctx = Ctx::new(&config);
-        let selective = negamax(board, 8, alpha, beta, &mut ctx).unwrap();
-        total += 1;
-        if selective < alpha || selective > beta {
-            wrong += 1;
+        for offset in [10, 25, 50, 100] {
+            for x in [exact - offset, exact + offset] {
+                let mut full = Ctx::new(&plain);
+                let expected = negamax(board, 8, x - 1, x, &mut full).unwrap() >= x;
+                let mut ctx = Ctx::new(&selective);
+                let actual = negamax(board, 8, x - 1, x, &mut ctx).unwrap() >= x;
+                total += 1;
+                wrong += usize::from(expected != actual);
+            }
         }
     }
     assert!(total > 0);
-    assert!((wrong as f64) / (total as f64) < 0.15, "{wrong}/{total}");
+    let fraction = (wrong as f64) / (total as f64);
+    println!("probcut decision disagreements {wrong}/{total} ({fraction:.4})");
+    assert!(fraction < 0.15, "{wrong}/{total}");
 }
 
 #[test]
