@@ -1511,28 +1511,43 @@ fn selective_uses_heuristic_and_ignores_endgame() {
     assert_eq!(negamax(board, 6, -INF, INF, &mut ctx), Some(-1234));
     assert_eq!(ctx.probcut_tries, [0, 0]);
 
+    let shallow = shallow_depth(6) as u32;
+    let mut oracle_ctx = Ctx::new(&config());
+    let oracle = negamax(board, shallow, -INF, INF, &mut oracle_ctx).unwrap();
+    let beta = oracle - 150;
     let mut table = Table::new(1 << 16);
-    table.store(Entry {
+    let planted = Entry {
         key: zobrist(board),
-        value: -9999,
-        depth: 0,
+        value: -1234,
+        depth: 64,
         flag: Bound::Exact,
         domain: Domain::Endgame,
         mv: NO_MOVE,
-    });
+    };
+    table.store(planted);
     let mut ctx = Ctx::new(&selective());
     ctx.set_table(&mut table);
-    assert_ne!(negamax(board, 6, -INF, INF, &mut ctx), Some(-9999));
+    assert_eq!(negamax(board, 6, -INF, beta, &mut ctx), Some(beta));
+    let mut cold = Ctx::new(&selective());
+    assert_eq!(negamax(board, 6, -INF, beta, &mut cold), Some(beta));
+    assert_eq!(table.probe(zobrist(board)), Some(&planted));
 }
 
 #[test]
 fn cancellation_inside_probe_restores_mode() {
     let board = selective_board();
+    let depth = 6;
+    let shallow = shallow_depth(depth) as u32;
+    let mut oracle_ctx = Ctx::new(&config());
+    let oracle = negamax(board, shallow, -INF, INF, &mut oracle_ctx).unwrap();
+    let (alpha, beta) = (oracle - 300, oracle);
     let mut table = Table::new(1 << 16);
     let mut ctx = Ctx::new(&selective());
     ctx.set_table(&mut table);
     ctx.limit(1);
-    assert_eq!(negamax(board, 6, -INF, INF, &mut ctx), None);
+    assert_eq!(negamax(board, depth, alpha, beta, &mut ctx), None);
+    assert_eq!(ctx.probcut_tries[0], 1);
+    assert_eq!(ctx.probcut_cuts, [0, 0]);
     assert!(!ctx.probing);
     assert!(table.probe(zobrist(board)).is_none());
     let limits = SearchLimits {
