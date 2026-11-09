@@ -1160,7 +1160,6 @@ fn erf(x: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use othello_tools::journal::Journal;
     use std::os::unix::process::ExitStatusExt;
     use std::process::{Command, Stdio};
     use std::thread;
@@ -1341,6 +1340,29 @@ mod tests {
         fs::write(&measure, cut).unwrap();
         assert!(run(&resumed, 7, "4").status.success());
         assert_eq!(fs::read(resumed.join("fit.log")).unwrap(), reference_fit);
+        let header = fs::read_to_string(&measure)
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+            .to_string();
+        {
+            let (mut journal, _) = Journal::open(&measure, &header).unwrap();
+            let values = (0..12).map(|i| i.to_string()).collect::<Vec<_>>().join(" ");
+            journal
+                .append(
+                    "ffffffffffffffff",
+                    &format!(
+                        "game 0 empties 40 window -1000000 1000000 values {values} nodes {values}"
+                    ),
+                )
+                .unwrap();
+        }
+        let used = fs::read_to_string(&measure)
+            .unwrap()
+            .lines()
+            .skip(1)
+            .count();
         let before = fs::read(&measure).unwrap();
         let fit_only = Command::new(&example)
             .args([
@@ -1358,6 +1380,12 @@ mod tests {
             String::from_utf8_lossy(&fit_only.stderr)
         );
         assert_eq!(fs::read(&measure).unwrap(), before);
+        let fit_text = fs::read_to_string(resumed.join("fit.log")).unwrap();
+        assert!(fit_text.contains("truncated 1 records"), "{fit_text}");
+        assert!(
+            fit_text.contains(&format!("sampled {used} positions")),
+            "{fit_text}"
+        );
         let mismatch = run(&resumed, 8, "4");
         assert!(!mismatch.status.success());
         assert!(String::from_utf8_lossy(&mismatch.stderr).contains("header"));
