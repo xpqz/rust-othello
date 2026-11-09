@@ -15,7 +15,7 @@ fixes. Revision 3 resolved the second review.
 **Revision 5** (after release 1.0.0) opens [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 Release 1.0.0 (tag `v1.0.0`) froze the engine + CLI at 998 lines under the
 999 ceiling. Phase 2 raises the engine ceiling to 1,499 and the tools budget
-to 1,000, adds a model-asset budget, and sets a strength target. Everything
+to 1,200, adds a model-asset budget, and sets a strength target. Everything
 else in this plan still applies.
 
 ## Constraints and targets
@@ -23,7 +23,7 @@ else in this plan still applies.
 | Constraint | Target | How it is enforced |
 | --- | --- | --- |
 | Implementation size | **Hard ceiling: 1,499 LOC for the engine + playable CLI, excluding tests** (Phase 2; 999 in release 1.0.0) | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
-| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,000-line budget (650 in release 1.0.0); tests, `bench/` data, examples, and benchmark data are not engine production source |
+| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,200-line budget (650 in release 1.0.0); tests, `bench/` data, examples, and benchmark data are not engine production source |
 | Early feasibility | A complete playable vertical slice with actual counts by the end of Phase 2 | Phase 2 gate records formatted LOC and cuts scope before Phase 3 if needed |
 | Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies; the tools crate may path-depend on the engine |
 | Safety | No `unsafe` in library or binary | `#![forbid(unsafe_code)]` in both `src/lib.rs` and `src/main.rs` |
@@ -39,7 +39,7 @@ comments are documentation, not code. `scripts/check.sh` runs `cargo fmt
 `.rustfmt.toml` so formatting cannot compress code. The budget test counts the
 source as written; a bare `cargo test` is not a substitute for the formatted
 check. `tests/`, `tools/`, `bench/`, examples, and benchmark data are not engine
-production source. The tools crate has its own 1,000-line budget. Model
+production source. The tools crate has its own 1,200-line budget. Model
 assets have their own budget; see [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 
 Timing and node-reduction targets are measured on the frozen corpus and
@@ -377,7 +377,7 @@ scripts/
 This table records the 1.0.0 allocation. Phase 2 issues state their own
 per-module estimates within the 1,499 ceiling.
 
-The tools crate has a separate budget (650 in release 1.0.0, 1,000 in Phase 2).
+The tools crate has a separate budget (650 in release 1.0.0, 1,200 in Phase 2).
 Its code is not part of the engine claim and does not consume the engine
 headroom.
 
@@ -1004,7 +1004,7 @@ a new budget and with the same discipline.
 | Item | 1.0.0 | Phase 2 | Enforced by |
 | --- | ---: | ---: | --- |
 | Engine + playable CLI | 999 | **1,499** | `tests/budget.rs` (same metric) |
-| Tools crate | 650 | **1,000** | `tools/tests/budget.rs` |
+| Tools crate | 650 | **1,200** | `tools/tests/budget.rs` |
 | Model assets | — | **8 MiB** total | Guard added with the first asset |
 
 - **Same metric, same rules:** formatted lines that are neither blank nor

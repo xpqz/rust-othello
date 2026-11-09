@@ -56,6 +56,19 @@ cargo run --release --manifest-path tools/Cargo.toml -- match \
   --a ab:4 --b phase2 --openings bench/openings_final.txt --pairs 200 --seed 100
 ```
 
+Matches can be journaled, parallelised, and resumed:
+
+```sh
+cargo run --release --manifest-path tools/Cargo.toml -- match \
+  --a ab:4 --b phase2 --openings bench/openings_final.txt \
+  --pairs 200 --seed 100 --out run.journal --jobs 4 --max-load 4
+```
+
+An interrupted run resumes by re-running the identical command. Use
+`--pair-range 0..100` to split work, and `report run.journal...` to summarise
+one or more journals. Time-controlled pairings whose recorded load exceeds
+`--max-load` are replayed; node-controlled pairings never void.
+
 ## Tests
 
 ```sh

@@ -291,6 +291,8 @@ fn voiding_applies_only_to_time_control() {
             "7",
             "--jobs",
             "1",
+            "--max-load",
+            "1000",
             "--out",
             path.to_str().unwrap(),
         ];
@@ -320,6 +322,8 @@ fn voiding_applies_only_to_time_control() {
         "7",
         "--jobs",
         "1",
+        "--max-load",
+        "1000",
         "--out",
         time.to_str().unwrap(),
     ];

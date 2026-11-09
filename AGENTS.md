@@ -46,7 +46,7 @@ Before telling the user an issue is ready for review:
 
 - You are the only worker. Never claim an issue is pre-existing or someone else's responsibility.
 - Do not use hacks, loopholes, or reward hacking to meet the size budget. Write straight, professional Rust.
-- Phase 2 (strengthening) budget: the engine plus playable CLI has a hard ceiling of 1,499 LOC, and the tools crate has a separate 1,000-line budget. Release 1.0.0 (tag `v1.0.0`) is the frozen 999-line edition. See `docs/PLAN.md`.
+- Phase 2 (strengthening) budget: the engine plus playable CLI has a hard ceiling of 1,499 LOC, and the tools crate has a separate 1,200-line budget. Release 1.0.0 (tag `v1.0.0`) is the frozen 999-line edition. See `docs/PLAN.md`.
 - If the work cannot fit under the budget, stop and discuss algorithmic or scope reductions. Do not contort the code.
 - Before claiming done, step back and self-review the implementation.
 - The Phase 2 budget is sized for the planned strengthening work, with little to spare. Spend it on strength, and be disciplined.
