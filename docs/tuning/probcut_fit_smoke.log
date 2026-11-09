@@ -1,0 +1,50 @@
+seed 1 games 8 positions 200 depth 8
+global fit a=1.116209 b=13.606 sigma=120.092 r2=0.8377
+cell d=3 ds=1 bucket=0 n=42 a=1.0205 b=-13.19 sigma=84.50 r2=0.9162
+cell d=3 ds=1 bucket=1 n=19 a=1.0695 b=23.10 sigma=68.32 r2=0.8887
+cell d=3 ds=1 bucket=2 n=11 a=1.2025 b=-64.65 sigma=92.14 r2=0.8667
+cell d=3 ds=1 bucket=3 n=13 a=1.2463 b=-45.44 sigma=28.18 r2=0.9750
+cell d=3 ds=1 bucket=4 n=9 a=1.0688 b=-16.59 sigma=38.12 r2=0.8992
+cell d=3 ds=1 bucket=5 n=2 a=1.4053 b=-50.25 sigma=1.00 r2=1.0000
+cell d=4 ds=2 bucket=0 n=42 a=1.0532 b=34.98 sigma=84.72 r2=0.9332
+cell d=4 ds=2 bucket=1 n=19 a=1.0437 b=25.54 sigma=59.89 r2=0.9169
+cell d=4 ds=2 bucket=2 n=11 a=1.1916 b=-7.15 sigma=47.36 r2=0.9716
+cell d=4 ds=2 bucket=3 n=13 a=1.1476 b=-18.00 sigma=29.74 r2=0.9760
+cell d=4 ds=2 bucket=4 n=9 a=0.9764 b=14.85 sigma=51.45 r2=0.8419
+cell d=4 ds=2 bucket=5 n=2 a=1.6121 b=-76.21 sigma=1.00 r2=1.0000
+cell d=5 ds=3 bucket=0 n=42 a=1.0451 b=25.91 sigma=84.96 r2=0.9280
+cell d=5 ds=3 bucket=1 n=19 a=1.1565 b=4.70 sigma=57.98 r2=0.9434
+cell d=5 ds=3 bucket=2 n=11 a=1.0715 b=-12.47 sigma=51.47 r2=0.9650
+cell d=5 ds=3 bucket=3 n=13 a=1.0715 b=-17.17 sigma=38.15 r2=0.9616
+cell d=5 ds=3 bucket=4 n=9 a=1.0195 b=-7.89 sigma=43.02 r2=0.8901
+cell d=5 ds=3 bucket=5 n=2 a=1.1049 b=-51.00 sigma=1.00 r2=1.0000
+cell d=6 ds=2 bucket=0 n=42 a=1.0786 b=81.31 sigma=143.77 r2=0.8358
+cell d=6 ds=2 bucket=1 n=19 a=1.1416 b=11.94 sigma=95.33 r2=0.8390
+cell d=6 ds=2 bucket=2 n=11 a=1.2306 b=-1.69 sigma=61.80 r2=0.9555
+cell d=6 ds=2 bucket=3 n=13 a=1.2012 b=-16.02 sigma=46.74 r2=0.9475
+cell d=6 ds=2 bucket=4 n=9 a=1.0480 b=2.50 sigma=71.35 r2=0.7613
+cell d=6 ds=2 bucket=5 n=2 a=1.6667 b=-105.67 sigma=1.00 r2=1.0000
+cell d=7 ds=3 bucket=0 n=42 a=1.0999 b=39.74 sigma=133.82 r2=0.8520
+cell d=7 ds=3 bucket=1 n=19 a=1.2369 b=-23.24 sigma=84.07 r2=0.9007
+cell d=7 ds=3 bucket=2 n=11 a=1.2319 b=-17.87 sigma=79.48 r2=0.9387
+cell d=7 ds=3 bucket=3 n=13 a=1.1339 b=-10.29 sigma=55.55 r2=0.9298
+cell d=7 ds=3 bucket=4 n=9 a=1.1557 b=-34.82 sigma=59.93 r2=0.8428
+cell d=7 ds=3 bucket=5 n=2 a=1.2247 b=-57.87 sigma=1.00 r2=1.0000
+cell d=8 ds=4 bucket=0 n=42 a=1.1555 b=97.11 sigma=290.17 r2=0.6302
+cell d=8 ds=4 bucket=1 n=19 a=1.2915 b=-23.82 sigma=70.70 r2=0.9351
+cell d=8 ds=4 bucket=2 n=11 a=1.1661 b=-15.78 sigma=47.45 r2=0.9795
+cell d=8 ds=4 bucket=3 n=13 a=1.0471 b=9.35 sigma=41.16 r2=0.9597
+cell d=8 ds=4 bucket=4 n=9 a=1.2629 b=-26.48 sigma=50.09 r2=0.9141
+cell d=8 ds=4 bucket=5 n=2 a=1.2556 b=-28.73 sigma=1.00 r2=1.0000
+sigma-model linear fitted Linear { s0: 120, gap: 0, empty: 0 }
+sigma-model edax fitted EdaxStyle { a_milli: 1000, b_milli: 0, c_milli: 0, q2_milli: 0, q1_milli: 0, q0_milli: 120000 }
+sigma-model stage fitted StageTable { buckets: [(120, 0), (120, 0), (120, 0), (120, 0), (120, 0), (120, 0)] }
+supported-domain candidates depths 3..8 empties 18..50
+decisions t=1.0 high 0/408 upper 0.0073 low 0/33 upper 0.0868 nominal 0.1587
+decisions t=1.4 high 0/334 upper 0.0089 low 0/19 upper 0.1459 nominal 0.0808
+decisions t=1.5 high 0/322 upper 0.0093 low 0/18 upper 0.1533 nominal 0.0668
+decisions t=1.8 high 0/278 upper 0.0107 low 0/17 upper 0.1616 nominal 0.0359
+decisions t=2.2 high 0/231 upper 0.0129 low 0/13 upper 0.2058 nominal 0.0139
+supported-domain: none (epic stops pending design change)
+PROBCUT_FIT = ProbCut::new(150, 1116, 14, Linear { s0: 120, gap: 0, empty: 0 }, (3, 8), (18, 50)) // t=1.5
+tails >2sigma 0.0312 >3sigma 0.0087
