@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::fs;
+use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -46,12 +47,21 @@ fn command(out: &Path, jobs: usize, range: Option<&str>, seed: &str) -> Vec<Stri
         out.display().to_string(),
         "--jobs".into(),
         jobs.to_string(),
+        "--max-load".into(),
+        "1000".into(),
     ];
     if let Some(range) = range {
         args.push("--pair-range".into());
         args.push(range.into());
     }
     args
+}
+
+fn replace_arg(args: &[String], flag: &str, value: &str) -> Vec<String> {
+    let mut out = args.to_vec();
+    let index = out.iter().position(|arg| arg == flag).unwrap();
+    out[index + 1] = value.into();
+    out
 }
 
 fn run(args: &[String]) -> Output {
@@ -136,7 +146,13 @@ fn kill_and_resume_matches_uninterrupted() {
         String::from_utf8_lossy(&done.stderr)
     );
 
-    let args = command(&resumed, 2, None, "7");
+    let mut args = command(&resumed, 2, None, "7");
+    args.push("--nodes".into());
+    args.push("20000".into());
+    let mut reference_args = command(&reference, 2, None, "7");
+    reference_args.push("--nodes".into());
+    reference_args.push("20000".into());
+    assert!(run(&reference_args).status.success());
     let mut child = Command::new(env!("CARGO_BIN_EXE_othello-tools"))
         .args(&args)
         .stdin(Stdio::null())
@@ -156,7 +172,13 @@ fn kill_and_resume_matches_uninterrupted() {
         }
         thread::sleep(Duration::from_millis(5));
     }
-    child.wait().unwrap();
+    let status = child.wait().unwrap();
+    assert_eq!(status.signal(), Some(9), "child was not killed");
+    let after_kill = fs::read_to_string(&resumed).unwrap().lines().count();
+    assert!(
+        after_kill < 13,
+        "journal already complete after kill: {after_kill} lines"
+    );
 
     let done = run(&args);
     assert!(
@@ -177,10 +199,30 @@ fn header_mismatch_is_rejected() {
     let path = temp("mismatch");
     let first = run(&command(&path, 1, None, "7"));
     assert!(first.status.success());
-    let second = run(&command(&path, 1, None, "8"));
-    assert!(!second.status.success());
-    assert!(String::from_utf8_lossy(&second.stderr).contains("header"));
+    let seed = run(&command(&path, 1, None, "8"));
+    assert!(!seed.status.success());
+    assert!(String::from_utf8_lossy(&seed.stderr).contains("header"));
+
+    let base = command(&path, 1, None, "7");
+    let mut nodes = base.clone();
+    nodes.push("--nodes".into());
+    nodes.push("4000".into());
+    assert!(!run(&nodes).status.success());
+
+    let agent = replace_arg(&base, "--a", "ab:2");
+    assert!(!run(&agent).status.success());
+
+    let openings = temp("changed_openings.txt");
+    let text = fs::read_to_string("../bench/openings_validation.txt").unwrap();
+    let changed = text.replacen("d3", "c4", 1);
+    fs::write(&openings, changed).unwrap();
+    let mut opened = base.clone();
+    opened.push("--openings".into());
+    opened.push(openings.display().to_string());
+    assert!(!run(&opened).status.success());
+
     fs::remove_file(path).unwrap();
+    fs::remove_file(openings).unwrap();
 }
 
 #[test]
@@ -190,6 +232,7 @@ fn jobs_are_deterministic() {
     let a = run(&command(&one, 1, None, "7"));
     let b = run(&command(&three, 3, None, "7"));
     assert!(a.status.success() && b.status.success());
+    assert!(String::from_utf8_lossy(&a.stderr).contains("pairs"));
     assert_eq!(game_logs(&one), game_logs(&three));
     assert_eq!(report(&[&one]).stdout, report(&[&three]).stdout);
     fs::remove_file(one).unwrap();
@@ -253,14 +296,14 @@ fn voiding_applies_only_to_time_control() {
         tools(&args)
     };
     assert!(header(&node, "ab:2").status.success());
-    replace_load(&node, "99.000");
+    replace_load(&node, "1001.000");
     assert!(
         report(&[&node]).status.success(),
         "node pairs must not void"
     );
 
     assert!(header(&time, "ab:2:1").status.success());
-    replace_load(&time, "99.000");
+    replace_load(&time, "1001.000");
     assert!(!report(&[&time]).status.success());
     assert!(String::from_utf8_lossy(&report(&[&time]).stderr).contains("missing"));
 
@@ -283,6 +326,42 @@ fn voiding_applies_only_to_time_control() {
     assert!(report(&[&time]).status.success());
     fs::remove_file(node).unwrap();
     fs::remove_file(time).unwrap();
+}
+
+#[test]
+fn half_pair_is_replayed_once() {
+    let reference = temp("halffull");
+    let resumed = temp("halfresumed");
+    let args = command(&reference, 1, None, "7");
+    assert!(run(&args).status.success());
+    let mut args = command(&resumed, 1, None, "7");
+    assert!(run(&args).status.success());
+
+    let text = fs::read_to_string(&resumed).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    let mut cut = lines[..lines.len() - 1].join("\n");
+    cut.push('\n');
+    cut.push_str("5:1\tpartial");
+    fs::write(&resumed, cut).unwrap();
+    assert!(run(&args).status.success());
+    assert_eq!(report(&[&reference]).stdout, report(&[&resumed]).stdout);
+    let count = fs::read_to_string(&resumed)
+        .unwrap()
+        .lines()
+        .skip(1)
+        .count();
+    assert_eq!(count, 12);
+    let mut ids: Vec<String> = fs::read_to_string(&resumed)
+        .unwrap()
+        .lines()
+        .skip(1)
+        .filter_map(|line| line.split_once('\t').map(|(id, _)| id.to_string()))
+        .collect();
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), 12);
+    fs::remove_file(reference).unwrap();
+    fs::remove_file(resumed).unwrap();
 }
 
 #[test]
