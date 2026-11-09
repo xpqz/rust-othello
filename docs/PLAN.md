@@ -1065,6 +1065,49 @@ acceptance rules fixed before any games are run. Each feature lands behind a
 strength gate passes. Suggested order: Multi-ProbCut, the learned evaluation,
 endgame and search speed, then parallel search; the opening book is optional.
 
+### Interruptible long-running jobs
+
+The machine that runs training, calibration and matches can be reclaimed at
+any moment. Every tools job expected to run longer than 10 minutes (data
+generation, fitting, tuning sweeps, validation matches, asset builds) must
+meet these requirements. A job that doesn't is not done.
+
+1. **Stoppable at any instant.** SIGINT, SIGTERM, SIGKILL or power loss must
+   never corrupt or invalidate completed work. This holds by construction, not
+   through signal handlers: every finished unit is already flushed (item 5),
+   so the default termination loses only the units in progress. No handler is
+   required. The tools crate stays `std`-only with no `unsafe`.
+2. **Restart by re-running the same command.** The job finds its own output,
+   verifies it, skips completed units and continues. No manual bookkeeping,
+   no editing of files, no separate resume procedure.
+3. **Bounded loss.** An interruption loses at most the units in progress: one
+   per worker. A unit is small, normally at most a few minutes of compute
+   (one match pair, one calibration position, one self-play game).
+4. **Same result.** A resumed job's output is identical to an uninterrupted
+   run's whenever the job is deterministic: equal-depth or equal-node work,
+   seeded sampling, fitting. Units and their seeds derive from stable IDs, not
+   from schedule, wall clock or completion order.
+   - Equal-time matches can't be bit-identical. Their pre-registered rules
+     (job count, load-average voiding) apply to each resumed chunk, and a
+     resumed run uses exactly the same pre-registered pairs.
+5. **Durable, verifiable output.**
+   - Output is append-only and line-atomic: one complete line per finished
+     unit, flushed when written.
+   - Each file starts with a header recording the full configuration: command,
+     seeds, budgets, input file hashes, engine commit.
+   - On restart a truncated trailing line is discarded and redone.
+   - A header that doesn't match the requested configuration is a hard error,
+     never a silent mix.
+6. **Visible progress.** Units done and total, elapsed time and an estimate,
+   at least once a minute, so a stall is distinguishable from slow progress.
+7. **Tested.** Each such job has a test that interrupts it mid-run (SIGKILL in
+   the middle of a unit), restarts it, and checks the final output equals an
+   uninterrupted run's. It also checks that a mismatched header is rejected
+   and a truncated last line is redone.
+
+Analysis steps that only read finished output (reports, fits over recorded
+data) must be cheap to re-run from scratch. They need no checkpointing.
+
 ---
 
 ## Risks and mitigations

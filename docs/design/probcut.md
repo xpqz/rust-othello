@@ -277,6 +277,11 @@ evidence.
 
 ## Fitting
 
+Calibration, tuning and validation are long-running jobs. They must meet
+`docs/PLAN.md` § Interruptible long-running jobs: they are stoppable at any
+instant, resume by re-running the same command, lose at most the units in
+progress, and give identical results for deterministic work.
+
 The fitting code lives in `tools/examples/fit_probcut.rs`. It is uncounted
 data-generation code (decision 045ea9b) and writes `docs/tuning/probcut_fit.log`.
 

@@ -40,6 +40,7 @@ Before telling the user an issue is ready for review:
 - Code organisation and size constraints have been considered. Is the code as concise as possible while still understandable?
 - Comments are sparse and concise, describe the actual invariant, and are never narrative.
 - Function names contain no more than two underscores, ever.
+- Long-running tools jobs (over 10 minutes) are interruptible and restartable: they survive SIGKILL at any point and resume by re-running the same command, losing at most the units in progress, with identical results for deterministic work. See `docs/PLAN.md` § Interruptible long-running jobs. The interrupt-and-resume test is part of done.
 
 ### Engineering constraints
 
