@@ -365,6 +365,7 @@ fn half_pair_is_replayed_once() {
     ids.sort();
     ids.dedup();
     assert_eq!(ids.len(), 12);
+    assert!(!resumed.with_extension("tmp").exists());
     fs::remove_file(reference).unwrap();
     fs::remove_file(resumed).unwrap();
 }

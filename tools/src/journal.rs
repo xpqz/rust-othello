@@ -25,8 +25,7 @@ fn valid_prefix(text: &str) -> &str {
 }
 
 fn parse(text: &str) -> Result<(String, Vec<Record>), String> {
-    let text = valid_prefix(text);
-    let mut lines = text.lines();
+    let mut lines = valid_prefix(text).lines();
     let header = lines.next().unwrap_or("").to_string();
     let mut records = Vec::new();
     for line in lines {
@@ -49,52 +48,51 @@ pub fn read(path: &Path) -> Result<(String, Vec<Record>), String> {
     parse(&text)
 }
 
+pub fn mismatch(expected: &str, found: &str) -> String {
+    format!("journal header mismatch:\n expected {expected}\n found {found}")
+}
+
+fn rewrite(path: &Path, text: &str) -> Result<(), String> {
+    let temporary = path.with_extension("tmp");
+    let mut file = File::create(&temporary).map_err(|error| error.to_string())?;
+    file.write_all(text.as_bytes())
+        .map_err(|error| error.to_string())?;
+    file.flush().map_err(|error| error.to_string())?;
+    fs::rename(&temporary, path).map_err(|error| error.to_string())
+}
+
 impl Journal {
     pub fn open(path: &Path, header: &str) -> Result<(Self, BTreeSet<String>), String> {
+        let mut records = Vec::new();
         if path.exists() {
             let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
             let valid = valid_prefix(&text);
             if valid.len() != text.len() {
-                fs::write(path, valid).expect("repair journal");
+                rewrite(path, valid)?;
             }
-            let (found, records) = parse(&text)?;
+            let (found, parsed) = parse(&text)?;
+            records = parsed;
             if found.is_empty() {
-                fs::write(path, format!("{header}\n")).expect("write journal");
+                rewrite(path, &format!("{header}\n"))?;
             } else if found != header {
-                return Err(format!(
-                    "journal header mismatch:\n expected {header}\n found {found}"
-                ));
+                return Err(mismatch(header, &found));
             }
-            let file = OpenOptions::new()
-                .append(true)
-                .open(path)
-                .expect("open journal");
-            let done = records.iter().map(|record| record.id.clone()).collect();
-            return Ok((
-                Self {
-                    path: path.into(),
-                    header: header.into(),
-                    file,
-                    records,
-                },
-                done,
-            ));
+        } else {
+            rewrite(path, &format!("{header}\n"))?;
         }
-        let mut file = File::create(path).expect("create journal");
-        writeln!(file, "{header}").expect("write header");
-        file.flush().expect("flush header");
         let file = OpenOptions::new()
             .append(true)
             .open(path)
-            .expect("open journal");
+            .map_err(|error| error.to_string())?;
+        let done = records.iter().map(|record| record.id.clone()).collect();
         Ok((
             Self {
                 path: path.into(),
                 header: header.into(),
                 file,
-                records: Vec::new(),
+                records,
             },
-            BTreeSet::new(),
+            done,
         ))
     }
 
@@ -102,8 +100,8 @@ impl Journal {
         if id.is_empty() || id.contains(['\t', '\n']) || line.contains(['\t', '\n']) {
             return Err("invalid journal unit".into());
         }
-        writeln!(self.file, "{id}\t{line}").expect("append journal");
-        self.file.flush().expect("flush journal");
+        writeln!(self.file, "{id}\t{line}").map_err(|error| error.to_string())?;
+        self.file.flush().map_err(|error| error.to_string())?;
         self.records.push(Record {
             id: id.into(),
             line: line.into(),
@@ -117,16 +115,15 @@ impl Journal {
 
     pub fn discard(&mut self, ids: &BTreeSet<String>) -> Result<(), String> {
         self.records.retain(|record| !ids.contains(&record.id));
-        let mut file = File::create(&self.path).expect("rewrite journal");
-        writeln!(file, "{}", self.header).expect("write header");
+        let mut text = format!("{}\n", self.header);
         for record in &self.records {
-            writeln!(file, "{}\t{}", record.id, record.line).expect("write record");
+            text.push_str(&format!("{}\t{}\n", record.id, record.line));
         }
-        file.flush().expect("flush journal");
+        rewrite(&self.path, &text)?;
         self.file = OpenOptions::new()
             .append(true)
             .open(&self.path)
-            .expect("open journal");
+            .map_err(|error| error.to_string())?;
         Ok(())
     }
 }

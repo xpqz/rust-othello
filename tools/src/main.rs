@@ -13,7 +13,7 @@ use othello::rng::Rng;
 use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits};
 use othello_tools::baselines::{PHASE2_DEPTH, phase2_config};
 use othello_tools::harness::{GameLog, play_game, points};
-use othello_tools::journal::{Journal, Record};
+use othello_tools::journal::{Journal, Record, mismatch};
 use othello_tools::positions::{self, Opening};
 use othello_tools::stats::{Interval, RESAMPLES, report_with};
 
@@ -468,12 +468,16 @@ fn print_summary(summary: &othello_tools::stats::Report, seed: u64, nodes: u64, 
     println!("seed {seed} resamples {RESAMPLES} evaluator-only nodes {nodes} ordering {ordering}");
 }
 
-fn complete(saved: &BTreeMap<(usize, u64), Saved>, pair: usize, ctrl: &str, max_load: f64) -> bool {
-    (0..2).all(|game| {
-        saved
-            .get(&(pair, game))
-            .is_some_and(|record| !void(*record, ctrl, max_load))
-    })
+fn pair_points(
+    saved: &BTreeMap<(usize, u64), Saved>,
+    pair: usize,
+    ctrl: &str,
+    max_load: f64,
+) -> Option<(f64, f64)> {
+    let left = saved.get(&(pair, 0))?;
+    let right = saved.get(&(pair, 1))?;
+    (!void(*left, ctrl, max_load) && !void(*right, ctrl, max_load))
+        .then_some((left.points, right.points))
 }
 
 fn match_command(args: &[String]) -> Result<(), String> {
@@ -500,7 +504,7 @@ fn match_command(args: &[String]) -> Result<(), String> {
         let ctrl = control(&run.a, &run.b, run.nodes)?;
         let mut discard = BTreeSet::new();
         for pair in run.first..run.past {
-            if !complete(&saved, pair, ctrl, run.max_load) {
+            if pair_points(&saved, pair, ctrl, run.max_load).is_none() {
                 for game in 0..2 {
                     if saved.remove(&(pair, game)).is_some() {
                         discard.insert(format!("{pair}:{game}"));
@@ -512,7 +516,7 @@ fn match_command(args: &[String]) -> Result<(), String> {
         journal = Some(Arc::new(Mutex::new(opened)));
     }
     let queued: Vec<usize> = (run.first..run.past)
-        .filter(|&pair| !complete(&saved, pair, "depth", 0.0) || !saved.contains_key(&(pair, 0)))
+        .filter(|&pair| !saved.contains_key(&(pair, 0)))
         .collect();
     let outcomes = run.run(&queued, &openings, journal.as_ref())?;
     for outcome in &outcomes {
@@ -568,7 +572,7 @@ fn report_command(args: &[String]) -> Result<(), String> {
     if args.is_empty() {
         return Err("usage: othello-tools report <journal>...".into());
     }
-    let mut header = None;
+    let mut header: Option<String> = None;
     let mut records: BTreeMap<(usize, u64), (usize, Saved)> = BTreeMap::new();
     for (source, path) in args.iter().enumerate() {
         let (found, journal) = othello_tools::journal::read(Path::new(path))?;
@@ -577,9 +581,7 @@ fn report_command(args: &[String]) -> Result<(), String> {
         }
         if let Some(expected) = &header {
             if expected != &found {
-                return Err(format!(
-                    "journal header mismatch:\n expected {expected}\n found {found}"
-                ));
+                return Err(mismatch(expected, &found));
             }
         } else {
             header = Some(found);
@@ -603,14 +605,14 @@ fn report_command(args: &[String]) -> Result<(), String> {
     let mut game_points = Vec::new();
     let mut missing = Vec::new();
     for pair in 0..pairs {
-        match (records.get(&(pair, 0)), records.get(&(pair, 1))) {
-            (Some((_, left)), Some((_, right)))
-                if !void(*left, ctrl, max_load) && !void(*right, ctrl, max_load) =>
-            {
-                game_points.push((left.points, right.points))
-            }
-            _ => missing.push(pair),
-        }
+        let valid = records
+            .get(&(pair, 0))
+            .zip(records.get(&(pair, 1)))
+            .and_then(|((_, left), (_, right))| {
+                (!void(*left, ctrl, max_load) && !void(*right, ctrl, max_load))
+                    .then_some((left.points, right.points))
+            });
+        valid.map_or_else(|| missing.push(pair), |points| game_points.push(points));
     }
     if !missing.is_empty() {
         return Err(format!("missing pairs: {missing:?}"));
