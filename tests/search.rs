@@ -663,7 +663,14 @@ fn corpus_preload() {
         for square in squares(legal_moves(board.me, board.opp)) {
             let child = play(board, square);
             let key = zobrist(child);
-            table.store(Entry::heuristic(key, -6400, 2, Bound::Exact, NO_MOVE));
+            table.store(Entry::search(
+                key,
+                -6400,
+                2,
+                Bound::Exact,
+                NO_MOVE,
+                Domain::Heuristic,
+            ));
         }
         let warm = search_tt(board, SearchLimits::depth(4), &config, &mut table);
         assert_eq!(warm.score, expected, "{board:?}");
@@ -923,8 +930,22 @@ fn solver_ignores_heuristic_entries() {
     for square in squares(legal_moves(board.me, board.opp)) {
         let key = zobrist(play(board, square));
         for depth in 1..4 {
-            table.store(Entry::heuristic(key, 6400, depth, Bound::Exact, NO_MOVE));
-            table.store(Entry::heuristic(key, -6400, depth, Bound::Exact, NO_MOVE));
+            table.store(Entry::search(
+                key,
+                6400,
+                depth,
+                Bound::Exact,
+                NO_MOVE,
+                Domain::Heuristic,
+            ));
+            table.store(Entry::search(
+                key,
+                -6400,
+                depth,
+                Bound::Exact,
+                NO_MOVE,
+                Domain::Heuristic,
+            ));
         }
     }
     let result = search_tt(board, SearchLimits::depth(20), &config, &mut table);

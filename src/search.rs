@@ -187,6 +187,13 @@ fn natural(moves: u64) -> ([u8; 64], usize) {
     (order, len)
 }
 
+fn probe(board: Board, depth: u32, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
+    ctx.probing = true;
+    let value = negamax(board, shallow_depth(depth), alpha, beta, ctx);
+    ctx.probing = false;
+    value
+}
+
 pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.nodes += 1;
     if ctx.stop() {
@@ -217,39 +224,28 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         return cutoff;
     }
     let alpha_orig = alpha;
+    let empties = empty_count(board);
     if selective
         && let Some(probcut) = ctx.config.probcut
-        && probcut.supports(depth, empty_count(board))
+        && probcut.supports(depth, empties)
     {
-        let empties = empty_count(board);
         if let Some(high) = probcut.high(beta, depth, empties) {
             ctx.probcut_tries[0] += 1;
-            ctx.probing = true;
-            let probe = negamax(
+            if probe(
                 board,
-                shallow_depth(depth),
+                depth,
                 high.saturating_sub(1) as i32,
                 high as i32,
                 ctx,
-            );
-            ctx.probing = false;
-            if probe? >= high as i32 {
+            )? >= high as i32
+            {
                 ctx.probcut_cuts[0] += 1;
                 return Some(beta);
             }
         }
         if let Some(low) = probcut.low(alpha, depth, empties) {
             ctx.probcut_tries[1] += 1;
-            ctx.probing = true;
-            let probe = negamax(
-                board,
-                shallow_depth(depth),
-                low as i32,
-                (low + 1) as i32,
-                ctx,
-            );
-            ctx.probing = false;
-            if probe? <= low as i32 {
+            if probe(board, depth, low as i32, (low + 1) as i32, ctx)? <= low as i32 {
                 ctx.probcut_cuts[1] += 1;
                 return Some(alpha);
             }
@@ -392,15 +388,12 @@ fn search_inner(
     let (moves, fallback, fallback_result) = root_setup(board, config);
     if empty_count(board) <= config.endgame_threshold {
         let mut ctx = Ctx {
-            config,
             nodes: 0,
             max_nodes: limits.max_nodes,
             deadline,
             table: None,
             exact: true,
-            probing: false,
-            probcut_tries: [0; 2],
-            probcut_cuts: [0; 2],
+            ..Ctx::new(config)
         };
         if let Some(table) = table.as_deref_mut() {
             ctx.set_table(table);
@@ -434,15 +427,12 @@ fn search_inner(
     let mut result = fallback_result;
     for depth in 1..=limits.max_depth {
         let mut ctx = Ctx {
-            config,
             nodes,
             max_nodes: limits.max_nodes,
             deadline,
             table: table.as_deref_mut(),
             exact: false,
-            probing: false,
-            probcut_tries: [0; 2],
-            probcut_cuts: [0; 2],
+            ..Ctx::new(config)
         };
         if ctx.stop_iteration() {
             break;

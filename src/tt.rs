@@ -30,13 +30,13 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn heuristic(key: u64, value: i32, depth: u8, flag: Bound, mv: u8) -> Self {
+    pub fn search(key: u64, value: i32, depth: u8, flag: Bound, mv: u8, domain: Domain) -> Self {
         Self {
             key,
             value,
             depth,
             flag,
-            domain: Domain::Heuristic,
+            domain,
             mv,
         }
     }
