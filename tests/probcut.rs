@@ -154,6 +154,24 @@ fn sigma_edax_style_fixed_point() {
     // s = 0.5 * 30 = 15, sigma = 0.5 * 15^2 = 112.5 -> 113.
     assert_eq!(pc.sigma(8, 30), 113);
     assert!(pc.sigma(3, 18) >= 1);
+
+    let pc = ProbCut::new(
+        150,
+        900,
+        30,
+        SigmaModel::EdaxStyle {
+            a_milli: 1000,
+            b_milli: 500,
+            c_milli: -1000,
+            q2_milli: 1000,
+            q1_milli: 2000,
+            q0_milli: -3000,
+        },
+        (3, 12),
+        (18, 52),
+    )
+    .unwrap();
+    assert_eq!(pc.sigma(8, 30), 957);
 }
 
 #[test]

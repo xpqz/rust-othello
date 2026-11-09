@@ -33,6 +33,7 @@ pub mod board;
 pub mod cli;
 pub mod eval;
 pub mod perft;
+pub mod probcut;
 pub mod rng;
 pub mod score;
 pub mod search;
