@@ -34,6 +34,7 @@ fn config() -> SearchConfig {
         eval: evaluate,
         endgame_threshold: 12,
         ordering: true,
+        probcut: None,
     }
 }
 
@@ -1340,7 +1341,8 @@ fn exact_mode_ignores_probcut() {
         .collect();
     boards.extend(sample_positions(13, 14, 2));
     for board in boards {
-        let mut plain = Ctx::new(&config());
+        let plain_config = config();
+        let mut plain = Ctx::new(&plain_config);
         let plain_value = solve(board, -INF, INF, &mut plain);
         let mut selective_ctx = Ctx::new(&covering);
         let selective_value = solve(board, -INF, INF, &mut selective_ctx);
@@ -1356,16 +1358,19 @@ fn high_and_low_cut_at_thresholds() {
     let board = selective_board();
     let depth = 6;
     let shallow = shallow_depth(depth) as u32;
-    let mut ctx = Ctx::new(&config());
+    let plain_config = config();
+    let mut ctx = Ctx::new(&plain_config);
     let oracle = negamax(board, shallow, -INF, INF, &mut ctx).unwrap();
     let beta = oracle - 150;
-    let mut ctx = Ctx::new(&selective());
+    let selective_config = selective();
+    let mut ctx = Ctx::new(&selective_config);
     assert_eq!(negamax(board, depth, -INF, beta, &mut ctx), Some(beta));
     assert_eq!(ctx.probcut_tries[0], 1);
     assert_eq!(ctx.probcut_cuts[0], 1);
 
     let alpha = oracle + 150;
-    let mut ctx = Ctx::new(&selective());
+    let selective_config = selective();
+    let mut ctx = Ctx::new(&selective_config);
     assert_eq!(negamax(board, depth, alpha, INF, &mut ctx), Some(alpha));
     assert_eq!(ctx.probcut_tries[1], 1);
     assert_eq!(ctx.probcut_cuts[1], 1);
@@ -1376,12 +1381,15 @@ fn unsuccessful_probes_match_full_width() {
     let board = selective_board();
     let depth = 6;
     let shallow = shallow_depth(depth) as u32;
-    let mut ctx = Ctx::new(&config());
+    let plain_config = config();
+    let mut ctx = Ctx::new(&plain_config);
     let oracle = negamax(board, shallow, -INF, INF, &mut ctx).unwrap();
     let (alpha, beta) = (oracle - 300, oracle);
-    let mut full = Ctx::new(&config());
+    let full_config = config();
+    let mut full = Ctx::new(&full_config);
     let expected = negamax(board, depth, alpha, beta, &mut full);
-    let mut ctx = Ctx::new(&selective());
+    let selective_config = selective();
+    let mut ctx = Ctx::new(&selective_config);
     assert_eq!(negamax(board, depth, alpha, beta, &mut ctx), expected);
     assert_eq!(ctx.probcut_tries, [1, 1]);
     assert_eq!(ctx.probcut_cuts, [0, 0]);
@@ -1390,7 +1398,8 @@ fn unsuccessful_probes_match_full_width() {
 #[test]
 fn probcut_domain_bypass() {
     let board = selective_board();
-    let mut low_depth = Ctx::new(&selective());
+    let low_depth_config = selective();
+    let mut low_depth = Ctx::new(&low_depth_config);
     let _ = negamax(board, 2, -INF, INF, &mut low_depth);
     assert_eq!(low_depth.probcut_tries, [0, 0]);
 
@@ -1444,22 +1453,27 @@ fn selective_search_writes_selective_and_probes_heuristic() {
     let board = selective_board();
     let depth = 6;
     let shallow = shallow_depth(depth) as u32;
-    let mut ctx = Ctx::new(&config());
+    let oracle_config = config();
+    let mut ctx = Ctx::new(&oracle_config);
     let oracle = negamax(board, shallow, -INF, INF, &mut ctx).unwrap();
-    let mut table = Table::new(1 << 16);
-    let mut ctx = Ctx::new(&selective());
-    ctx.set_table(&mut table);
+
+    let mut probe_table = Table::new(1 << 16);
+    let selective_config = selective();
+    let mut ctx = Ctx::new(&selective_config);
+    ctx.set_table(&mut probe_table);
+    let beta = oracle - 150;
+    assert_eq!(negamax(board, depth, -INF, beta, &mut ctx), Some(beta));
+    let probe_entry = probe_table.probe(zobrist(board)).unwrap();
+    assert_eq!(probe_entry.domain, Domain::Heuristic);
+    assert_eq!(probe_entry.depth as u32, shallow);
+
+    let mut root_table = Table::new(1 << 16);
+    let mut ctx = Ctx::new(&selective_config);
+    ctx.set_table(&mut root_table);
     let _ = negamax(board, depth, oracle - 300, oracle, &mut ctx);
-    let entries: Vec<&Entry> = table.entries().collect();
-    assert!(
-        entries
-            .iter()
-            .any(|entry| entry.key == zobrist(board) && entry.domain == Domain::Selective)
-    );
-    assert!(
-        entries
-            .iter()
-            .any(|entry| entry.depth as u32 == shallow - 1 && entry.domain == Domain::Heuristic)
+    assert_eq!(
+        root_table.probe(zobrist(board)).unwrap().domain,
+        Domain::Selective
     );
 }
 
@@ -1506,13 +1520,15 @@ fn selective_uses_heuristic_and_ignores_endgame() {
         domain: Domain::Heuristic,
         mv: NO_MOVE,
     });
-    let mut ctx = Ctx::new(&selective());
+    let selective_config = selective();
+    let mut ctx = Ctx::new(&selective_config);
     ctx.set_table(&mut table);
     assert_eq!(negamax(board, 6, -INF, INF, &mut ctx), Some(-1234));
     assert_eq!(ctx.probcut_tries, [0, 0]);
 
     let shallow = shallow_depth(6) as u32;
-    let mut oracle_ctx = Ctx::new(&config());
+    let oracle_config = config();
+    let mut oracle_ctx = Ctx::new(&oracle_config);
     let oracle = negamax(board, shallow, -INF, INF, &mut oracle_ctx).unwrap();
     let beta = oracle - 150;
     let mut table = Table::new(1 << 16);
@@ -1525,11 +1541,13 @@ fn selective_uses_heuristic_and_ignores_endgame() {
         mv: NO_MOVE,
     };
     table.store(planted);
-    let mut ctx = Ctx::new(&selective());
+    let selective_config = selective();
+    let mut ctx = Ctx::new(&selective_config);
     ctx.set_table(&mut table);
     assert_eq!(negamax(board, 6, -INF, beta, &mut ctx), Some(beta));
     assert_eq!(ctx.probcut_tries[0], 1);
-    let mut cold = Ctx::new(&selective());
+    let cold_config = selective();
+    let mut cold = Ctx::new(&cold_config);
     assert_eq!(negamax(board, 6, -INF, beta, &mut cold), Some(beta));
     assert!(
         table
@@ -1544,11 +1562,13 @@ fn cancellation_inside_probe_restores_mode() {
     let board = selective_board();
     let depth = 6;
     let shallow = shallow_depth(depth) as u32;
-    let mut oracle_ctx = Ctx::new(&config());
+    let oracle_config = config();
+    let mut oracle_ctx = Ctx::new(&oracle_config);
     let oracle = negamax(board, shallow, -INF, INF, &mut oracle_ctx).unwrap();
     let (alpha, beta) = (oracle - 300, oracle);
     let mut table = Table::new(1 << 16);
-    let mut ctx = Ctx::new(&selective());
+    let selective_config = selective();
+    let mut ctx = Ctx::new(&selective_config);
     ctx.set_table(&mut table);
     ctx.limit(1);
     assert_eq!(negamax(board, depth, alpha, beta, &mut ctx), None);

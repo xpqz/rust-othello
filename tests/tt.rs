@@ -36,26 +36,26 @@ fn entry_size() {
 #[test]
 fn bound_cutoffs() {
     let exact = entry(1, 5, 3, Bound::Exact, Domain::Heuristic);
-    assert_eq!(exact.cutoff(3, 0, 10), Some(5));
+    assert_eq!(exact.cutoff(3, 0, 10, false), Some(5));
 
     let lower = entry(2, 10, 3, Bound::Lower, Domain::Heuristic);
-    assert_eq!(lower.cutoff(3, 0, 10), Some(10));
+    assert_eq!(lower.cutoff(3, 0, 10, false), Some(10));
     let weaker = entry(3, 9, 3, Bound::Lower, Domain::Heuristic);
-    assert_eq!(weaker.cutoff(3, 0, 10), None);
+    assert_eq!(weaker.cutoff(3, 0, 10, false), None);
 
     let upper = entry(4, 0, 3, Bound::Upper, Domain::Heuristic);
-    assert_eq!(upper.cutoff(3, 0, 10), Some(0));
+    assert_eq!(upper.cutoff(3, 0, 10, false), Some(0));
     let higher = entry(5, 1, 3, Bound::Upper, Domain::Heuristic);
-    assert_eq!(higher.cutoff(3, 0, 10), None);
+    assert_eq!(higher.cutoff(3, 0, 10, false), None);
 }
 
 #[test]
 fn strict_depth_and_domain() {
     let deep = entry(1, 5, 4, Bound::Exact, Domain::Heuristic);
-    assert_eq!(deep.cutoff(3, -INF, INF), None);
+    assert_eq!(deep.cutoff(3, -INF, INF, false), None);
 
     let endgame = entry(2, 5, 0, Bound::Exact, Domain::Endgame);
-    assert_eq!(endgame.cutoff(0, -INF, INF), None);
+    assert_eq!(endgame.cutoff(0, -INF, INF, false), None);
     assert_eq!(endgame.endgame_cutoff(-INF, INF), Some(5));
 
     let lower = entry(3, 10, 0, Bound::Lower, Domain::Endgame);

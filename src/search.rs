@@ -3,6 +3,7 @@
 use std::time::{Duration, Instant};
 
 use crate::board::{Board, empty_count, final_score, legal_moves, pass, play, squares};
+use crate::probcut::{ProbCut, shallow_depth};
 use crate::score::{INF, terminal_score};
 use crate::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
@@ -11,6 +12,7 @@ pub struct SearchConfig {
     pub eval: fn(Board) -> i32,
     pub endgame_threshold: u32,
     pub ordering: bool,
+    pub probcut: Option<ProbCut>,
 }
 
 impl SearchConfig {
@@ -19,6 +21,7 @@ impl SearchConfig {
             eval: crate::eval::evaluate,
             endgame_threshold: 14,
             ordering: true,
+            probcut: None,
         }
     }
 }
@@ -62,7 +65,8 @@ pub enum SearchStatus {
 pub struct SearchResult {
     pub best: u8,
     pub score: i32,
-    /// 0 for an exact solve; heuristic iteration depth otherwise.
+    /// 0 for an exact solve; heuristic iteration depth otherwise. With
+    /// ProbCut enabled this is the nominal selective depth.
     pub depth: u32,
     pub nodes: u64,
     pub status: SearchStatus,
@@ -89,6 +93,9 @@ pub struct Ctx<'a> {
     deadline: Option<Instant>,
     table: Option<&'a mut Table>,
     exact: bool,
+    pub probing: bool,
+    pub probcut_tries: [u64; 2],
+    pub probcut_cuts: [u64; 2],
 }
 
 impl<'a> Ctx<'a> {
@@ -100,11 +107,18 @@ impl<'a> Ctx<'a> {
             deadline: None,
             table: None,
             exact: false,
+            probing: false,
+            probcut_tries: [0; 2],
+            probcut_cuts: [0; 2],
         }
     }
 
     pub fn set_table(&mut self, table: &'a mut Table) {
         self.table = Some(table);
+    }
+
+    pub fn limit(&mut self, max_nodes: u64) {
+        self.max_nodes = max_nodes;
     }
 
     fn expired(&self) -> bool {
@@ -179,6 +193,7 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         return None;
     }
     let exact = ctx.exact;
+    let selective = !exact && !ctx.probing && ctx.config.probcut.is_some();
     let moves = legal_moves(board.me, board.opp);
     if moves == 0 {
         if legal_moves(board.opp, board.me) == 0 {
@@ -195,13 +210,51 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         if exact {
             entry.endgame_cutoff(alpha, beta)
         } else {
-            entry.cutoff(depth, alpha, beta)
+            entry.cutoff(depth, alpha, beta, selective)
         }
     });
     if cutoff.is_some() {
         return cutoff;
     }
     let alpha_orig = alpha;
+    if selective
+        && let Some(probcut) = ctx.config.probcut
+        && probcut.supports(depth, empty_count(board))
+    {
+        let empties = empty_count(board);
+        if let Some(high) = probcut.high(beta, depth, empties) {
+            ctx.probcut_tries[0] += 1;
+            ctx.probing = true;
+            let probe = negamax(
+                board,
+                shallow_depth(depth),
+                high.saturating_sub(1) as i32,
+                high as i32,
+                ctx,
+            );
+            ctx.probing = false;
+            if probe? >= high as i32 {
+                ctx.probcut_cuts[0] += 1;
+                return Some(beta);
+            }
+        }
+        if let Some(low) = probcut.low(alpha, depth, empties) {
+            ctx.probcut_tries[1] += 1;
+            ctx.probing = true;
+            let probe = negamax(
+                board,
+                shallow_depth(depth),
+                low as i32,
+                (low + 1) as i32,
+                ctx,
+            );
+            ctx.probing = false;
+            if probe? <= low as i32 {
+                ctx.probcut_cuts[1] += 1;
+                return Some(alpha);
+            }
+        }
+    }
     let hint = (!exact)
         .then(|| entry.and_then(|entry| entry.move_hint(depth)))
         .flatten();
@@ -241,7 +294,18 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
                 mv: chosen,
             }
         } else {
-            Entry::heuristic(key, best, depth as u8, flag, chosen)
+            Entry {
+                key,
+                value: best,
+                depth: depth as u8,
+                flag,
+                domain: if selective {
+                    Domain::Selective
+                } else {
+                    Domain::Heuristic
+                },
+                mv: chosen,
+            }
         };
         table.store(entry);
     }
@@ -334,6 +398,9 @@ fn search_inner(
             deadline,
             table: None,
             exact: true,
+            probing: false,
+            probcut_tries: [0; 2],
+            probcut_cuts: [0; 2],
         };
         if let Some(table) = table.as_deref_mut() {
             ctx.set_table(table);
@@ -373,6 +440,9 @@ fn search_inner(
             deadline,
             table: table.as_deref_mut(),
             exact: false,
+            probing: false,
+            probcut_tries: [0; 2],
+            probcut_cuts: [0; 2],
         };
         if ctx.stop_iteration() {
             break;

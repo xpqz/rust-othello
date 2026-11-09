@@ -11,6 +11,7 @@
 //!   is this project's convention, not part of Aart Bik's table.
 //! - Search: a pass costs no depth; terminal and pass handling precede the
 //!   depth cutoff; fail-soft; callers handle pass and terminal roots;
+//!   selective (ProbCut) results are approximate and their depth is nominal;
 //!   `SearchStatus` is `Complete`, `Partial`, or `Fallback`; fallback is the
 //!   first legal move by square index (lowest index).
 //! - Endgame: the solver runs only at the root, at or below the configurable
