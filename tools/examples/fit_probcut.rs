@@ -668,10 +668,17 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
             continue;
         };
         let per_cell = cell_decisions(&held_rows, &pc);
-        let fired: usize = per_cell.values().map(|c| c.high_fired + c.low_fired).sum();
-        let bad: usize = per_cell.values().map(|c| c.false_high + c.false_low).sum();
+        let per_bucket = bucket_decisions(&per_cell);
+        let fired: usize = per_bucket
+            .values()
+            .map(|c| c.high_fired + c.low_fired)
+            .sum();
+        let bad: usize = per_bucket
+            .values()
+            .map(|c| c.false_high + c.false_low)
+            .sum();
         let error = bad as f64 / fired.max(1) as f64;
-        let qualified = per_cell.values().all(|c| {
+        let qualified = per_bucket.values().all(|c| {
             !(c.high_fired >= 200 && c.low_fired >= 200)
                 || (cp_upper(c.false_high as u32, c.high_fired as u32) <= 0.12
                     && cp_upper(c.false_low as u32, c.low_fired as u32) <= 0.12)
@@ -692,7 +699,7 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
         log_tails(&mut log, &pairs, a, b, sigma);
         return log;
     };
-    let mut supported = BTreeSet::new();
+    let mut supported: BTreeSet<u32> = BTreeSet::new();
     for t in T_VALUES {
         let Ok(pc) = ProbCut::new(
             (t * 100.0) as u32,
@@ -706,21 +713,34 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
             continue;
         };
         let per_cell = cell_decisions(&held_rows, &pc);
+        let per_bucket = bucket_decisions(&per_cell);
+        for (bucket, counts) in &per_bucket {
+            log.push_str(&format!(
+                "bucket-decisions t={t:.1} bucket={bucket} high {}/{} upper {:.4} low {}/{} upper {:.4}\n",
+                counts.false_high, counts.high_fired,
+                cp_upper(counts.false_high as u32, counts.high_fired as u32),
+                counts.false_low, counts.low_fired,
+                cp_upper(counts.false_low as u32, counts.low_fired as u32)
+            ));
+            if t == 1.5
+                && counts.high_fired >= 200
+                && counts.low_fired >= 200
+                && cp_upper(counts.false_high as u32, counts.high_fired as u32) <= 0.12
+                && cp_upper(counts.false_low as u32, counts.low_fired as u32) <= 0.12
+            {
+                supported.insert(*bucket);
+            }
+        }
         for ((depth, bucket), counts) in &per_cell {
             let high_upper = cp_upper(counts.false_high as u32, counts.high_fired as u32);
             let low_upper = cp_upper(counts.false_low as u32, counts.low_fired as u32);
             log.push_str(&format!("decisions t={t:.1} d={depth} bucket={bucket} high {}/{} upper {high_upper:.4} low {}/{} upper {low_upper:.4} nominal {:.4}\n", counts.false_high, counts.high_fired, counts.false_low, counts.low_fired, 1.0-normal_cdf(t)));
-            if t == 1.5
-                && counts.high_fired >= 200
-                && counts.low_fired >= 200
-                && high_upper <= 0.12
-                && low_upper <= 0.12
-            {
-                supported.insert((*depth, *bucket));
-            }
         }
     }
-    if let Some((d0, d1, b0, b1)) = largest_rectangle(&supported) {
+    if let Some((b0, b1)) = largest_bucket_run(&supported) {
+        let depths = per_cell_depths(&held_rows, b0, b1);
+        let d0 = depths.iter().copied().min().unwrap_or(depth_min);
+        let d1 = depths.iter().copied().max().unwrap_or(depth_max);
         let emin = 18 + 6 * b0;
         let emax = (18 + 6 * (b1 + 1) - 1).min(52);
         log.push_str(&format!(
@@ -816,6 +836,20 @@ fn cell_decisions(rows: &[&Measurement], pc: &ProbCut) -> BTreeMap<(u32, u32), D
         }
     }
     per_cell
+}
+
+fn bucket_decisions(
+    per_cell: &BTreeMap<(u32, u32), DecisionCounts>,
+) -> BTreeMap<u32, DecisionCounts> {
+    let mut per_bucket: BTreeMap<u32, DecisionCounts> = BTreeMap::new();
+    for ((_, bucket), counts) in per_cell {
+        let entry = per_bucket.entry(*bucket).or_default();
+        entry.high_fired += counts.high_fired;
+        entry.false_high += counts.false_high;
+        entry.low_fired += counts.low_fired;
+        entry.false_low += counts.false_low;
+    }
+    per_bucket
 }
 
 fn fit_linear(cells: &[CellStat]) -> Option<[f64; 3]> {
@@ -915,25 +949,32 @@ fn solve3(mut m: [[f64; 3]; 3], mut r: [f64; 3]) -> Option<[f64; 3]> {
     Some(r)
 }
 
-fn largest_rectangle(cells: &BTreeSet<(u32, u32)>) -> Option<(u32, u32, u32, u32)> {
+fn largest_bucket_run(buckets: &BTreeSet<u32>) -> Option<(u32, u32)> {
     let mut best = None;
-    for d0 in 3..=12u32 {
-        for d1 in d0..=12u32 {
-            for b0 in 0..6u32 {
-                for b1 in b0..6u32 {
-                    if (d0..=d1).all(|d| (b0..=b1).all(|b| cells.contains(&(d, b)))) {
-                        let area = (d1 - d0 + 1) * (b1 - b0 + 1);
-                        if best.is_none_or(|(bd0, bd1, bb0, bb1)| {
-                            area > (bd1 - bd0 + 1) * (bb1 - bb0 + 1)
-                        }) {
-                            best = Some((d0, d1, b0, b1));
-                        }
-                    }
+    for first in 0..6u32 {
+        for last in first..6u32 {
+            if (first..=last).all(|bucket| buckets.contains(&bucket)) {
+                let length = last - first + 1;
+                if best.is_none_or(|(bf, bl)| length > bl - bf + 1) {
+                    best = Some((first, last));
                 }
             }
         }
     }
     best
+}
+
+fn per_cell_depths(rows: &[&Measurement], first: u32, last: u32) -> Vec<u32> {
+    let mut depths = BTreeSet::new();
+    for row in rows {
+        let bucket = row.empties.saturating_sub(18) / 6;
+        if (first..=last).contains(&bucket) {
+            for depth in 2..=row.values.len().min(12) {
+                depths.insert(depth as u32);
+            }
+        }
+    }
+    depths.into_iter().collect()
 }
 
 fn log_tails(log: &mut String, pairs: &[(f64, f64)], a: f64, b: f64, sigma: f64) {
