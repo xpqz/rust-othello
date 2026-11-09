@@ -1,5 +1,9 @@
+use othello::board::{Board, empty_count, legal_moves};
+use othello::eval::evaluate;
 use othello::probcut::{ProbCut, SigmaModel, shallow_depth};
 use othello::score::{EVAL_BOUND, INF};
+use othello::search::{Ctx, SearchConfig, SearchLimits, negamax, probcut_fit, search_limited};
+use othello::tt::Table;
 
 fn linear() -> SigmaModel {
     SigmaModel::Linear {
@@ -31,18 +35,10 @@ fn constructor_rejects_nonpositive_sigma() {
         gap: 0,
         empty: 0,
     };
-    let edax = SigmaModel::EdaxStyle {
-        a_milli: 0,
-        b_milli: 0,
-        c_milli: 0,
-        q2_milli: 0,
-        q1_milli: 0,
-        q0_milli: 0,
-    };
     let table = SigmaModel::StageTable {
         buckets: [(0, 0); 6],
     };
-    for sigma in [linear, edax, table] {
+    for sigma in [linear, table] {
         assert!(ProbCut::new(150, 900, 0, sigma, (3, 12), (18, 52)).is_err());
     }
 }
@@ -134,47 +130,6 @@ fn sigma_linear() {
 }
 
 #[test]
-fn sigma_edax_style_fixed_point() {
-    let pc = ProbCut::new(
-        150,
-        900,
-        30,
-        SigmaModel::EdaxStyle {
-            a_milli: 500,
-            b_milli: 0,
-            c_milli: 0,
-            q2_milli: 500,
-            q1_milli: 0,
-            q0_milli: 0,
-        },
-        (3, 12),
-        (18, 52),
-    )
-    .unwrap();
-    // s = 0.5 * 30 = 15, sigma = 0.5 * 15^2 = 112.5 -> 113.
-    assert_eq!(pc.sigma(8, 30), 113);
-    assert!(pc.sigma(3, 18) >= 1);
-
-    let pc = ProbCut::new(
-        150,
-        900,
-        30,
-        SigmaModel::EdaxStyle {
-            a_milli: 1000,
-            b_milli: 500,
-            c_milli: -1000,
-            q2_milli: 1000,
-            q1_milli: 2000,
-            q0_milli: -3000,
-        },
-        (3, 12),
-        (18, 52),
-    )
-    .unwrap();
-    assert_eq!(pc.sigma(8, 30), 957);
-}
-
-#[test]
 fn sigma_stage_table() {
     let mut buckets = [(100, 10); 6];
     buckets[5] = (200, 20);
@@ -199,13 +154,8 @@ fn extreme_values_do_not_panic() {
         400,
         1500,
         i32::MAX,
-        SigmaModel::EdaxStyle {
-            a_milli: i32::MAX,
-            b_milli: i32::MAX,
-            c_milli: i32::MAX,
-            q2_milli: i32::MAX,
-            q1_milli: i32::MAX,
-            q0_milli: i32::MAX,
+        SigmaModel::StageTable {
+            buckets: [(i32::MAX, i32::MAX); 6],
         },
         (3, 64),
         (0, 64),
@@ -228,4 +178,121 @@ fn accepted_bounds_and_domain_caps() {
     }
     assert!(ProbCut::new(150, 900, 0, linear(), (3, 65), (18, 52)).is_err());
     assert!(ProbCut::new(150, 900, 0, linear(), (3, 12), (0, 65)).is_err());
+}
+
+// docs/tuning/probcut_fit.log from e012aa8; refit/update deliberately if evaluator or search values change.
+const FINGERPRINT: u64 = 1994198706096676413;
+
+fn corpus() -> Vec<Board> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/bench/corpus.txt");
+    std::fs::read_to_string(path)
+        .unwrap()
+        .lines()
+        .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+        .map(|line| {
+            let mut parts = line.split_whitespace();
+            let me = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
+            let opp = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
+            Board { me, opp }
+        })
+        .collect()
+}
+
+fn hash(mut value: u64, item: i32) -> u64 {
+    value ^= item as u32 as u64;
+    value.wrapping_mul(0x0000_0100_0000_01b3)
+}
+
+fn fingerprint(eval: fn(Board) -> i32) -> u64 {
+    let config = SearchConfig {
+        eval,
+        probcut: None,
+        ..SearchConfig::standard()
+    };
+    let mut hash_value = 0xcbf2_9ce4_8422_2325u64;
+    for board in corpus() {
+        hash_value = hash(hash_value, eval(board));
+        if empty_count(board) <= 12 || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let mut table = Table::new(1 << 16);
+        for depth in 1..=6 {
+            let mut ctx = Ctx::new(&config);
+            ctx.set_table(&mut table);
+            hash_value = hash(
+                hash_value,
+                negamax(board, depth, -INF, INF, &mut ctx).unwrap(),
+            );
+        }
+    }
+    hash_value
+}
+
+fn perturbed(board: Board) -> i32 {
+    evaluate(board) + 1
+}
+
+#[test]
+fn probcut_calibration_fingerprint() {
+    assert_eq!(
+        fingerprint(evaluate),
+        FINGERPRINT,
+        "evaluator or search values changed since ProbCut was calibrated: refit (#111) and update PROBCUT_FIT, or update this fingerprint deliberately with a note in the PR"
+    );
+    assert_ne!(fingerprint(perturbed), FINGERPRINT);
+}
+
+#[test]
+fn probcut_decision_error_tripwire() {
+    let config = SearchConfig {
+        probcut: Some(probcut_fit()),
+        ..SearchConfig::standard()
+    };
+    let mut wrong = 0;
+    let mut total = 0;
+    for board in corpus() {
+        if empty_count(board) <= 12 || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let plain = SearchConfig {
+            probcut: None,
+            ..SearchConfig::standard()
+        };
+        let mut ctx = Ctx::new(&plain);
+        let exact = negamax(board, 8, -INF, INF, &mut ctx).unwrap();
+        let (alpha, beta) = (exact - 100, exact + 100);
+        let mut ctx = Ctx::new(&config);
+        let selective = negamax(board, 8, alpha, beta, &mut ctx).unwrap();
+        total += 1;
+        if selective < alpha || selective > beta {
+            wrong += 1;
+        }
+    }
+    assert!(total > 0);
+    assert!((wrong as f64) / (total as f64) < 0.15, "{wrong}/{total}");
+}
+
+#[test]
+fn probcut_node_reduction() {
+    let plain = SearchConfig {
+        probcut: None,
+        ..SearchConfig::standard()
+    };
+    let selective = SearchConfig {
+        probcut: Some(probcut_fit()),
+        ..SearchConfig::standard()
+    };
+    let (mut full, mut cut) = (0u64, 0u64);
+    for board in corpus() {
+        if empty_count(board) <= 12 || legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        full += search_limited(board, SearchLimits::depth(8), &plain).nodes;
+        cut += search_limited(board, SearchLimits::depth(8), &selective).nodes;
+    }
+    assert!(cut < full, "{cut} vs {full}");
+    println!(
+        "probcut depth-8 node reduction {:.1}%",
+        100.0 * (full - cut) as f64 / full as f64
+    );
 }

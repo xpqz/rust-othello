@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
 use othello::rng::Rng;
-use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits};
+use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits, probcut_at};
 use othello_tools::baselines::{PHASE2_DEPTH, phase2_config};
 use othello_tools::harness::{GameLog, play_game, points};
 use othello_tools::journal::{Journal, Record, mismatch};
@@ -44,6 +44,16 @@ fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
     let (depth, time) = match kind {
         "random" | "greedy" => (0, None),
         "phase2" => (PHASE2_DEPTH, time(&mut parts)?),
+        "pc" => {
+            let parameter = parts.next().ok_or_else(|| unknown(name))?;
+            if parameter != "off" {
+                parameter.parse::<u32>().map_err(|_| unknown(name))?;
+                if probcut_at(parameter.parse().map_err(|_| unknown(name))?).is_err() {
+                    return Err(unknown(name));
+                }
+            }
+            (64, time(&mut parts)?)
+        }
         "ab" => {
             let depth = parts
                 .next()
@@ -80,6 +90,22 @@ fn make_agent(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<d
     match kind {
         "random" => Ok(Box::new(random_agent(seed))),
         "greedy" => Ok(Box::new(greedy_agent())),
+        "pc" => {
+            let parameter = name.split(':').nth(1).ok_or_else(|| unknown(name))?;
+            let probcut = if parameter == "off" {
+                None
+            } else {
+                Some(probcut_at(parameter.parse().map_err(|_| unknown(name))?)?)
+            };
+            Ok(Box::new(search_agent(
+                SearchConfig {
+                    ordering,
+                    probcut,
+                    ..SearchConfig::standard()
+                },
+                limits,
+            )))
+        }
         "phase2" => Ok(Box::new(search_agent(
             SearchConfig {
                 ordering,
@@ -121,7 +147,17 @@ fn describe(name: &str, nodes: u64) -> String {
     } else {
         SearchConfig::standard().endgame_threshold
     };
-    format!("{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold {threshold})")
+    let extra = if kind == "pc" {
+        match name.split(':').nth(1).unwrap() {
+            "off" => " probcut off".to_string(),
+            t => format!(" probcut t={t}"),
+        }
+    } else {
+        String::new()
+    };
+    format!(
+        "{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold {threshold}{extra})"
+    )
 }
 
 fn stream(seed: u64, pair: usize, game: u64, side: u64) -> u64 {

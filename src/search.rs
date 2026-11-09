@@ -28,6 +28,25 @@ impl SearchConfig {
 
 pub const NO_DEADLINE: u64 = u64::MAX;
 const EXACT_ORDER_DEPTH: u32 = 2;
+const FIT_BUCKETS: [(i32, i32); 6] = [(19, 36), (10, 42), (8, 34), (5, 37), (5, 30), (73, 0)];
+
+// docs/tuning/probcut_fit.log from e012aa8; refit when the evaluator changes.
+pub fn probcut_at(t_centi: u32) -> Result<ProbCut, String> {
+    ProbCut::new(
+        t_centi,
+        1134,
+        0,
+        crate::probcut::SigmaModel::StageTable {
+            buckets: FIT_BUCKETS,
+        },
+        (3, 10),
+        (18, 41),
+    )
+}
+
+pub fn probcut_fit() -> ProbCut {
+    probcut_at(150).expect("fitted ProbCut parameters are valid")
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct SearchLimits {
@@ -71,6 +90,8 @@ pub struct SearchResult {
     pub nodes: u64,
     pub status: SearchStatus,
     pub solved: bool,
+    pub probcut_tries: [u64; 2],
+    pub probcut_cuts: [u64; 2],
 }
 
 impl SearchResult {
@@ -82,6 +103,8 @@ impl SearchResult {
             nodes,
             status,
             solved: false,
+            probcut_tries: [0; 2],
+            probcut_cuts: [0; 2],
         }
     }
 }
@@ -341,7 +364,10 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
     }
     let mut ctx = Ctx::new(config);
     let (best, score) = root(board, moves, depth, first, -INF, INF, &mut ctx).unwrap();
-    SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
+    let mut result = SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete);
+    result.probcut_tries = ctx.probcut_tries;
+    result.probcut_cuts = ctx.probcut_cuts;
+    result
 }
 
 /// Deepens to `max_depth`; on tied root scores it keeps the previous best,
@@ -428,6 +454,8 @@ fn search_inner(
         best = square;
         nodes = ctx.nodes;
         result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
+        result.probcut_tries = ctx.probcut_tries;
+        result.probcut_cuts = ctx.probcut_cuts;
     }
     if result.depth > 0 && result.depth < limits.max_depth {
         result.status = SearchStatus::Partial;

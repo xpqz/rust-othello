@@ -4,7 +4,7 @@ use std::time::Instant;
 use crate::agents::{Agent, search_agent};
 use crate::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use crate::perft::perft;
-use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_tt};
+use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, probcut_at, search_tt};
 
 pub fn run() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -32,6 +32,7 @@ fn parse_depth(text: &str, limit: u32) -> Result<u32, String> {
 fn bench(args: &[String]) -> Result<(), String> {
     let (mut depth, mut time_ms, mut max_nodes) = (10, NO_DEADLINE, 0);
     let (mut board, mut threshold) = (Board::START, SearchConfig::standard().endgame_threshold);
+    let mut probcut = None;
     for pair in args.chunks(2) {
         let value = pair.get(1).ok_or("missing bench value")?;
         match pair[0].as_str() {
@@ -40,11 +41,18 @@ fn bench(args: &[String]) -> Result<(), String> {
             "--max-nodes" => max_nodes = value.parse().map_err(|_| "invalid nodes")?,
             "--board" => board = parse_board(value)?,
             "--endgame-threshold" => threshold = value.parse().map_err(|_| "invalid threshold")?,
+            "--probcut" => {
+                probcut = Some(
+                    probcut_at(value.parse().map_err(|_| "invalid probcut")?)
+                        .map_err(|_| "invalid probcut")?,
+                )
+            }
             flag => return Err(format!("unknown option: {flag}")),
         }
     }
     let config = SearchConfig {
         endgame_threshold: threshold,
+        probcut,
         ..SearchConfig::standard()
     };
     let mut table = crate::tt::Table::new(crate::tt::MAX_ENTRIES);
@@ -53,9 +61,20 @@ fn bench(args: &[String]) -> Result<(), String> {
     let result = search_tt(board, limits, &config, &mut table);
     let elapsed = start.elapsed().as_secs_f64() * 1000.0;
     let nps = result.nodes as f64 * 1000.0 / elapsed.max(1e-9);
+    let mode = if probcut.is_some() {
+        "selective"
+    } else {
+        "full-width"
+    };
     println!(
-        "depth {} score {} nodes {} nps {nps:.0} elapsed {elapsed:.2}ms solved {} status {:?}",
-        result.depth, result.score, result.nodes, result.solved as u8, result.status
+        "depth {} score {} nodes {} nps {nps:.0} elapsed {elapsed:.2}ms solved {} status {:?} mode {mode} tries {:?} cuts {:?}",
+        result.depth,
+        result.score,
+        result.nodes,
+        result.solved as u8,
+        result.status,
+        result.probcut_tries,
+        result.probcut_cuts
     );
     Ok(())
 }

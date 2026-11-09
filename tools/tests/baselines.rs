@@ -292,3 +292,55 @@ fn node_rule_records_limits() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("conflicts"));
 }
+
+#[test]
+fn pc_agents_parse() {
+    let output = tools(&[
+        "match", "--a", "pc:150", "--b", "pc:off", "--pairs", "1", "--nodes", "100",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("pc:150 (evaluate, depth 64"), "{text}");
+    assert!(text.contains("probcut t=150"), "{text}");
+    assert!(text.contains("pc:off (evaluate, depth 64"), "{text}");
+    assert!(text.contains("probcut off"), "{text}");
+
+    for name in ["pc", "pc:30", "pc:150:x", "pc:off:1:2"] {
+        let output = tools(&["match", "--a", name, "--b", "greedy", "--pairs", "1"]);
+        assert!(!output.status.success(), "{name}");
+    }
+    for name in ["pc:150:10", "pc:off:10"] {
+        let output = tools(&["match", "--a", name, "--b", "greedy", "--pairs", "1"]);
+        assert!(output.status.success(), "{name}");
+    }
+}
+
+#[test]
+fn pc_off_uses_the_full_node_budget() {
+    use othello::board::{Board, empty_count, legal_moves};
+    use othello::search::{SearchConfig, SearchLimits, search_limited};
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/corpus.txt"))
+        .unwrap();
+    let config = SearchConfig {
+        probcut: None,
+        ..SearchConfig::standard()
+    };
+    let found = text
+        .lines()
+        .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let me = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
+            let opp = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
+            let board = Board { me, opp };
+            ((20..=40).contains(&empty_count(board)) && legal_moves(board.me, board.opp) != 0)
+                .then_some(board)
+        })
+        .find(|&board| {
+            search_limited(board, SearchLimits::new(64, u64::MAX, 1000), &config).nodes >= 900
+        });
+    assert!(
+        found.is_some(),
+        "no midgame corpus position used the full budget"
+    );
+}

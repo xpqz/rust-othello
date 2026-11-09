@@ -281,3 +281,16 @@ fn play_complete_game() {
     assert!(start.elapsed().as_secs() < 120, "game timed out");
     assert!(child.wait().unwrap().success());
 }
+
+#[test]
+fn bench_probcut_option() {
+    let output = run(&["bench", "--depth", "4", "--probcut", "150"], "");
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("mode selective"), "{text}");
+    assert!(text.contains("tries"), "{text}");
+    assert!(text.contains("cuts"), "{text}");
+    let invalid = run(&["bench", "--probcut", "30"], "");
+    assert!(!invalid.status.success());
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("probcut"));
+}

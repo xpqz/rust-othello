@@ -1,8 +1,6 @@
 //! ProbCut parameters and threshold arithmetic.
 //!
-//! Linear and StageTable use integer centidiscs. EdaxStyle is fixed-point in
-//! thousandths for all six coefficients; `s` uses the same scale, and the
-//! final sigma rounds up.
+//! Linear and StageTable use integer centidiscs.
 
 use crate::score::EVAL_BOUND;
 
@@ -12,14 +10,6 @@ pub enum SigmaModel {
         s0: i32,
         gap: i32,
         empty: i32,
-    },
-    EdaxStyle {
-        a_milli: i32,
-        b_milli: i32,
-        c_milli: i32,
-        q2_milli: i32,
-        q1_milli: i32,
-        q0_milli: i32,
     },
     /// Six buckets for empties 18-23, 24-29, ..., 48+; lower uses bucket 0.
     StageTable {
@@ -100,23 +90,6 @@ impl ProbCut {
             SigmaModel::Linear { s0, gap: g, empty } => i64::from(s0)
                 .saturating_add(i64::from(g).saturating_mul(gap))
                 .saturating_add(i64::from(empty).saturating_mul(i64::from(empties))),
-            SigmaModel::EdaxStyle {
-                a_milli,
-                b_milli,
-                c_milli,
-                q2_milli,
-                q1_milli,
-                q0_milli,
-            } => {
-                let s = i128::from(a_milli) * i128::from(empties)
-                    + i128::from(b_milli) * i128::from(depth)
-                    + i128::from(c_milli) * i128::from(shallow_depth(depth));
-                let n = i128::from(q2_milli) * s * s
-                    + i128::from(q1_milli) * s * 1000
-                    + i128::from(q0_milli) * 1_000_000;
-                let sigma = -((-n).div_euclid(1_000_000_000));
-                sigma.clamp(i64::MIN as i128, i64::MAX as i128) as i64
-            }
             SigmaModel::StageTable { buckets } => {
                 let (s0, g) = buckets[bucket(empties).min(buckets.len() - 1)];
                 i64::from(s0).saturating_add(i64::from(g).saturating_mul(gap))
