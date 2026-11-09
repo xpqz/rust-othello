@@ -280,30 +280,15 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
             (_, true) => Bound::Lower,
             _ => Bound::Exact,
         };
-        let entry = if exact {
-            Entry {
-                key,
-                value: best,
-                depth: 0,
-                flag,
-                domain: Domain::Endgame,
-                mv: chosen,
-            }
+        let domain = if exact {
+            Domain::Endgame
+        } else if selective {
+            Domain::Selective
         } else {
-            Entry {
-                key,
-                value: best,
-                depth: depth as u8,
-                flag,
-                domain: if selective {
-                    Domain::Selective
-                } else {
-                    Domain::Heuristic
-                },
-                mv: chosen,
-            }
+            Domain::Heuristic
         };
-        table.store(entry);
+        let depth = if exact { 0 } else { depth as u8 };
+        table.store(Entry::search(key, best, depth, flag, chosen, domain));
     }
     Some(best)
 }
