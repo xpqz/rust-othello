@@ -21,8 +21,9 @@
 //! - Tools: pair bootstrap with a degeneracy policy, complete frozen
 //!   evaluators, and tune/validation/final position sets grouped by the
 //!   canonical D4 position after ply 4.
-//! - Size: engine plus CLI at most 999 formatted lines that are neither blank
-//!   nor comment-only; tools at most 600; blank and all comment-only lines
+//! - Size (Phase 2): engine plus CLI at most 1,499 formatted lines that are
+//!   neither blank nor comment-only (999 in release 1.0.0); tools at most
+//!   1,000; blank and all comment-only lines
 //!   (`//`, `///`, `//!`, block comments) are excluded.
 
 #![forbid(unsafe_code)]

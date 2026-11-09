@@ -12,12 +12,18 @@ threshold field, D4/tooling ownership, a production PRNG, budget-metric
 loopholes, a Zobrist TT, node-budget tuning, and the smaller contract
 fixes. Revision 3 resolved the second review.
 
+**Revision 5** (after release 1.0.0) opens [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
+Release 1.0.0 (tag `v1.0.0`) froze the engine + CLI at 998 lines under the
+999 ceiling. Phase 2 raises the engine ceiling to 1,499 and the tools budget
+to 1,000, adds a model-asset budget, and sets a strength target. Everything
+else in this plan still applies.
+
 ## Constraints and targets
 
 | Constraint | Target | How it is enforced |
 | --- | --- | --- |
-| Implementation size | **Hard ceiling: 999 LOC for the engine + playable CLI, excluding tests** | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
-| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 650-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
+| Implementation size | **Hard ceiling: 1,499 LOC for the engine + playable CLI, excluding tests** (Phase 2; 999 in release 1.0.0) | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
+| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,000-line budget (650 in release 1.0.0); tests, `bench/` data, examples, and benchmark data are not engine production source |
 | Early feasibility | A complete playable vertical slice with actual counts by the end of Phase 2 | Phase 2 gate records formatted LOC and cuts scope before Phase 3 if needed |
 | Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies; the tools crate may path-depend on the engine |
 | Safety | No `unsafe` in library or binary | `#![forbid(unsafe_code)]` in both `src/lib.rs` and `src/main.rs` |
@@ -33,8 +39,8 @@ comments are documentation, not code. `scripts/check.sh` runs `cargo fmt
 `.rustfmt.toml` so formatting cannot compress code. The budget test counts the
 source as written; a bare `cargo test` is not a substitute for the formatted
 check. `tests/`, `tools/`, `bench/`, examples, and benchmark data are not engine
-production source. The tools crate has its own 650-line budget. Future model
-assets get a separate budget.
+production source. The tools crate has its own 1,000-line budget. Model
+assets have their own budget; see [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 
 Timing and node-reduction targets are measured on the frozen corpus and
 recorded hardware. Default play is 3000 ms per move, but tuning uses fixed node
@@ -352,7 +358,7 @@ scripts/
   check.sh          fmt + clippy + engine tests + tools tests + budgets
 ```
 
-### Module budgets (soft, non-test lines; engine hard ceiling 999)
+### Module budgets (release 1.0.0 allocation; engine ceiling then 999)
 
 | Module | Budget | Notes |
 | --- | ---: | --- |
@@ -368,8 +374,12 @@ scripts/
 | `cli.rs` + `main.rs` | 183 | Printer/parser, play/perft/bench |
 | **Total** | **999** | At the ceiling; actual engine is 999 |
 
-The tools crate has a separate 650-line budget. Its code is not part of the
-engine claim and does not consume the engine headroom.
+This table records the 1.0.0 allocation. Phase 2 issues state their own
+per-module estimates within the 1,499 ceiling.
+
+The tools crate has a separate budget (650 in release 1.0.0, 1,000 in Phase 2).
+Its code is not part of the engine claim and does not consume the engine
+headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
 formatted counts. Every later phase records cumulative counts.
@@ -978,6 +988,82 @@ with honest evidence.
       actual engine/tools sizes.
 
 **Gate:** Every checkbox is satisfied. This is the release.
+
+Released as 1.0.0 (tag `v1.0.0`): engine + CLI 998 lines, tools 639.
+
+---
+
+## Phase 2 — Strengthening (post-1.0)
+
+Phases 0-8 above are the internal phases of the 1.0 plan. "Phase 2" here is
+the project's second stage: making the engine substantially stronger, within
+a new budget and with the same discipline.
+
+### Budget
+
+| Item | 1.0.0 | Phase 2 | Enforced by |
+| --- | ---: | ---: | --- |
+| Engine + playable CLI | 999 | **1,499** | `tests/budget.rs` (same metric) |
+| Tools crate | 650 | **1,000** | `tools/tests/budget.rs` |
+| Model assets | — | **8 MiB** total | Guard added with the first asset |
+
+- **Same metric, same rules:** formatted lines that are neither blank nor
+  comment-only. The anti-evasion rules (no formatter config, no `include!`,
+  `#[path]` or generated source) all stay.
+- **Model assets** are generated data such as evaluation weights or an
+  opening book. They live under `assets/`, must be reproducible from a
+  `tools/examples` program with documented inputs and seed, and do not count
+  as lines. The code that loads or uses them counts as engine lines. The
+  include guard currently rejects `include_bytes!`. The issue that adds the
+  first asset relaxes it for files under `assets/` only, with a test, and adds
+  the 8 MiB size check.
+- **`tools/examples` stays uncounted** data-generation code (decision
+  045ea9b). Training and fitting pipelines belong there.
+
+### Why 1,499
+
+The ceiling covers the candidate work below with little to spare, so the
+priorities still have to be chosen. Estimates are formatted engine lines:
+
+| Candidate | Est. lines | Notes |
+| --- | ---: | --- |
+| ProbCut (v1: full-width probes, selective TT domain) | 50-70 | [design](design/probcut.md) |
+| PVS and aspiration windows | 20-30 | Narrower root and child windows |
+| Endgame speed (parity ordering, fastest-first, small-empty solvers) | 60-90 | Lets the exact threshold rise above 14 |
+| Learned pattern evaluation | 120-180 net | Replaces most of `eval.rs`; weights are an asset |
+| Lazy SMP with an atomic TT | 70-100 | `std::thread` only; no `unsafe` |
+| Opening book | 40-60 | Book data is an asset |
+| Time management | 20-30 | Per-move allocation from game stage |
+
+The total is about 380-560 lines against 500 of headroom. Doing everything at
+the top of each range would not fit, so later items are cut or simplified
+first.
+
+### Strength target
+
+Phase 2 is complete when all of the following hold:
+
+1. **Gate:** at 3 s per move, the Phase 2 engine beats the frozen 1.0.0
+   engine by a pair-bootstrap Elo lower bound of at least **+200**, over at
+   least 200 pairs from `bench/openings_final.txt`. The final set is used for
+   this check only. The 1.0.0 opponent is built from tag `v1.0.0`
+   (a versioned engine artifact, per decision 9), not from the current
+   source with features switched off.
+2. **Reported, not gated:** the score against single-threaded Edax at equal
+   time over the same openings. 1.0.0 scored 1 win, 1 draw and 6 losses in an
+   informal 8-game match. The stretch goal is at least 40% against Edax.
+3. **Unchanged guarantees:** exact play from the endgame threshold, legal play
+   under every limit, `std`-only, no `unsafe`, fmt and clippy clean.
+
+### Process
+
+The working agreement is unchanged: one issue at a time, red/green TDD with a
+RED stop, append-only PR notes, and the review contract. Tuning uses equal
+node budgets on the tune and validation sets, with sweep values and
+acceptance rules fixed before any games are run. Each feature lands behind a
+`SearchConfig` switch and is enabled in `standard()` only after its own
+strength gate passes. Suggested order: Multi-ProbCut, the learned evaluation,
+endgame and search speed, then parallel search; the opening book is optional.
 
 ---
 
