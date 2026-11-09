@@ -32,12 +32,12 @@ fn constructor_rejects_nonpositive_sigma() {
         empty: 0,
     };
     let edax = SigmaModel::EdaxStyle {
-        a: 0,
-        b: 0,
-        c: 0,
-        q2: 0,
-        q1: 0,
-        q0: 0,
+        a_milli: 0,
+        b_milli: 0,
+        c_milli: 0,
+        q2_milli: 0,
+        q1_milli: 0,
+        q0_milli: 0,
     };
     let table = SigmaModel::StageTable {
         buckets: [(0, 0); 6],
@@ -72,15 +72,44 @@ fn rounding_is_pinned() {
     let pc = params();
     assert_eq!(pc.high(500, 8, 30), Some(689));
     assert_eq!(pc.high(-100, 8, 30), Some(23));
+    assert_eq!(pc.high(-500, 8, 30), Some(-422));
+    assert_eq!(pc.high(780, 8, 30), Some(1000));
     assert_eq!(pc.low(-400, 8, 30), Some(-645));
     assert_eq!(pc.low(100, 8, 30), Some(-89));
+    assert_eq!(pc.low(400, 8, 30), Some(244));
+    assert_eq!(pc.low(-720, 8, 30), Some(-1000));
+}
+
+#[test]
+fn fractional_margin_rounds_up() {
+    let pc = ProbCut::new(
+        150,
+        900,
+        30,
+        SigmaModel::Linear {
+            s0: 33,
+            gap: 0,
+            empty: 0,
+        },
+        (3, 12),
+        (18, 52),
+    )
+    .unwrap();
+    assert_eq!(pc.high(500, 8, 30), Some(578));
+    assert_eq!(pc.low(400, 8, 30), Some(355));
 }
 
 #[test]
 fn guards_skip_beyond_the_eval_bound() {
     let pc = params();
+    assert_eq!(pc.high(5700, 8, 30), None);
+    assert_eq!(pc.high(5640, 8, 30), Some(6400));
+    assert_eq!(pc.high(5641, 8, 30), None);
     assert_eq!(pc.high(EVAL_BOUND, 8, 30), None);
     assert_eq!(pc.high(INF, 8, 30), None);
+    assert_eq!(pc.low(-5580, 8, 30), Some(-6400));
+    assert_eq!(pc.low(-5579, 8, 30), Some(-6399));
+    assert_eq!(pc.low(-5581, 8, 30), None);
     assert_eq!(pc.low(-EVAL_BOUND, 8, 30), None);
     assert_eq!(pc.low(-INF, 8, 30), None);
 }
@@ -105,24 +134,25 @@ fn sigma_linear() {
 }
 
 #[test]
-fn sigma_edax_style() {
+fn sigma_edax_style_fixed_point() {
     let pc = ProbCut::new(
         150,
         900,
         30,
         SigmaModel::EdaxStyle {
-            a: 1,
-            b: 2,
-            c: 3,
-            q2: 1,
-            q1: 2,
-            q0: 100,
+            a_milli: 500,
+            b_milli: 0,
+            c_milli: 0,
+            q2_milli: 500,
+            q1_milli: 0,
+            q0_milli: 0,
         },
         (3, 12),
         (18, 52),
     )
     .unwrap();
-    assert_eq!(pc.sigma(8, 30), 3580);
+    // s = 0.5 * 30 = 15, sigma = 0.5 * 15^2 = 112.5 -> 113.
+    assert_eq!(pc.sigma(8, 30), 113);
     assert!(pc.sigma(3, 18) >= 1);
 }
 
@@ -140,6 +170,7 @@ fn sigma_stage_table() {
     )
     .unwrap();
     assert_eq!(pc.sigma(8, 18), 140);
+    assert_eq!(pc.sigma(8, 0), 140);
     assert_eq!(pc.sigma(8, 48), 280);
     assert!(pc.sigma(3, 52) >= 1);
 }
@@ -149,14 +180,14 @@ fn extreme_values_do_not_panic() {
     let pc = ProbCut::new(
         400,
         1500,
-        i32::MIN,
+        i32::MAX,
         SigmaModel::EdaxStyle {
-            a: i32::MAX,
-            b: i32::MAX,
-            c: i32::MAX,
-            q2: i32::MAX,
-            q1: i32::MAX,
-            q0: i32::MAX,
+            a_milli: i32::MAX,
+            b_milli: i32::MAX,
+            c_milli: i32::MAX,
+            q2_milli: i32::MAX,
+            q1_milli: i32::MAX,
+            q0_milli: i32::MAX,
         },
         (3, 64),
         (0, 64),
@@ -164,10 +195,19 @@ fn extreme_values_do_not_panic() {
     .unwrap();
     for depth in [3, 64] {
         for empties in [0, 64] {
-            let _ = pc.high(EVAL_BOUND, depth, empties);
-            let _ = pc.high(INF, depth, empties);
-            let _ = pc.low(-EVAL_BOUND, depth, empties);
-            let _ = pc.low(-INF, depth, empties);
+            assert_eq!(pc.high(EVAL_BOUND, depth, empties), None);
+            assert_eq!(pc.high(INF, depth, empties), None);
+            assert_eq!(pc.low(-EVAL_BOUND, depth, empties), None);
+            assert_eq!(pc.low(-INF, depth, empties), None);
         }
     }
+}
+
+#[test]
+fn accepted_bounds_and_domain_caps() {
+    for (t, a) in [(50, 500), (400, 1500)] {
+        assert!(ProbCut::new(t, a, 0, linear(), (3, 12), (18, 52)).is_ok());
+    }
+    assert!(ProbCut::new(150, 900, 0, linear(), (3, 65), (18, 52)).is_err());
+    assert!(ProbCut::new(150, 900, 0, linear(), (3, 12), (0, 65)).is_err());
 }
