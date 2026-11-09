@@ -1528,9 +1528,15 @@ fn selective_uses_heuristic_and_ignores_endgame() {
     let mut ctx = Ctx::new(&selective());
     ctx.set_table(&mut table);
     assert_eq!(negamax(board, 6, -INF, beta, &mut ctx), Some(beta));
+    assert_eq!(ctx.probcut_tries[0], 1);
     let mut cold = Ctx::new(&selective());
     assert_eq!(negamax(board, 6, -INF, beta, &mut cold), Some(beta));
-    assert_eq!(table.probe(zobrist(board)), Some(&planted));
+    assert!(
+        table
+            .entries()
+            .filter(|entry| entry.domain == Domain::Endgame)
+            .all(|entry| entry == &planted)
+    );
 }
 
 #[test]
