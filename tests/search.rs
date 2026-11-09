@@ -1266,7 +1266,7 @@ fn probcut() -> ProbCut {
             gap: 0,
             empty: 0,
         },
-        (3, 12),
+        (6, 6),
         (18, 52),
     )
     .unwrap()
@@ -1296,6 +1296,11 @@ fn probcut_off_writes_no_selective_entries() {
     let board = selective_board();
     let mut table = Table::new(1 << 16);
     let _ = search_tt(board, SearchLimits::depth(6), &config(), &mut table);
+    assert!(
+        table
+            .probe(zobrist(board))
+            .is_none_or(|entry| entry.domain != Domain::Selective)
+    );
     for square in squares(legal_moves(board.me, board.opp)) {
         if let Some(entry) = table.probe(zobrist(play(board, square))) {
             assert_ne!(entry.domain, Domain::Selective);
@@ -1305,15 +1310,45 @@ fn probcut_off_writes_no_selective_entries() {
 
 #[test]
 fn exact_mode_ignores_probcut() {
-    let board = endgame_board(6);
-    let mut plain = Ctx::new(&config());
-    let plain_value = solve(board, -INF, INF, &mut plain);
-    let mut selective_ctx = Ctx::new(&selective());
-    let selective_value = solve(board, -INF, INF, &mut selective_ctx);
-    assert_eq!(selective_value, plain_value);
-    assert_eq!(selective_ctx.nodes, plain.nodes);
-    assert_eq!(selective_ctx.probcut_tries, [0, 0]);
-    assert_eq!(selective_ctx.probcut_cuts, [0, 0]);
+    let covering = SearchConfig {
+        probcut: Some(
+            ProbCut::new(
+                150,
+                1000,
+                0,
+                SigmaModel::Linear {
+                    s0: 100,
+                    gap: 0,
+                    empty: 0,
+                },
+                (3, 12),
+                (0, 64),
+            )
+            .unwrap(),
+        ),
+        ..config()
+    };
+    let mut boards: Vec<Board> = corpus()
+        .into_iter()
+        .map(|(board, _)| board)
+        .filter(|board| {
+            !is_terminal(*board)
+                && legal_moves(board.me, board.opp) != 0
+                && othello::board::empty_count(*board) <= 14
+        })
+        .take(2)
+        .collect();
+    boards.extend(sample_positions(13, 14, 2));
+    for board in boards {
+        let mut plain = Ctx::new(&config());
+        let plain_value = solve(board, -INF, INF, &mut plain);
+        let mut selective_ctx = Ctx::new(&covering);
+        let selective_value = solve(board, -INF, INF, &mut selective_ctx);
+        assert_eq!(selective_value, plain_value, "{board:?}");
+        assert_eq!(selective_ctx.nodes, plain.nodes, "{board:?}");
+        assert_eq!(selective_ctx.probcut_tries, [0, 0], "{board:?}");
+        assert_eq!(selective_ctx.probcut_cuts, [0, 0], "{board:?}");
+    }
 }
 
 #[test]
@@ -1380,40 +1415,178 @@ fn probcut_domain_bypass() {
     let mut ctx = Ctx::new(&out_of_empties);
     let _ = negamax(board, 6, -INF, INF, &mut ctx);
     assert_eq!(ctx.probcut_tries, [0, 0]);
+
+    let above = SearchConfig {
+        probcut: Some(
+            ProbCut::new(
+                150,
+                1000,
+                0,
+                SigmaModel::Linear {
+                    s0: 100,
+                    gap: 0,
+                    empty: 0,
+                },
+                (8, 10),
+                (18, 52),
+            )
+            .unwrap(),
+        ),
+        ..config()
+    };
+    let mut ctx = Ctx::new(&above);
+    let _ = negamax(board, 6, -INF, INF, &mut ctx);
+    assert_eq!(ctx.probcut_tries, [0, 0]);
 }
 
 #[test]
-fn selective_search_writes_selective_entries() {
+fn selective_search_writes_selective_and_probes_heuristic() {
     let board = selective_board();
+    let depth = 6;
+    let shallow = shallow_depth(depth) as u32;
+    let mut ctx = Ctx::new(&config());
+    let oracle = negamax(board, shallow, -INF, INF, &mut ctx).unwrap();
     let mut table = Table::new(1 << 16);
-    let _ = search_tt(board, SearchLimits::depth(6), &selective(), &mut table);
-    let child = play(
-        board,
-        legal_moves(board.me, board.opp).trailing_zeros() as u8,
+    let mut ctx = Ctx::new(&selective());
+    ctx.set_table(&mut table);
+    let _ = negamax(board, depth, oracle - 300, oracle, &mut ctx);
+    let entries: Vec<&Entry> = table.entries().collect();
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry.key == zobrist(board) && entry.domain == Domain::Selective)
     );
-    let entry = table.probe(zobrist(child)).unwrap();
-    assert_eq!(entry.domain, Domain::Selective);
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry.depth as u32 == shallow - 1 && entry.domain == Domain::Heuristic)
+    );
 }
 
 #[test]
 fn full_width_ignores_selective_entry() {
     let board = selective_board();
-    let mut table = Table::new(1 << 16);
     let child = play(
         board,
         legal_moves(board.me, board.opp).trailing_zeros() as u8,
     );
+    let cold = search(board, 6, &config());
+    let mut table = Table::new(1 << 16);
     table.store(Entry {
         key: zobrist(child),
-        value: 6400,
-        depth: 0,
+        value: -6400,
+        depth: 64,
         flag: Bound::Exact,
         domain: Domain::Selective,
         mv: NO_MOVE,
     });
     let warm = search_tt(board, SearchLimits::depth(6), &config(), &mut table);
-    let cold = search(board, 6, &config());
     assert_eq!(warm.score, cold.score);
+    table.store(Entry {
+        key: zobrist(child),
+        value: -6400,
+        depth: 64,
+        flag: Bound::Exact,
+        domain: Domain::Heuristic,
+        mv: NO_MOVE,
+    });
+    let heuristic = search_tt(board, SearchLimits::depth(6), &config(), &mut table);
+    assert!(heuristic.nodes < cold.nodes || heuristic.score != cold.score);
+}
+
+#[test]
+fn selective_uses_heuristic_and_ignores_endgame() {
+    let board = selective_board();
+    let mut table = Table::new(1 << 16);
+    table.store(Entry {
+        key: zobrist(board),
+        value: -1234,
+        depth: 6,
+        flag: Bound::Exact,
+        domain: Domain::Heuristic,
+        mv: NO_MOVE,
+    });
+    let mut ctx = Ctx::new(&selective());
+    ctx.set_table(&mut table);
+    assert_eq!(negamax(board, 6, -INF, INF, &mut ctx), Some(-1234));
+    assert_eq!(ctx.probcut_tries, [0, 0]);
+
+    let mut table = Table::new(1 << 16);
+    table.store(Entry {
+        key: zobrist(board),
+        value: -9999,
+        depth: 0,
+        flag: Bound::Exact,
+        domain: Domain::Endgame,
+        mv: NO_MOVE,
+    });
+    let mut ctx = Ctx::new(&selective());
+    ctx.set_table(&mut table);
+    assert_ne!(negamax(board, 6, -INF, INF, &mut ctx), Some(-9999));
+}
+
+#[test]
+fn cancellation_inside_probe_restores_mode() {
+    let board = selective_board();
+    let mut table = Table::new(1 << 16);
+    let mut ctx = Ctx::new(&selective());
+    ctx.set_table(&mut table);
+    ctx.limit(1);
+    assert_eq!(negamax(board, 6, -INF, INF, &mut ctx), None);
+    assert!(!ctx.probing);
+    assert!(table.probe(zobrist(board)).is_none());
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: NO_DEADLINE,
+        max_nodes: 1,
+    };
+    let result = search_tt(board, limits, &selective(), &mut table);
+    assert!(matches!(
+        result.status,
+        SearchStatus::Partial | SearchStatus::Fallback
+    ));
+}
+
+#[test]
+fn selective_status_contracts() {
+    let board = selective_board();
+    let depth_one = search(board, 1, &selective());
+    let result = search_limited(
+        board,
+        SearchLimits {
+            max_depth: 10,
+            time_ms: NO_DEADLINE,
+            max_nodes: depth_one.nodes + 1,
+        },
+        &selective(),
+    );
+    assert_eq!(result.status, SearchStatus::Partial);
+    assert_eq!(result.depth, 1);
+    assert_eq!(result.best, search_iterative(board, 1, &selective()).best);
+    let fallback = search_limited(
+        board,
+        SearchLimits {
+            max_depth: 10,
+            time_ms: NO_DEADLINE,
+            max_nodes: 1,
+        },
+        &selective(),
+    );
+    assert_eq!(fallback.status, SearchStatus::Fallback);
+    let timed = search_limited(
+        board,
+        SearchLimits {
+            max_depth: 10,
+            time_ms: 1,
+            max_nodes: 0,
+        },
+        &selective(),
+    );
+    assert!(matches!(
+        timed.status,
+        SearchStatus::Partial | SearchStatus::Fallback
+    ));
+    assert_ne!(legal_moves(board.me, board.opp) & (1u64 << timed.best), 0);
 }
 
 #[test]
