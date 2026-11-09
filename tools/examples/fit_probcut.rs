@@ -589,19 +589,7 @@ fn fit(config: &Config, measurements: &[Measurement]) -> String {
             },
         ));
     }
-    if let Some(c) = fit_edax(&cells) {
-        candidates.push((
-            6,
-            SigmaModel::EdaxStyle {
-                a_milli: 1000,
-                b_milli: 0,
-                c_milli: 0,
-                q2_milli: c[0].round() as i32,
-                q1_milli: c[1].round() as i32,
-                q0_milli: (c[2] * 1000.0).round() as i32,
-            },
-        ));
-    }
+    log.push_str("sigma-model edax excluded: non-linear A/B/C fit not implemented\n");
     candidates.push((12, fit_stage(&cells, sigma)));
     for cell in &cells {
         let mut line = format!(
@@ -839,17 +827,6 @@ fn fit_linear(cells: &[CellStat]) -> Option<[f64; 3]> {
                 c.sigma,
                 c.n as f64,
             )
-        })
-        .collect();
-    solve_weighted(&rows)
-}
-
-fn fit_edax(cells: &[CellStat]) -> Option<[f64; 3]> {
-    let rows: Vec<([f64; 3], f64, f64)> = cells
-        .iter()
-        .map(|c| {
-            let s = c.empties;
-            ([s * s, s, 1.0], c.sigma, c.n as f64)
         })
         .collect();
     solve_weighted(&rows)

@@ -64,8 +64,11 @@ cargo run --release --manifest-path tools/Cargo.toml -- match \
   --pairs 200 --seed 100 --out run.journal --jobs 4 --max-load 4
 ```
 
-An interrupted run resumes by re-running the identical command (the header
-includes the git commit, so do not commit to that checkout mid-run). Use
+An interrupted run resumes by re-running the identical command. The header
+includes the git commit, so long runs go in a dedicated worktree pinned at the
+commit under test, never the development checkout
+(`git worktree add ../othello-run <commit>`; see `docs/PLAN.md` §
+Interruptible long-running jobs, item 8). Use
 `--pair-range 0..100` to split work, and `report run.journal...` to summarise
 one or more journals. Time-controlled pairings whose recorded load exceeds
 `--max-load` are replayed; node-controlled pairings never void.

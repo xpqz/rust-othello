@@ -232,9 +232,14 @@ ProbCut runs only where calibration supports it:
     first few moves of a game, with more empties, run full-width.
   - The lower end stays clear of the near-terminal region, where heuristic
     horizons start reaching exact outcomes and the error structure changes.
-- **Evidence floor:** a `(depth, stage)` cell is supported only if the
-  held-out set holds at least **200 fired decisions** in each direction for
-  it. Cells below the floor are excluded.
+- **Evidence floor (revised before the long run):** the floor applies per
+  **stage bucket, pooled over depths**. A stage bucket is supported only if
+  the held-out set holds at least **200 fired decisions** in each direction
+  across its depths. Per-`(depth, stage)` rates are still logged, but as
+  descriptive figures only. The #111 smoke run showed that per-cell evidence
+  at the planned sample size reaches only about 50 low-side decisions per
+  cell, so a per-cell floor could never be met. The supported depth range is
+  the range those pooled decisions came from.
 
 The range widens only through a new calibration run that adds evidence for
 the new cells. A linear formula producing a number outside the sample is not
@@ -351,9 +356,10 @@ decisions on held-out variation positions with their recorded windows:
     Clopper-Pearson upper bound;
   - the nominal model rate `1 − Φ(t)`.
 - **Model acceptance (pre-registered):** at `t = 1.5` (nominal 6.7%), every
-  supported cell's false-high and false-low upper bounds are at most **12%**.
-  Cells that fail are dropped from the supported domain. A model that leaves
-  no cells is rejected.
+  supported stage bucket's pooled false-high and false-low upper bounds are
+  at most **12%**. Buckets that fail are dropped from the supported domain. A
+  model that leaves no bucket is rejected. Per-depth rates within a bucket
+  are reported but don't gate.
 - **Tails are descriptive.** The fraction of residuals beyond 2σ and 3σ is
   reported, but no claim rests on it. With about 200 decisions in a cell,
   even zero observed errors leaves a 95% upper bound of about 1.5%, and

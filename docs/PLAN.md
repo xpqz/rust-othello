@@ -1104,6 +1104,14 @@ meet these requirements. A job that doesn't is not done.
    the middle of a unit), restarts it, and checks the final output equals an
    uninterrupted run's. It also checks that a mismatched header is rejected
    and a truncated last line is redone.
+8. **Isolated checkout.** A long run executes from a dedicated git worktree
+   pinned at the commit under test (`git worktree add <dir> <commit>`), never
+   from the development checkout. Development keeps committing, and every
+   commit changes the engine commit recorded in the header, so a run in the
+   development checkout couldn't be resumed. The worktree also keeps
+   `cargo build` from replacing the binary mid-run. Journals and logs are
+   written inside the worktree and copied into the development checkout
+   when the run is done. Remove the worktree only after that copy.
 
 Analysis steps that only read finished output (reports, fits over recorded
 data) must be cheap to re-run from scratch. They need no checkpointing.

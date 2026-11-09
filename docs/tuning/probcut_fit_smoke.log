@@ -1,4 +1,4 @@
-seed 1 games 12 positions 1200 deep_positions 0 depth 6 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine 2746b2632b1acf257780c75f6c22e6d874c210b1
+seed 1 games 12 positions 1200 deep_positions 0 depth 6 openings /Users/stefan/work/crust/othello/tools/../bench/openings_tune.txt hash a623dd7697598d6e engine 6047ba8d25a47cf2675188a735e0b565b9e5dc1b
 sampled 1200 positions (requested 1200)
 variation infinite-bound fraction 0.3425
 excluded outside empties 18..52: 156
@@ -28,34 +28,33 @@ cell d=6 bucket=3 n=163 a=1.1555 b=-4.07 sigma=76.81 r2=0.9054
 cell d=6 bucket=4 n=157 a=1.0751 b=1.64 sigma=60.99 r2=0.9129
 cell d=6 bucket=5 n=63 a=1.0089 b=7.93 sigma=43.70 r2=0.8484
 per-cell slope range 0.9259..1.1713 material=true
-cell-sigma d=3 bucket=0 empirical=92.37 c3=Some(80) c6=Some(182) c12=Some(99)
-cell-sigma d=3 bucket=1 empirical=64.07 c3=Some(68) c6=Some(182) c12=Some(77)
-cell-sigma d=3 bucket=2 empirical=61.33 c3=Some(56) c6=Some(182) c12=Some(77)
-cell-sigma d=3 bucket=3 empirical=55.78 c3=Some(44) c6=Some(182) c12=Some(72)
-cell-sigma d=3 bucket=4 empirical=61.00 c3=Some(32) c6=Some(182) c12=Some(87)
-cell-sigma d=3 bucket=5 empirical=55.02 c3=Some(22) c6=Some(182) c12=Some(70)
-cell-sigma d=4 bucket=0 empirical=91.01 c3=Some(80) c6=Some(182) c12=Some(99)
-cell-sigma d=4 bucket=1 empirical=70.00 c3=Some(68) c6=Some(182) c12=Some(77)
-cell-sigma d=4 bucket=2 empirical=63.05 c3=Some(56) c6=Some(182) c12=Some(77)
-cell-sigma d=4 bucket=3 empirical=57.07 c3=Some(44) c6=Some(182) c12=Some(72)
-cell-sigma d=4 bucket=4 empirical=50.80 c3=Some(32) c6=Some(182) c12=Some(87)
-cell-sigma d=4 bucket=5 empirical=35.72 c3=Some(22) c6=Some(182) c12=Some(70)
-cell-sigma d=5 bucket=0 empirical=90.91 c3=Some(80) c6=Some(182) c12=Some(99)
-cell-sigma d=5 bucket=1 empirical=54.22 c3=Some(68) c6=Some(182) c12=Some(77)
-cell-sigma d=5 bucket=2 empirical=57.00 c3=Some(56) c6=Some(182) c12=Some(77)
-cell-sigma d=5 bucket=3 empirical=47.92 c3=Some(44) c6=Some(182) c12=Some(72)
-cell-sigma d=5 bucket=4 empirical=41.45 c3=Some(32) c6=Some(182) c12=Some(87)
-cell-sigma d=5 bucket=5 empirical=26.04 c3=Some(22) c6=Some(182) c12=Some(70)
-cell-sigma d=6 bucket=0 empirical=146.39 c3=Some(106) c6=Some(182) c12=Some(171)
-cell-sigma d=6 bucket=1 empirical=95.88 c3=Some(94) c6=Some(182) c12=Some(137)
-cell-sigma d=6 bucket=2 empirical=90.40 c3=Some(82) c6=Some(182) c12=Some(139)
-cell-sigma d=6 bucket=3 empirical=76.81 c3=Some(70) c6=Some(182) c12=Some(132)
-cell-sigma d=6 bucket=4 empirical=60.99 c3=Some(58) c6=Some(182) c12=Some(169)
-cell-sigma d=6 bucket=5 empirical=43.70 c3=Some(48) c6=Some(182) c12=Some(138)
+sigma-model edax excluded: non-linear A/B/C fit not implemented
+cell-sigma d=3 bucket=0 empirical=92.37 c3=Some(80) c12=Some(99)
+cell-sigma d=3 bucket=1 empirical=64.07 c3=Some(68) c12=Some(77)
+cell-sigma d=3 bucket=2 empirical=61.33 c3=Some(56) c12=Some(77)
+cell-sigma d=3 bucket=3 empirical=55.78 c3=Some(44) c12=Some(72)
+cell-sigma d=3 bucket=4 empirical=61.00 c3=Some(32) c12=Some(87)
+cell-sigma d=3 bucket=5 empirical=55.02 c3=Some(22) c12=Some(70)
+cell-sigma d=4 bucket=0 empirical=91.01 c3=Some(80) c12=Some(99)
+cell-sigma d=4 bucket=1 empirical=70.00 c3=Some(68) c12=Some(77)
+cell-sigma d=4 bucket=2 empirical=63.05 c3=Some(56) c12=Some(77)
+cell-sigma d=4 bucket=3 empirical=57.07 c3=Some(44) c12=Some(72)
+cell-sigma d=4 bucket=4 empirical=50.80 c3=Some(32) c12=Some(87)
+cell-sigma d=4 bucket=5 empirical=35.72 c3=Some(22) c12=Some(70)
+cell-sigma d=5 bucket=0 empirical=90.91 c3=Some(80) c12=Some(99)
+cell-sigma d=5 bucket=1 empirical=54.22 c3=Some(68) c12=Some(77)
+cell-sigma d=5 bucket=2 empirical=57.00 c3=Some(56) c12=Some(77)
+cell-sigma d=5 bucket=3 empirical=47.92 c3=Some(44) c12=Some(72)
+cell-sigma d=5 bucket=4 empirical=41.45 c3=Some(32) c12=Some(87)
+cell-sigma d=5 bucket=5 empirical=26.04 c3=Some(22) c12=Some(70)
+cell-sigma d=6 bucket=0 empirical=146.39 c3=Some(106) c12=Some(171)
+cell-sigma d=6 bucket=1 empirical=95.88 c3=Some(94) c12=Some(137)
+cell-sigma d=6 bucket=2 empirical=90.40 c3=Some(82) c12=Some(139)
+cell-sigma d=6 bucket=3 empirical=76.81 c3=Some(70) c12=Some(132)
+cell-sigma d=6 bucket=4 empirical=60.99 c3=Some(58) c12=Some(169)
+cell-sigma d=6 bucket=5 empirical=43.70 c3=Some(48) c12=Some(138)
 sigma-model constants=3 Linear { s0: 94, gap: 13, empty: -2 } floor-worst=Some(0.42092544750069294) pass=false
-sigma-model constants=6 EdaxStyle { a_milli: 1000, b_milli: 0, c_milli: 0, q2_milli: 0, q1_milli: -5, q0_milli: 181526 } floor-worst=Some(1.3086570063591707) pass=true
 sigma-model constants=12 StageTable { buckets: [(27, 36), (17, 30), (15, 31), (12, 30), (5, 41), (2, 34)] } floor-worst=Some(1.1281428769809438) pass=true
-model-choice constants=6 EdaxStyle { a_milli: 1000, b_milli: 0, c_milli: 0, q2_milli: 0, q1_milli: -5, q0_milli: 181526 } fired=439 error=0.0000 qualified=true
 model-choice constants=12 StageTable { buckets: [(27, 36), (17, 30), (15, 31), (12, 30), (5, 41), (2, 34)] } fired=625 error=0.0016 qualified=true
 decisions t=1.0 d=3 bucket=0 high 0/40 upper 0.0722 low 0/14 upper 0.1926 nominal 0.1587
 decisions t=1.0 d=3 bucket=1 high 0/25 upper 0.1129 low 1/15 upper 0.2794 nominal 0.1587
