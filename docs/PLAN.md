@@ -1055,6 +1055,14 @@ Phase 2 is complete when all of the following hold:
 3. **Unchanged guarantees:** exact play from the endgame threshold, legal play
    under every limit, `std`-only, no `unsafe`, fmt and clippy clean.
 
+### Progress
+
+ProbCut v1 (full-width probes, selective TT domain) is implemented and
+calibrated. It failed the pre-registered equal-nodes validation gate: +18 Elo
+point estimate, 95% interval [-8.69, 46.31] over 200 pairs. The `standard()`
+switch remains off. The validation set has been seen once; any later attempt
+is a declared second look.
+
 ### Process
 
 The working agreement is unchanged: one issue at a time, red/green TDD with a
