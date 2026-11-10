@@ -511,12 +511,14 @@ fn parse_range(text: &str) -> Result<(usize, usize), String> {
 }
 
 fn report_command(args: &[String]) -> Result<(), String> {
-    if args.is_empty() {
-        return Err("usage: othello-tools report <journal>...".into());
+    let partial = args.iter().any(|arg| arg == "--partial");
+    let paths: Vec<&String> = args.iter().filter(|arg| *arg != "--partial").collect();
+    if paths.is_empty() {
+        return Err("usage: othello-tools report [--partial] <journal>...".into());
     }
     let mut header: Option<String> = None;
     let mut records: BTreeMap<(usize, u64), (usize, Saved)> = BTreeMap::new();
-    for (source, path) in args.iter().enumerate() {
+    for (source, path) in paths.iter().enumerate() {
         let (found, journal) = othello_tools::journal::read(Path::new(path))?;
         if found.is_empty() {
             return Err(format!("{path}: empty journal"));
@@ -557,7 +559,10 @@ fn report_command(args: &[String]) -> Result<(), String> {
         valid.map_or_else(|| missing.push(pair), |points| game_points.push(points));
     }
     if !missing.is_empty() {
-        return Err(format!("missing pairs: {missing:?}"));
+        if !partial {
+            return Err(format!("missing pairs: {missing:?}"));
+        }
+        println!("PARTIAL missing pairs: {missing:?}");
     }
     print_summary(
         &report_with(&game_points, RESAMPLES, seed),

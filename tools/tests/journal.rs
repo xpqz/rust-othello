@@ -268,6 +268,9 @@ fn chunks_combine_and_report_rejects_bad_input() {
     let missing = report(&[&first]);
     assert!(!missing.status.success());
     assert!(String::from_utf8_lossy(&missing.stderr).contains("missing"));
+    let partial = tools(&["report", "--partial", first.to_str().unwrap()]);
+    assert!(partial.status.success());
+    assert!(String::from_utf8_lossy(&partial.stdout).contains("PARTIAL"));
 
     for path in [full, first, second, other] {
         fs::remove_file(path).unwrap();
