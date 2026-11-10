@@ -302,3 +302,6 @@ run 115 pair 199 game 1 seeds (13154380646945401280, 13345531667211683549) key (
 real 2313.60
 user 7004.80
 sys 102.75
+pairs 200 games 400 W 204 D 13 L 183 mean 0.5262 interval [0.4875, 0.5663] bootstrap elo [-8.69, 46.31]
+seed 115 resamples 10000 evaluator-only nodes 1965089 ordering true
+header v1 a pc:100 b pc:off pairs 200 seed 115 nodes 1965089 ordering true control nodes max_load 5.000 openings bench/openings_validation.txt hash 488e9921040415bb engine 13fc97c98dc88bc98adcc1a187256d2d1aeea9d0
