@@ -8,11 +8,14 @@ fn median(values: &mut [u32]) -> u32 {
 }
 
 fn main() {
-    let openings = positions::load(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../bench/openings_validation.txt"
-    ))
-    .unwrap();
+    let path = std::env::args().nth(1).unwrap_or_else(|| {
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../bench/openings_probcut2.txt"
+        )
+        .into()
+    });
+    let openings = positions::load(&path).unwrap();
     let configs = [
         (
             "off",

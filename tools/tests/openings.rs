@@ -57,3 +57,28 @@ fn frozen_sets_unchanged() {
         0xfe1d_fcaf_36ef_bdf2
     );
 }
+
+#[test]
+fn fresh_set_is_spread_across_groups() {
+    let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../bench");
+    let fresh = positions::load(base.join("openings_probcut2.txt").to_str().unwrap()).unwrap();
+    let validation =
+        positions::load(base.join("openings_validation.txt").to_str().unwrap()).unwrap();
+    let count = |set: &[positions::Opening]| {
+        set.iter()
+            .map(|opening| opening.key)
+            .collect::<BTreeSet<_>>()
+            .len()
+    };
+    assert!(count(&fresh) >= count(&validation));
+    let mut groups = std::collections::BTreeMap::new();
+    for opening in &fresh {
+        *groups.entry(opening.key).or_insert(0usize) += 1;
+    }
+    assert!(*groups.values().max().unwrap() <= 102);
+    let mut first = std::collections::BTreeMap::new();
+    for opening in fresh.iter().take(1000) {
+        *first.entry(opening.key).or_insert(0usize) += 1;
+    }
+    assert!(*first.values().max().unwrap() <= 100);
+}

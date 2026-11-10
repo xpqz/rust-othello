@@ -126,18 +126,22 @@ fn main() {
     }
     let mut seen = BTreeSet::new();
     let mut fresh = Vec::new();
-    for group in new_groups.into_values() {
-        for opening in group {
-            let line = opening
-                .iter()
-                .map(|&square| name(square))
-                .collect::<Vec<_>>()
-                .join(" ");
-            let key = end_key(&line);
-            if !used.contains(&key) && seen.insert(key) {
-                fresh.push(line);
-                if fresh.len() == NEW_SET {
-                    break;
+    let groups: Vec<Vec<Vec<u8>>> = new_groups.into_values().collect();
+    let longest = groups.iter().map(Vec::len).max().unwrap_or(0);
+    for step in 0..longest {
+        for group in &groups {
+            if let Some(opening) = group.get(step) {
+                let line = opening
+                    .iter()
+                    .map(|&square| name(square))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let key = end_key(&line);
+                if !used.contains(&key) && seen.insert(key) {
+                    fresh.push(line);
+                    if fresh.len() == NEW_SET {
+                        break;
+                    }
                 }
             }
         }
