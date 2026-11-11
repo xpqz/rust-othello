@@ -17,11 +17,8 @@ fn hand() -> Board {
 }
 
 fn corpus() -> Vec<Board> {
-    let text = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/bench/corpus.txt"
-    ))
-    .unwrap();
+    let text =
+        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/bench/corpus.txt")).unwrap();
     text.lines()
         .filter(|line| !line.starts_with('#'))
         .filter_map(|line| {
@@ -155,7 +152,10 @@ fn index_ranges() {
         for (instance, &index) in pattern::instances().iter().zip(&pattern::features(board)) {
             let start = instance.offset;
             let end = start + 3u32.pow(instance.squares.len() as u32);
-            assert!(index >= start && index < end, "{index} outside {start}..{end}");
+            assert!(
+                index >= start && index < end,
+                "{index} outside {start}..{end}"
+            );
         }
     }
 }
