@@ -577,6 +577,12 @@ it.
   are learned](#how-the-tables-are-learned). Explicit regularisation
   (shrinking values toward zero each pass) is added only if the learning
   report shows held-out error rising while training error falls.
+- **The maximum is the damping horizon.** The rare-entry damping bound is
+  governed by `step * max_passes / floor` (at most about 0.119). A stage
+  may stop at the maximum if its held-out MAE improved by less than 0.01
+  discs over the last `patience` passes; the report prints that figure for
+  each such stage and the fit fails if it is larger. The chosen constants
+  are step 0.02, floor 200, patience 100 and maximum 1,000 passes.
 - **Stopping.** After each pass the mean absolute error on the held-out
   games is computed. Training stops when it has not improved for the
   patience, or at the maximum, and the best pass's values are kept.
@@ -592,28 +598,11 @@ it.
 
 ### Restart
 
-The stages are independent and may be fitted in parallel. The fit must be
-restartable under `docs/PLAN.md` § Interruptible long-running jobs.
-
-- **Unit.** One stage, provided a stage fits within the plan's
-  bounded-loss rule of a few minutes. The pilot fit measures this first.
-  If a stage takes longer, the unit becomes one pass: the checkpoint then
-  holds the current values, the best values, the best error and the passes
-  since it improved.
-- **Stage file.** A finished stage is written to `data/fit/stage_NN` as: a
-  header, the tied values, the occurrence counts, and the per-pass learning
-  curve. Counts and curve are kept so a resumed run can write the same
-  report and `inspect` output as an uninterrupted one.
-- **Header.** The layout fingerprint, the label journal's SHA-256, the
-  WTHOR manifest's SHA-256, the split rule, the step, floor, patience and
-  maximum passes, the table dimensions, and a SHA-256 of the file's body.
-- **Atomic publication.** The file is written under a temporary name,
-  synced and renamed, as the journal does. A partial file never carries the
-  final name.
-- **Validation on resume.** A stage file is reused only if its header
-  matches the current run exactly and its body checksum verifies. Anything
-  else, including a leftover temporary file, is discarded and the stage is
-  fitted again.
+The full fit runs stage by stage on one thread and takes about six minutes
+on the archive. It is below the ten-minute rule, so the fit has no stage
+files or resume protocol. If a future fit takes more than ten minutes,
+restart must be designed in again. The labelling job keeps its journal and
+remains resumable.
 
 ### The learning report
 
@@ -735,11 +724,9 @@ Trainer:
 - Tied entries are bit-identical in the written asset.
 - Quantisation: a non-finite or out-of-range value fails the fit; trainer
   and engine predictions agree within the stated bound.
-- Fit reproducibility: an uninterrupted run and a run killed and resumed
-  give identical asset bytes and an identical report.
-- Fit restart: a partial temporary file is ignored; a stage file whose
-  header does not match the current configuration is refitted; a stage file
-  with a damaged body is refitted.
+- Fit reproducibility: two runs on the same labels give identical asset
+  bytes and an identical report; a reordered label journal gives identical
+  asset bytes.
 - Labelling: interrupt and resume gives an identical journal after sorting.
 
 ## The gate
@@ -855,7 +842,7 @@ checked against the code or the mathematics and accepted.
 | # | Finding | Change |
 | --- | --- | --- |
 | 1 | Gate rule gave no units; "above zero" on a score interval would pass a loss | Rule is score lower bound above 0.5, equivalently Elo above 0; asset SHA-256 and rule pinned before the run ([The gate](#the-gate)) |
-| 2 | Fit restart unsafe on partial writes and stale inputs | Atomic stage files with a validated header and checksum, counts and curve preserved, unit measured first, restart tests ([Restart](#restart)) |
+| 2 | Fit restart unsafe on partial writes and stale inputs | Restart was designed in revision 2; the measured full fit is under ten minutes, so it was removed after the sweep (see [Restart](#restart)) |
 | 3 | Batch updates do not make `f32` sums order-independent | Stable example order, fixed reduction order, stage-order assembly, stated reproducibility scope ([Fitting](#fitting)) |
 | 4 | Update ignored feature multiplicity | Update written with `x(i, j)`; occurrences defined; reference test ([Fitting](#fitting)) |
 | 5 | Floor is finite-horizon damping, and the optimum is not unique | Both explanations corrected; horizon declared and tested; `inspect` shows values relative to the family mean |

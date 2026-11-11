@@ -32,10 +32,10 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            step: 0.01,
-            floor: 50.0,
-            patience: 20,
-            max_passes: 500,
+            step: 0.02,
+            floor: 200.0,
+            patience: 100,
+            max_passes: 1000,
         }
     }
 }
@@ -339,12 +339,28 @@ pub fn run(root: &Path, options: &Options) -> Result<(), String> {
             .map(|value| *value as f32 / 100.0)
             .collect();
         let error = mae(&fit.values, &data.held);
+        let max_improvement = if fit.curve.len() == options.max_passes {
+            let before = fit.curve[fit.curve.len().saturating_sub(options.patience)].1;
+            let after = fit.curve.last().unwrap().1;
+            let improvement = before - after;
+            if improvement > 0.01 {
+                return Err(format!(
+                    "stage {stage}: held improvement {improvement:.4} at max"
+                ));
+            }
+            Some(improvement)
+        } else {
+            None
+        };
         report.push_str(&format!("stage {stage}\n"));
         for (pass, (train, held)) in fit.curve.iter().enumerate() {
             report.push_str(&format!("pass {pass} {train:.2} {held:.2}\n"));
         }
+        let max_text = max_improvement
+            .map(|value| format!(" max_improvement {value:.4}"))
+            .unwrap_or_default();
         report.push_str(&format!(
-            "held {error:.2} rounded {:.2} zero {:.2} classic {:.2} trained {:.2} classic_corr {:.2} nonzero {:.2} largest {:.2}\n",
+            "held {error:.2} rounded {:.2} zero {:.2} classic {:.2} trained {:.2} classic_corr {:.2} nonzero {:.2} largest {:.2}{max_text}\n",
             mae(&rounded, &data.held),
             data.zero_abs / held_count,
             data.classic_abs / held_count,

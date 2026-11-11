@@ -46,3 +46,17 @@ cargo run --release --manifest-path trainer/Cargo.toml -- label --jobs 5
 
 Use `--games 1000` for the pilot. The full run is started only after the
 pilot fit. The journal is not committed.
+
+## Asset output
+
+`fit` writes `data/fit/eval.bin`, `data/fit/eval.layout`,
+`data/fit/counts.bin` and `docs/tuning/pattern_fit.log`. The engine reads
+`assets/eval.bin`, so copy the fitted file there and copy the layout beside
+it:
+
+```sh
+cp data/fit/eval.bin assets/eval.bin
+cp data/fit/eval.layout assets/eval.layout
+```
+
+The counts file stays under `data/`; `inspect` reads it with the asset.
