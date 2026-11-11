@@ -64,6 +64,7 @@ fn label_bands() {
             (board15, true),
             (board14, false),
             (board10, true),
+            (board10, false),
         ],
         board(0),
         true,
@@ -84,7 +85,8 @@ fn label_bands() {
     assert_eq!(labels[3].label, -42);
     assert_eq!(labels[4].label, 42);
     assert_eq!(labels[5].label, -13);
-    assert_eq!(calls, vec![board14, board10]);
+    assert_eq!(labels[6].label, -13);
+    assert_eq!(calls, vec![board14, board10, board10]);
 }
 
 #[test]
@@ -137,6 +139,23 @@ fn disc_units() {
         label::labels(24, &game(0, 0), &replay, &mut solve).unwrap()[0].label,
         -13
     );
+}
+
+#[test]
+fn exact_labels() {
+    let (p3, games) = wthor::read(&archive(1, None)).unwrap();
+    let game = &games[0];
+    let replay = wthor::replay(game).unwrap();
+    let config = SearchConfig::standard();
+    let mut ctx = Ctx::new(&config);
+    let mut solver = |position| solve_with(position, &mut ctx);
+    let labels = label::labels(p3, game, &replay, &mut solver).unwrap();
+    let config = SearchConfig::standard();
+    let mut ctx = Ctx::new(&config);
+    let mut direct = |position| solve_with(position, &mut ctx);
+    for label in labels.iter().filter(|label| empty_count(label.board) <= 14) {
+        assert_eq!(label.label, direct(label.board).unwrap() / 100, "{label:?}");
+    }
 }
 
 #[test]

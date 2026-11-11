@@ -79,7 +79,7 @@ pub fn verify_manifest(dir: &Path, manifest: &str) -> Result<(), String> {
     verify_files(&wtb_files(dir)?, manifest)
 }
 
-fn wtb_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
+pub(crate) fn wtb_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
         .map_err(|error| format!("{}: {error}", dir.display()))?
         .filter_map(Result::ok)
@@ -111,7 +111,7 @@ fn verify_files(files: &[PathBuf], manifest: &str) -> Result<(), String> {
         .ok_or_else(|| "manifest does not list every .wtb file".into())
 }
 
-fn digest(bytes: &[u8]) -> String {
+pub(crate) fn digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
         .map(|byte| format!("{byte:02x}"))

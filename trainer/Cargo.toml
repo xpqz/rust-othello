@@ -8,3 +8,4 @@ license = "Apache-2.0"
 othello = { path = ".." }
 othello-tools = { path = "../tools" }
 sha2 = "0.11"
+rayon = "1"

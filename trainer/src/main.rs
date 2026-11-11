@@ -47,41 +47,29 @@ fn check_command(args: &[String]) -> Result<(), String> {
 }
 
 fn label_command(args: &[String]) -> Result<(), String> {
-    let mut dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/wthor"));
-    let mut journal = PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../data/labels.journal"
-    ));
-    let mut jobs = 1;
-    let mut games = None;
-    let mut positional = 0;
-    let mut rest = args;
-    while let Some((flag, tail)) = rest.split_first() {
-        match flag.as_str() {
-            "--jobs" => {
-                jobs = number(tail.first(), "--jobs")?;
-                rest = &tail[1..];
-            }
-            "--games" => {
-                games = Some(number(tail.first(), "--games")?);
-                rest = &tail[1..];
-            }
-            _ if positional == 0 => {
-                dir = PathBuf::from(flag.as_str());
-                positional = 1;
-                rest = tail;
-            }
-            _ if positional == 1 => {
-                journal = PathBuf::from(flag.as_str());
-                positional = 2;
-                rest = tail;
-            }
-            _ => return Err(format!("unknown option {flag}")),
+    let (mut dir, mut journal) = (None, None);
+    let (mut jobs, mut games) = (1, None);
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--jobs" => jobs = number(args.next(), "--jobs")?,
+            "--games" => games = Some(number(args.next(), "--games")?),
+            _ if dir.is_none() => dir = Some(PathBuf::from(arg.as_str())),
+            _ if journal.is_none() => journal = Some(PathBuf::from(arg.as_str())),
+            _ => return Err(format!("unknown argument {arg}")),
         }
     }
     if jobs == 0 {
         return Err("--jobs must be at least 1".into());
     }
+    let dir =
+        dir.unwrap_or_else(|| PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/wthor")));
+    let journal = journal.unwrap_or_else(|| {
+        PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../data/labels.journal"
+        ))
+    });
     label::run(&dir, &journal, jobs, games)
 }
 
