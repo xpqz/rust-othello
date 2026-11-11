@@ -1,13 +1,12 @@
-7a139726112c7e1a367c4729868a1d65fedd12d3
-Wed 11 Nov 2026 10:40:11 CET
-games 137548
-replayed 137135
-rejected illegal 0
-rejected incomplete 413
-p3 24 files 49
-real 137135/137135 100.00%
-full board 130689/130689 100.00%
-empty board 6446/6446 100.00%
-empty black win 3456/3456 100.00%
+48ad4448c47b3cf6c0fb62fec7e269c987139de0
+Wed 11 Nov 2026 11:19:03 CET
 empty black loss 2982/2982 100.00%
+empty black win 3456/3456 100.00%
+empty board 6446/6446 100.00%
+full board 130689/130689 100.00%
+games 137548
+real 137135/137135 100.00%
+rejected incomplete 413
+replayed 137135
 theoretical 17265/137135 12.59%
+p3 24 files 49
