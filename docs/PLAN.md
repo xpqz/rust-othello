@@ -364,6 +364,7 @@ trainer/
     main.rs         check, label, fit and inspect commands
     wthor.rs        WTHOR reader, replay and positions
     check.rs        manifest verification and game summary
+    label.rs        label rule, resumable labelling job and journal
   tests/
     cli.rs          command smoke
     wthor.rs        reader, replay, summary and manifest tests

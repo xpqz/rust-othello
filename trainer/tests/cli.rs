@@ -11,7 +11,7 @@ fn bin(args: &[&str]) -> std::process::Output {
 
 #[test]
 fn commands_work() {
-    for command in ["label", "fit", "inspect"] {
+    for command in ["fit", "inspect"] {
         let output = bin(&[command]);
         assert!(output.status.success(), "{command}");
         assert_eq!(String::from_utf8_lossy(&output.stdout), "not implemented\n");
