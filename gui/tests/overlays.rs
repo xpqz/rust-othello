@@ -44,14 +44,7 @@ fn start_frontier() {
 #[test]
 fn surrounded_disc_is_not_frontier() {
     let center = 1u64 << 27;
-    let opp = at(2, 2)
-        | at(3, 2)
-        | at(4, 2)
-        | at(2, 3)
-        | at(4, 3)
-        | at(2, 4)
-        | at(3, 4)
-        | at(4, 4);
+    let opp = at(2, 2) | at(3, 2) | at(4, 2) | at(2, 3) | at(4, 3) | at(2, 4) | at(3, 4) | at(4, 4);
     let board = Board { me: center, opp };
     assert_eq!(frontier(board) & center, 0);
     assert_eq!(frontier(board), opp);
@@ -70,7 +63,10 @@ fn white_to_move_is_relative() {
             "{square}"
         );
     }
-    assert_eq!(counts.iter().filter(|&&count| count != NO_MOVE).count() as u32, moves.count_ones());
+    assert_eq!(
+        counts.iter().filter(|&&count| count != NO_MOVE).count() as u32,
+        moves.count_ones()
+    );
     assert_eq!(
         frontier(board),
         frontier(Board {
@@ -78,4 +74,25 @@ fn white_to_move_is_relative() {
             opp: board.me,
         })
     );
+}
+
+#[test]
+fn edge_wrap_is_not_frontier() {
+    let h4 = 1u64 << 31;
+    let a4 = 1u64 << 24;
+    let h4_opp = at(6, 2) | at(7, 2) | at(6, 3) | at(6, 4) | at(7, 4);
+    assert_eq!(at(0, 4) & h4_opp, 0);
+    let board = Board {
+        me: h4,
+        opp: h4_opp,
+    };
+    assert_eq!(frontier(board) & h4, 0);
+
+    let a4_opp = at(1, 2) | at(0, 2) | at(1, 3) | at(1, 4) | at(0, 4);
+    assert_eq!(at(7, 2) & a4_opp, 0);
+    let board = Board {
+        me: a4,
+        opp: a4_opp,
+    };
+    assert_eq!(frontier(board) & a4, 0);
 }

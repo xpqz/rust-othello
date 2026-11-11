@@ -10,9 +10,10 @@ use std::time::{Duration, Instant};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, FontId, Pos2, Rect, RichText, Sense, Stroke, Vec2,
 };
-use othello::board::{Board, is_terminal, legal_moves, pass, play};
+use othello::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use othello::search::{SearchConfig, SearchLimits, SearchResult, search_tt};
 use othello::tt::{MAX_ENTRIES, Table};
+use othello_gui::overlays::{NO_MOVE, frontier, opponent_move_counts};
 
 const FELT: Color32 = Color32::from_rgb(30, 110, 72);
 const FELT_DARK: Color32 = Color32::from_rgb(22, 84, 55);
@@ -87,6 +88,8 @@ struct App {
     thinking: Option<Thinking>,
     last_search: Option<(SearchResult, Duration, bool)>,
     flip: Option<Flip>,
+    show_move_counts: bool,
+    show_frontier: bool,
     message: String,
 }
 
@@ -104,6 +107,8 @@ impl App {
             thinking: None,
             last_search: None,
             flip: None,
+            show_move_counts: false,
+            show_frontier: false,
             message: "Your move — you play Black.".into(),
         }
     }
@@ -350,13 +355,25 @@ impl App {
             }
             disc(&painter, center, cell * 0.41, squash, is_black);
         }
+        let human_turn =
+            self.human_to_move() && self.thinking.is_none() && !is_terminal(self.position.board);
+        if human_turn && self.show_frontier {
+            let (black, white) = self.position.black_white();
+            let human = if self.human_black { black } else { white };
+            for square in squares(frontier(self.position.board) & human) {
+                let center = cell_rect(inner, cell, square % 8, 7 - square / 8).center();
+                painter.circle_stroke(
+                    center,
+                    cell * 0.46,
+                    Stroke::new(3.0, Color32::from_rgb(245, 190, 70)),
+                );
+            }
+        }
         if let Some(square) = self.last_move {
             let center = cell_rect(inner, cell, square % 8, 7 - square / 8).center();
             painter.circle_filled(center, cell * 0.07, Color32::from_rgb(230, 70, 60));
         }
 
-        let human_turn =
-            self.human_to_move() && self.thinking.is_none() && !is_terminal(self.position.board);
         if !human_turn {
             return;
         }
@@ -383,6 +400,32 @@ impl App {
                 disc(&painter, rect.center(), cell * 0.41, 1.0, self.human_black);
             } else {
                 painter.circle_filled(rect.center(), cell * 0.12, hint);
+            }
+        }
+        if self.show_move_counts {
+            let counts = opponent_move_counts(self.position.board);
+            for square in squares(moves) {
+                let count = counts[square as usize];
+                if count == NO_MOVE {
+                    continue;
+                }
+                let rect = cell_rect(inner, cell, square % 8, 7 - square / 8);
+                let color = if count == 0 {
+                    Color32::from_rgb(255, 190, 90)
+                } else {
+                    INK
+                };
+                painter.circle_filled(rect.center(), cell * 0.19, Color32::from_black_alpha(150));
+                painter.text(
+                    rect.center(),
+                    Align2::CENTER_CENTER,
+                    count.to_string(),
+                    FontId::proportional(cell * 0.28),
+                    color,
+                );
+                if count == 0 {
+                    painter.circle_stroke(rect.center(), cell * 0.25, Stroke::new(2.0, color));
+                }
             }
         }
         if response.clicked()
@@ -469,6 +512,16 @@ impl App {
                     .weak(),
             );
         }
+        ui.add_space(10.0);
+        ui.separator();
+        ui.label(RichText::new("Learning aids").strong());
+        ui.checkbox(&mut self.show_move_counts, "Opponent move counts");
+        ui.checkbox(&mut self.show_frontier, "Frontier discs");
+        ui.label(
+            RichText::new("Prefer moves that leave you few discs touching empty squares.")
+                .small()
+                .weak(),
+        );
         ui.add_space(10.0);
         ui.separator();
         ui.horizontal(|ui| {
