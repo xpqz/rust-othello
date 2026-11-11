@@ -15,7 +15,7 @@ fixes. Revision 3 resolved the second review.
 **Revision 5** (after release 1.0.0) opens [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 Release 1.0.0 (tag `v1.0.0`) froze the engine + CLI at 998 lines under the
 999 ceiling. Phase 2 raises the engine ceiling to 1,499, the tools budget
-to 1,300, adds a 650-line trainer budget, a model-asset budget, and sets a
+to 1,300, adds a 1,000-line trainer budget, a model-asset budget, and sets a
 strength target. Everything else in this plan still applies.
 
 ## Constraints and targets
@@ -23,7 +23,7 @@ strength target. Everything else in this plan still applies.
 | Constraint | Target | How it is enforced |
 | --- | --- | --- |
 | Implementation size | **Hard ceiling: 1,499 LOC for the engine + playable CLI, excluding tests** (Phase 2; 999 in release 1.0.0) | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
-| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,300-line budget (650 in release 1.0.0); the trainer is a separate crate with a 650-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
+| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,300-line budget (650 in release 1.0.0); the trainer is a separate crate with a 1,000-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
 | Early feasibility | A complete playable vertical slice with actual counts by the end of Phase 2 | Phase 2 gate records formatted LOC and cuts scope before Phase 3 if needed |
 | Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies, guarded by a test; the tools crate may path-depend on the engine; the trainer may use external crates and depends on the engine and tools crates |
 | Safety | No `unsafe` in library or binary | `#![forbid(unsafe_code)]` in both `src/lib.rs` and `src/main.rs` |
@@ -40,7 +40,7 @@ comments are documentation, not code. `scripts/check.sh` runs `cargo fmt
 source as written; a bare `cargo test` is not a substitute for the formatted
 check. `tests/`, `tools/`, `bench/`, examples, and benchmark data are not engine
 production source. The tools crate has its own 1,300-line budget and the
-trainer crate its own 650-line budget. Model
+trainer crate its own 1,000-line budget. Model
 assets have their own budget; see [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 
 Timing and node-reduction targets are measured on the frozen corpus and
@@ -398,7 +398,7 @@ This table records the 1.0.0 allocation. Phase 2 issues state their own
 per-module estimates within the 1,499 ceiling.
 
 The tools crate has a separate budget (650 in release 1.0.0, 1,300 in Phase 2).
-The trainer crate has a separate 650-line budget. Their code is not part of
+The trainer crate has a separate 1,000-line budget. Their code is not part of
 the engine claim and does not consume the engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
@@ -490,7 +490,7 @@ special hooks.
     table. `tools/tests/budget.rs` enforces the tools 1,300-line budget over
     `tools/src`; committed one-off data-generation scripts in `tools/examples`
     are outside that budget. `trainer/tests/budget.rs` enforces the trainer
-    650-line budget with the same metric and anti-evasion rules.
+    1,000-line budget with the same metric and anti-evasion rules.
 12. **CLI.** Validate moves and depth bounds before shifting/indexing, handle
     EOF cleanly, reject malformed input and illegal squares, and define seed
     zero for xorshift. The printer/parser round-trip is exact: parse the printed
@@ -1027,7 +1027,7 @@ a new budget and with the same discipline.
 | --- | ---: | ---: | --- |
 | Engine + playable CLI | 999 | **1,499** | `tests/budget.rs` (same metric) |
 | Tools crate | 650 | **1,300** | `tools/tests/budget.rs` |
-| Trainer crate | — | **650** | `trainer/tests/budget.rs` |
+| Trainer crate | — | **1,000** | `trainer/tests/budget.rs` |
 | Model assets | — | **4 MiB** total | Guard added with the first asset |
 
 - **Same metric, same rules:** formatted lines that are neither blank nor
@@ -1166,7 +1166,7 @@ data) must be cheap to re-run from scratch. They need no checkpointing.
 | Tools harness state leaks or invalid actions pass | Per-game agent factories; separate agent/bootstrap RNG streams; absolute side-to-move; release action validation |
 | Bootstrap intervals are degenerate | Finite-sample conservative fallback; withhold claims; define zero/one/all-equal cases and Elo endpoints |
 | Feature gains are not isolated | Compare with the preceding accepted config; ablate; predeclare selection; untouched final validation |
-| Size budget is optimistic | `<=999` engine+CLI metric, separate 1,300-line tools budget and 650-line trainer budget; Phase 2 vertical slice; cumulative counts every phase; early cuts |
+| Size budget is optimistic | `<=999` engine+CLI metric, separate 1,300-line tools budget and 1,000-line trainer budget; Phase 2 vertical slice; cumulative counts every phase; early cuts |
 | Phase gates depend on future work | Stage score tests with real dependencies; move solver timeout to Phase 6; local abort-store rule |
 | Deadline tests are flaky | Deterministic expired-deadline/node-limit tests; tolerant wall-clock smoke; define clock start and overrun |
 | DESIGN and PLAN conflict | Mark DESIGN superseded and point to these contracts |

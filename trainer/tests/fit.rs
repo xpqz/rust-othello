@@ -125,10 +125,10 @@ fn tied_asset() {
         .collect();
     let bytes = fit::asset(&stages).unwrap();
     assert_eq!(bytes.len(), 12 * pattern::TABLE_SLOTS * 2);
-    for stage in 0..12 {
+    for (stage, values) in stages.iter().enumerate() {
         for index in 0..pattern::TABLE_SLOTS {
             let canonical = fit::canonical(index as u32) as usize;
-            let expected = (stages[stage][canonical] * 100.0).round() as i16;
+            let expected = (values[canonical] * 100.0).round() as i16;
             let offset = (stage * pattern::TABLE_SLOTS + index) * 2;
             let actual = i16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
             assert_eq!(actual, expected, "stage {stage} index {index}");

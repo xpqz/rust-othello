@@ -202,7 +202,7 @@ Design calls made here, open to challenge:
 | Engine + CLI | 998 | 1,499 (unchanged) | `tests/budget.rs` |
 | of which evaluator, after the switch | 81 | 230 | reported in notes |
 | Engine total after this epic | | 1,150 | reported in notes |
-| Trainer crate (new) | 0 | 650 | `trainer/tests/budget.rs` |
+| Trainer crate (new) | 0 | 1,000 | `trainer/tests/budget.rs` |
 | Tools crate | 1,169 | 1,300 (was 1,200) | `tools/tests/budget.rs` |
 | Weights asset | none | 4 MiB (plan allowed 8) | engine test |
 
@@ -215,7 +215,7 @@ Design calls made here, open to challenge:
   - *Tools 1,300*, from 1,200. The 1.0.0 evaluator moves into
     `tools/src/baselines.rs` as a frozen opponent (about 80 lines), which
     did not fit in the 31 lines left.
-  - *Trainer 650*, from the 350 first discussed; raised from 450 after issue 123. Revision 2 added the
+  - *Trainer 1,000*, from the 350 first discussed; raised to 650 after issue 123 and 1,000 after issue 124. Revision 2 added the
     restart protocol, exact weight sharing, the layout record and the
     quantisation checks. The estimate: reader and replay 75, labelling 60,
     examples and labels 45, weight sharing 30, the fitting loop 70, restart
@@ -241,7 +241,7 @@ may use any crate it wants.
 - **Lined up:**
   - `sha2` 0.11 (RustCrypto, pure Rust): SHA-256 for the WTHOR manifest,
     the label journal and the asset. Hand-written, it would take about 60
-    of the trainer's 650 lines.
+    of the trainer's 1,000 lines.
   - `rayon`: parallel labelling by game and parallel fitting by stage,
     in place of hand-rolled thread and channel code.
   - Others at the builder's discretion.
@@ -867,5 +867,5 @@ checked against the code or the mathematics and accepted.
 | — | Golden fingerprint from `v1.0.0` | Adopted |
 | — | `stage` underflow | `saturating_sub`, tested |
 | — | Planted model must be small and supported | Two smallest families, every entry seen |
-| — | Tools 1,300 conflicts with agreed 1,200 | Raised to 1,300, and the trainer to 450, then to 650 after issue 123, with the user's approval |
+| — | Tools 1,300 conflicts with agreed 1,200 | Raised to 1,300, and the trainer to 450, then 650 after issue 123 and 1,000 after issue 124, with the user's approval |
 | — | Fit pilot before the full labelling run | Adopted in the work breakdown |

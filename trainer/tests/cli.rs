@@ -10,12 +10,10 @@ fn bin(args: &[&str]) -> std::process::Output {
 }
 
 #[test]
-fn commands_work() {
-    for command in ["fit", "inspect"] {
-        let output = bin(&[command]);
-        assert!(output.status.success(), "{command}");
-        assert_eq!(String::from_utf8_lossy(&output.stdout), "not implemented\n");
-    }
+fn inspect_not_implemented() {
+    let output = bin(&["inspect"]);
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "not implemented\n");
 }
 
 #[test]

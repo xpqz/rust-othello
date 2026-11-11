@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use othello_trainer::check::{self, Summary};
+use othello_trainer::fit;
 use othello_trainer::label;
 
 fn main() {
@@ -10,7 +11,8 @@ fn main() {
     let result = match args.first().map(String::as_str) {
         Some("check") => check_command(&args[1..]),
         Some("label") => label_command(&args[1..]),
-        Some("fit" | "inspect") => {
+        Some("fit") => fit_command(&args[1..]),
+        Some("inspect") => {
             println!("not implemented");
             Ok(())
         }
@@ -71,6 +73,29 @@ fn label_command(args: &[String]) -> Result<(), String> {
         ))
     });
     label::run(&dir, &journal, jobs, games)
+}
+
+fn fit_command(args: &[String]) -> Result<(), String> {
+    let mut root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
+    let mut options = fit::Options::default();
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--step" => options.step = real(args.next(), "--step")?,
+            "--floor" => options.floor = real(args.next(), "--floor")?,
+            "--patience" => options.patience = number(args.next(), "--patience")?,
+            "--max-passes" => options.max_passes = number(args.next(), "--max-passes")?,
+            _ => root = PathBuf::from(arg.as_str()),
+        }
+    }
+    fit::run(&root, &options)
+}
+
+fn real(value: Option<&String>, flag: &str) -> Result<f32, String> {
+    value
+        .ok_or_else(|| format!("{flag} needs a value"))?
+        .parse()
+        .map_err(|_| format!("invalid {flag}"))
 }
 
 fn number(value: Option<&String>, flag: &str) -> Result<usize, String> {

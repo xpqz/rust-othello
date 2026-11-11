@@ -1,0 +1,31 @@
+stage 0 train 4735 held 210 passes 21 seconds 0.02 held_mae 18.2057
+stage 1 train 4735 held 210 passes 500 seconds 0.42 held_mae 17.2216
+stage 2 train 4735 held 210 passes 111 seconds 0.08 held_mae 15.0775
+stage 3 train 4735 held 210 passes 97 seconds 0.07 held_mae 13.5126
+stage 4 train 4735 held 210 passes 74 seconds 0.06 held_mae 13.0279
+stage 5 train 4735 held 210 passes 73 seconds 0.04 held_mae 12.3511
+stage 6 train 4733 held 210 passes 60 seconds 0.06 held_mae 10.2563
+stage 7 train 4726 held 210 passes 53 seconds 0.03 held_mae 13.2436
+stage 8 train 4719 held 210 passes 127 seconds 0.06 held_mae 14.0473
+stage 9 train 4705 held 210 passes 60 seconds 0.06 held_mae 12.4343
+stage 10 train 4696 held 210 passes 198 seconds 0.15 held_mae 9.7328
+stage 11 train 4604 held 210 passes 397 seconds 0.27 held_mae 6.2318
+total stages 12 examples 59113 seconds 1.54
+        3.90 real         1.41 user         0.09 sys
+            44204032  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                7663  page reclaims
+                   4  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  50  voluntary context switches
+                2674  involuntary context switches
+         11678989953  instructions retired
+          4426268533  cycles elapsed
+            43352472  peak memory footprint

@@ -23,7 +23,7 @@
 //!   canonical D4 position after ply 4.
 //! - Size (Phase 2): engine plus CLI at most 1,499 formatted lines that are
 //!   neither blank nor comment-only (999 in release 1.0.0); tools at most
-//!   1,300; trainer at most 650; blank and all comment-only lines
+//!   1,300; trainer at most 1,000; blank and all comment-only lines
 //!   (`//`, `///`, `//!`, block comments) are excluded.
 
 #![forbid(unsafe_code)]
