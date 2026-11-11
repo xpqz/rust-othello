@@ -10,13 +10,6 @@ fn bin(args: &[&str]) -> std::process::Output {
 }
 
 #[test]
-fn inspect_not_implemented() {
-    let output = bin(&["inspect"]);
-    assert!(output.status.success());
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "not implemented\n");
-}
-
-#[test]
 fn check_synthetic() {
     let dir = std::env::temp_dir().join(format!("othello-check-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

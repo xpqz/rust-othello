@@ -1,12 +1,14 @@
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::process::Command;
 use std::sync::LazyLock;
 use std::time::Instant;
 
 use othello::board::{Board, empty_count};
+use othello::eval;
 use othello::pattern;
+use othello::score::EVAL_BOUND;
+use othello_tools::provenance::git_commit;
 use othello_tools::sym;
 use sha2::{Digest, Sha256};
 
@@ -229,92 +231,6 @@ pub struct Stage {
     pub curve: Vec<(f32, f32)>,
 }
 
-pub fn save_stage(path: &Path, header: &str, stage: &Stage) -> Result<(), String> {
-    let body = stage_body(stage);
-    let hash = check::digest(body.as_bytes());
-    let text = format!("{header}\n{hash}\n{body}");
-    let temporary = PathBuf::from(format!("{}.tmp", path.display()));
-    let mut file = File::create(&temporary).map_err(|error| error.to_string())?;
-    file.write_all(text.as_bytes())
-        .map_err(|error| error.to_string())?;
-    file.sync_all().map_err(|error| error.to_string())?;
-    std::fs::rename(&temporary, path).map_err(|error| error.to_string())
-}
-
-pub fn load_stage(path: &Path, header: &str) -> Result<Option<Stage>, String> {
-    read_stage_inner(path, Some(header))
-}
-
-pub fn read_stage(path: &Path) -> Result<Option<Stage>, String> {
-    read_stage_inner(path, None)
-}
-
-fn read_stage_inner(path: &Path, header: Option<&str>) -> Result<Option<Stage>, String> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.to_string()),
-    };
-    let mut lines = text.splitn(3, '\n');
-    if header.is_some_and(|header| lines.next() != Some(header)) {
-        return Ok(None);
-    }
-    let hash = lines.next();
-    let Some(body) = lines.next() else {
-        return Ok(None);
-    };
-    if header.is_some() && hash != Some(check::digest(body.as_bytes()).as_str()) {
-        return Ok(None);
-    }
-    Ok(parse_stage(body))
-}
-
-fn stage_body(stage: &Stage) -> String {
-    let curve: Vec<String> = stage
-        .curve
-        .iter()
-        .flat_map(|(train, held)| [train.to_string(), held.to_string()])
-        .collect();
-    format!(
-        "values {}\ncounts {}\ncurve {}\n",
-        join(&stage.values),
-        join(&stage.counts),
-        curve.join(" ")
-    )
-}
-
-fn join<T: ToString>(values: &[T]) -> String {
-    values
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn parse_stage(body: &str) -> Option<Stage> {
-    let mut values = None;
-    let mut counts = None;
-    let mut curve = Vec::new();
-    for line in body.lines() {
-        let mut parts = line.split_whitespace();
-        let tag = parts.next()?;
-        let numbers: Vec<f32> = parts
-            .map(|part| part.parse().ok())
-            .collect::<Option<Vec<f32>>>()?;
-        match tag {
-            "values" => values = Some(numbers),
-            "counts" => counts = Some(numbers.into_iter().map(|value| value as u32).collect()),
-            "curve" => curve = numbers.chunks(2).map(|pair| (pair[0], pair[1])).collect(),
-            _ => return None,
-        }
-    }
-    Some(Stage {
-        values: values?,
-        counts: counts?,
-        curve,
-    })
-}
-
 pub fn inspect(stage: &Stage, family: usize, count: usize) -> String {
     let start = LAYOUT.starts[family];
     let end = start + 3u32.pow(pattern::FAMILIES[family].len() as u32);
@@ -429,12 +345,23 @@ pub fn held_out(game: &Game) -> bool {
 
 pub fn run(root: &Path, options: &Options) -> Result<(), String> {
     let games = load_games(&root.join("data/wthor"))?;
-    let labels = load_labels(&root.join("data/labels.journal"))?;
+    let (labels, journal_sha) = load_labels(&root.join("data/labels.journal"))?;
+    let manifest_sha = hash_file(&root.join("trainer/wthor.sha256"))?;
+    let fingerprint = layout_fingerprint();
+    let commit = git_commit();
+    let (toolchain, target) = toolchain();
+    let quality = label_quality(&games, &labels);
     let start = Instant::now();
+    let mut stages = Vec::new();
+    let mut reports = Vec::new();
     let mut total = 0;
     for stage in 0..pattern::STAGES {
         let mut train = Vec::new();
         let mut held = Vec::new();
+        let mut counts = vec![0u32; pattern::TABLE_SLOTS];
+        let mut classic = Corr::default();
+        let mut classic_abs = 0.0;
+        let mut zero_abs = 0.0;
         for (key, values) in &labels {
             let Some(game) = games.get(key) else {
                 continue;
@@ -443,7 +370,7 @@ pub fn run(root: &Path, options: &Options) -> Result<(), String> {
             if replay.positions.len() != values.len() {
                 return Err(format!("{key}: label count mismatch"));
             }
-            let held_out = held_out(game);
+            let is_held = held_out(game);
             for (ply, &(board, _)) in replay.positions.iter().enumerate() {
                 if pattern::stage(empty_count(board)) != stage {
                     continue;
@@ -452,14 +379,18 @@ pub fn run(root: &Path, options: &Options) -> Result<(), String> {
                     .iter()
                     .map(|&feature| canonical(feature))
                     .collect();
-                let example = Example {
-                    features,
-                    label: values[ply],
-                };
-                if held_out {
-                    held.push(example);
+                let label = values[ply];
+                if is_held {
+                    let value = eval::evaluate(board) as f32 / 100.0;
+                    classic.add(value, label);
+                    classic_abs += (value - label).abs();
+                    zero_abs += label.abs();
+                    held.push(Example { features, label });
                 } else {
-                    train.push(example);
+                    for &feature in &features {
+                        counts[feature as usize] += 1;
+                    }
+                    train.push(Example { features, label });
                 }
             }
         }
@@ -469,21 +400,247 @@ pub fn run(root: &Path, options: &Options) -> Result<(), String> {
         let started = Instant::now();
         let fit = fit(pattern::TABLE_SLOTS, &train, &held, options);
         let error = mae(&fit.values, &held);
+        let rounded: Vec<f32> = quantise(&fit.values)?
+            .iter()
+            .map(|value| *value as f32 / 100.0)
+            .collect();
+        let held_count = held.len() as f32;
+        reports.push(StageReport {
+            stage,
+            curve: fit.curve.clone(),
+            held: error,
+            rounded: mae(&rounded, &held),
+            zero: zero_abs / held_count,
+            classic: classic_abs / held_count,
+            correlation: classic.value(),
+            nonzero: fit.values.iter().filter(|value| **value != 0.0).count() as f32
+                / pattern::TABLE_SLOTS as f32,
+            largest: fit
+                .values
+                .iter()
+                .fold(0.0f32, |max, value| max.max(value.abs())),
+        });
+        stages.push(Stage {
+            values: fit.values,
+            counts,
+            curve: fit.curve,
+        });
         total += train.len() + held.len();
         println!(
             "stage {stage} train {} held {} passes {} seconds {:.2} held_mae {error:.4}",
             train.len(),
             held.len(),
-            fit.curve.len(),
+            stages.last().unwrap().curve.len(),
             started.elapsed().as_secs_f64()
         );
     }
+    for dir in ["assets", "data/fit", "docs/tuning"] {
+        std::fs::create_dir_all(root.join(dir)).map_err(|error| error.to_string())?;
+    }
+    let values: Vec<Vec<f32>> = stages.iter().map(|stage| stage.values.clone()).collect();
+    let asset = self::asset(&values)?;
+    let asset_sha = check::digest(&asset);
+    write(&root.join("assets/eval.bin"), &asset)?;
+    write_counts(&root.join("data/fit/counts.bin"), &stages)?;
+    write_layout(
+        &root.join("assets/eval.layout"),
+        &fingerprint,
+        &asset_sha,
+        &commit,
+        &asset,
+    )?;
+    let report = Report {
+        inputs: vec![
+            ("trainer".into(), commit),
+            ("toolchain".into(), toolchain),
+            ("target".into(), target),
+            (
+                "profile".into(),
+                if cfg!(debug_assertions) {
+                    "debug".into()
+                } else {
+                    "release".into()
+                },
+            ),
+            ("manifest".into(), manifest_sha),
+            ("journal".into(), journal_sha),
+            ("layout".into(), fingerprint),
+            ("games".into(), labels.len().to_string()),
+            ("rejected".into(), "0".into()),
+            ("positions".into(), total.to_string()),
+        ],
+        constants: *options,
+        stages: reports,
+        label_quality: quality,
+        asset_sha,
+    };
+    write(
+        &root.join("docs/tuning/pattern_fit.log"),
+        self::report(&report).as_bytes(),
+    )?;
     println!(
         "total stages {} examples {total} seconds {:.2}",
         pattern::STAGES,
         start.elapsed().as_secs_f64()
     );
     Ok(())
+}
+
+fn hash_file(path: &Path) -> Result<String, String> {
+    let bytes = std::fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
+    Ok(check::digest(&bytes))
+}
+
+fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    std::fs::write(path, bytes).map_err(|error| format!("{}: {error}", path.display()))
+}
+
+fn toolchain() -> (String, String) {
+    let version = Command::new("rustc")
+        .arg("--version")
+        .output()
+        .ok()
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let verbose = Command::new("rustc")
+        .arg("-vV")
+        .output()
+        .ok()
+        .map(|output| String::from_utf8_lossy(&output.stdout).into_owned())
+        .unwrap_or_default();
+    let target = verbose
+        .lines()
+        .find_map(|line| line.strip_prefix("host: "))
+        .unwrap_or("unknown")
+        .to_string();
+    (version, target)
+}
+
+fn layout_fingerprint() -> String {
+    let mut text = format!(
+        "stages {} table {} digits 0,1,2\n",
+        pattern::STAGES,
+        pattern::TABLE_SLOTS
+    );
+    for instance in pattern::instances() {
+        text.push_str(&format!(
+            "{} {} {:?}\n",
+            instance.family, instance.offset, instance.squares
+        ));
+    }
+    check::digest(text.as_bytes())
+}
+
+fn label_quality(games: &BTreeMap<String, Game>, labels: &BTreeMap<String, Vec<f32>>) -> f32 {
+    let mut correlation = Corr::default();
+    for (key, values) in labels {
+        let Some(game) = games.get(key) else {
+            continue;
+        };
+        let Ok(replay) = wthor::replay(game) else {
+            continue;
+        };
+        if replay.positions.len() != values.len() {
+            continue;
+        }
+        if let Some((ply, &(_, black))) = replay
+            .positions
+            .iter()
+            .enumerate()
+            .find(|(_, (board, _))| empty_count(*board) <= 14)
+        {
+            let value = if black { values[ply] } else { -values[ply] };
+            correlation.add(2.0 * game.theoretical as f32 - 64.0, value);
+        }
+    }
+    correlation.value()
+}
+
+fn write_counts(path: &Path, stages: &[Stage]) -> Result<(), String> {
+    let mut bytes = Vec::with_capacity(stages.len() * pattern::TABLE_SLOTS * 4);
+    for stage in stages {
+        for &count in &stage.counts {
+            bytes.extend_from_slice(&count.to_le_bytes());
+        }
+    }
+    write(path, &bytes)
+}
+
+fn write_layout(
+    path: &Path,
+    fingerprint: &str,
+    asset_sha: &str,
+    commit: &str,
+    asset: &[u8],
+) -> Result<(), String> {
+    let mut text = format!("layout {fingerprint}\nasset {asset_sha}\ncommit {commit}\n");
+    for board in fixed_boards() {
+        let stage = pattern::stage(empty_count(board));
+        let value: i32 = pattern::features(board)
+            .iter()
+            .map(|&feature| {
+                let offset = (stage * pattern::TABLE_SLOTS + feature as usize) * 2;
+                i16::from_le_bytes([asset[offset], asset[offset + 1]]) as i32
+            })
+            .sum();
+        let value = value.clamp(-EVAL_BOUND, EVAL_BOUND);
+        text.push_str(&format!(
+            "board {:016x} {:016x} {value}\n",
+            board.me, board.opp
+        ));
+    }
+    write(path, text.as_bytes())
+}
+
+fn fixed_boards() -> Vec<Board> {
+    let mut boards = vec![Board::START];
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/corpus.txt"))
+        .unwrap_or_default();
+    boards.extend(
+        text.lines()
+            .filter(|line| !line.starts_with('#'))
+            .filter_map(|line| {
+                let mut parts = line.split_whitespace();
+                let me = u64::from_str_radix(parts.next()?, 16).ok()?;
+                let opp = u64::from_str_radix(parts.next()?, 16).ok()?;
+                Some(Board { me, opp })
+            })
+            .filter(|board| (board.me | board.opp).count_ones() >= 40)
+            .take(3),
+    );
+    boards
+}
+
+#[derive(Default)]
+struct Corr {
+    n: f64,
+    x: f64,
+    y: f64,
+    xx: f64,
+    yy: f64,
+    xy: f64,
+}
+
+impl Corr {
+    fn add(&mut self, x: f32, y: f32) {
+        let (x, y) = (f64::from(x), f64::from(y));
+        self.n += 1.0;
+        self.x += x;
+        self.y += y;
+        self.xx += x * x;
+        self.yy += y * y;
+        self.xy += x * y;
+    }
+
+    fn value(&self) -> f32 {
+        let denominator =
+            ((self.n * self.xx - self.x * self.x) * (self.n * self.yy - self.y * self.y)).sqrt();
+        if denominator == 0.0 {
+            0.0
+        } else {
+            ((self.n * self.xy - self.x * self.y) / denominator) as f32
+        }
+    }
 }
 
 fn load_games(dir: &Path) -> Result<BTreeMap<String, Game>, String> {
@@ -503,17 +660,66 @@ fn load_games(dir: &Path) -> Result<BTreeMap<String, Game>, String> {
     Ok(games)
 }
 
-fn load_labels(path: &Path) -> Result<BTreeMap<String, Vec<f32>>, String> {
-    let (_, records) = othello_tools::journal::read(path)?;
+fn load_labels(path: &Path) -> Result<(BTreeMap<String, Vec<f32>>, String), String> {
+    let (_, mut records) = othello_tools::journal::read(path)?;
+    records.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut text = String::new();
     let mut labels = BTreeMap::new();
-    for record in records {
+    for record in &records {
+        text.push_str(&format!("{}\t{}\n", record.id, record.line));
         let values: Vec<f32> = record
             .line
             .split_whitespace()
             .map(|part| part.parse::<i32>().map(|value| value as f32))
             .collect::<Result<_, _>>()
             .map_err(|_| format!("{}: invalid label", record.id))?;
-        labels.insert(record.id, values);
+        labels.insert(record.id.clone(), values);
     }
-    Ok(labels)
+    Ok((labels, check::digest(text.as_bytes())))
+}
+
+pub fn inspect_path(
+    root: &Path,
+    family: usize,
+    stage: usize,
+    count: usize,
+) -> Result<String, String> {
+    if stage >= pattern::STAGES {
+        return Err("invalid stage".into());
+    }
+    let asset = std::fs::read(root.join("assets/eval.bin"))
+        .map_err(|error| format!("assets/eval.bin: {error}"))?;
+    let counts = std::fs::read(root.join("data/fit/counts.bin"))
+        .map_err(|error| format!("data/fit/counts.bin: {error}"))?;
+    let table = pattern::TABLE_SLOTS;
+    if asset.len() != pattern::STAGES * table * 2 || counts.len() != pattern::STAGES * table * 4 {
+        return Err("asset or counts file has the wrong size".into());
+    }
+    let start = stage * table;
+    let values: Vec<f32> = (0..table)
+        .map(|index| {
+            let offset = (start + index) * 2;
+            i16::from_le_bytes([asset[offset], asset[offset + 1]]) as f32 / 100.0
+        })
+        .collect();
+    let counts: Vec<u32> = (0..table)
+        .map(|index| {
+            let offset = (start + index) * 4;
+            u32::from_le_bytes([
+                counts[offset],
+                counts[offset + 1],
+                counts[offset + 2],
+                counts[offset + 3],
+            ])
+        })
+        .collect();
+    Ok(inspect(
+        &Stage {
+            values,
+            counts,
+            curve: Vec::new(),
+        },
+        family,
+        count,
+    ))
 }

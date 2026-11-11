@@ -12,10 +12,7 @@ fn main() {
         Some("check") => check_command(&args[1..]),
         Some("label") => label_command(&args[1..]),
         Some("fit") => fit_command(&args[1..]),
-        Some("inspect") => {
-            println!("not implemented");
-            Ok(())
-        }
+        Some("inspect") => inspect_command(&args[1..]),
         _ => Err("usage: othello-trainer check|label|fit|inspect".into()),
     };
     if let Err(message) = result {
@@ -89,6 +86,43 @@ fn fit_command(args: &[String]) -> Result<(), String> {
         }
     }
     fit::run(&root, &options)
+}
+
+fn inspect_command(args: &[String]) -> Result<(), String> {
+    let names = [
+        "edge",
+        "corner3",
+        "corner2x5",
+        "row2",
+        "row3",
+        "row4",
+        "diag8",
+        "diag7",
+        "diag6",
+        "diag5",
+        "diag4",
+    ];
+    let mut root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
+    let mut family = 0;
+    let mut stage = 0;
+    let mut count = 10;
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--family" => {
+                let name = args.next().ok_or("--family needs a value")?;
+                family = names
+                    .iter()
+                    .position(|family| *family == name.as_str())
+                    .ok_or_else(|| format!("unknown family {name}"))?;
+            }
+            "--stage" => stage = number(args.next(), "--stage")?,
+            "--count" => count = number(args.next(), "--count")?,
+            _ => root = PathBuf::from(arg.as_str()),
+        }
+    }
+    print!("{}", fit::inspect_path(&root, family, stage, count)?);
+    Ok(())
 }
 
 fn real(value: Option<&String>, flag: &str) -> Result<f32, String> {

@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use othello::board::Board;
 use othello::pattern;
 use othello::rng::Rng;
@@ -211,39 +209,6 @@ fn early_stop() {
 }
 
 #[test]
-fn stage_restart() {
-    let dir = temp_dir("stage");
-    let path = dir.join("stage_00");
-    let stage = Stage {
-        values: vec![1.0, 2.0, 3.0],
-        counts: vec![4, 5, 6],
-        curve: vec![(0.5, 0.6)],
-    };
-    fit::save_stage(&path, "header", &stage).unwrap();
-    assert_eq!(
-        fit::load_stage(&path, "header").unwrap(),
-        Some(stage.clone())
-    );
-    assert!(fit::load_stage(&path, "other").unwrap().is_none());
-
-    std::fs::write(format!("{}.tmp", path.display()), b"partial").unwrap();
-    assert_eq!(
-        fit::load_stage(&path, "header").unwrap(),
-        Some(stage.clone())
-    );
-    std::fs::remove_file(&path).unwrap();
-    assert!(fit::load_stage(&path, "header").unwrap().is_none());
-
-    fit::save_stage(&path, "header", &stage).unwrap();
-    let mut bytes = std::fs::read(&path).unwrap();
-    let last = bytes.len() - 1;
-    bytes[last] = b'x';
-    std::fs::write(&path, bytes).unwrap();
-    assert!(fit::load_stage(&path, "header").unwrap().is_none());
-    std::fs::remove_dir_all(dir).unwrap();
-}
-
-#[test]
 fn inspect_output() {
     let mut stage = Stage {
         values: vec![0.0; pattern::TABLE_SLOTS],
@@ -443,11 +408,4 @@ fn boards() -> Vec<Board> {
             .take(3),
     );
     boards
-}
-
-fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("othello-fit-{}-{name}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
 }
