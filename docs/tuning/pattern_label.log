@@ -1,0 +1,69 @@
+20ab951a443b065dba43f7d0fa28273f1da6d930
+Wed 11 Nov 2026 14:10:24 CET
+progress lines     1817 / 137548 elapsed 60s
+progress lines     4369 / 137548 elapsed 120s
+progress lines     7068 / 137548 elapsed 180s
+progress lines     9988 / 137548 elapsed 241s
+progress lines    12768 / 137548 elapsed 301s
+progress lines    15683 / 137548 elapsed 361s
+progress lines    18289 / 137548 elapsed 421s
+progress lines    21007 / 137548 elapsed 481s
+progress lines    23780 / 137548 elapsed 541s
+progress lines    26324 / 137548 elapsed 601s
+progress lines    29052 / 137548 elapsed 661s
+progress lines    31613 / 137548 elapsed 721s
+progress lines    34266 / 137548 elapsed 781s
+progress lines    37126 / 137548 elapsed 841s
+progress lines    40001 / 137548 elapsed 901s
+progress lines    42530 / 137548 elapsed 961s
+progress lines    45145 / 137548 elapsed 1021s
+progress lines    47940 / 137548 elapsed 1081s
+progress lines    50626 / 137548 elapsed 1141s
+progress lines    53357 / 137548 elapsed 1201s
+progress lines    56203 / 137548 elapsed 1261s
+progress lines    58962 / 137548 elapsed 1321s
+progress lines    61721 / 137548 elapsed 1381s
+progress lines    64512 / 137548 elapsed 1441s
+progress lines    67191 / 137548 elapsed 1501s
+progress lines    69810 / 137548 elapsed 1561s
+progress lines    72420 / 137548 elapsed 1621s
+progress lines    75078 / 137548 elapsed 1681s
+progress lines    77897 / 137548 elapsed 1741s
+progress lines    80597 / 137548 elapsed 1801s
+progress lines    83257 / 137548 elapsed 1861s
+progress lines    85904 / 137548 elapsed 1921s
+progress lines    88505 / 137548 elapsed 1981s
+progress lines    91235 / 137548 elapsed 2041s
+progress lines    94067 / 137548 elapsed 2101s
+progress lines    96890 / 137548 elapsed 2161s
+progress lines    99650 / 137548 elapsed 2221s
+progress lines   102411 / 137548 elapsed 2282s
+progress lines   105136 / 137548 elapsed 2342s
+progress lines   107763 / 137548 elapsed 2402s
+progress lines   110490 / 137548 elapsed 2462s
+progress lines   113307 / 137548 elapsed 2522s
+progress lines   115910 / 137548 elapsed 2582s
+progress lines   118519 / 137548 elapsed 2642s
+progress lines   121216 / 137548 elapsed 2702s
+progress lines   124004 / 137548 elapsed 2762s
+progress lines   126736 / 137548 elapsed 2822s
+progress lines   129280 / 137548 elapsed 2882s
+progress lines   130698 / 137548 elapsed 2942s
+progress lines   131273 / 137548 elapsed 3002s
+progress lines   131843 / 137548 elapsed 3062s
+progress lines   132415 / 137548 elapsed 3122s
+progress lines   132991 / 137548 elapsed 3182s
+progress lines   133554 / 137548 elapsed 3242s
+progress lines   134083 / 137548 elapsed 3302s
+progress lines   134626 / 137548 elapsed 3362s
+progress lines   135178 / 137548 elapsed 3422s
+progress lines   135665 / 137548 elapsed 3482s
+progress lines   136204 / 137548 elapsed 3542s
+--- resume ---
+20ab951a443b065dba43f7d0fa28273f1da6d930
+Wed 11 Nov 2026 15:13:58 CET
+games 369 positions 22125 rejected 413 elapsed 12.35s
+real 12.60
+user 49.44
+sys 0.93
+full labelling summary: 137135 labels, 413 rejected; the first run was killed at the 3600 s tool limit after 136766 labels, and the same command resumed in 12.35 s for the remaining 369 valid games.

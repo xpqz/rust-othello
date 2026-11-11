@@ -1,0 +1,195 @@
+sweep commit 20ab951a443b065dba43f7d0fa28273f1da6d930
+full labels 137135, rejected 413
+=== step 0.005 floor 25 patience 100 max 2000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 8.35 held_mae 14.3364
+stage 1 train 651229 held 34445 passes 2000 seconds 139.45 held_mae 14.1266
+stage 2 train 651203 held 34445 passes 746 seconds 49.07 held_mae 13.5299
+stage 3 train 651158 held 34445 passes 617 seconds 44.00 held_mae 12.6432
+stage 4 train 651138 held 34445 passes 633 seconds 44.80 held_mae 11.4272
+stage 5 train 651135 held 34445 passes 626 seconds 104.24 held_mae 9.9242
+stage 6 train 651125 held 34445 passes 822 seconds 41.65 held_mae 8.0713
+stage 7 train 651021 held 34441 passes 696 seconds 38.55 held_mae 9.0244
+stage 8 train 650695 held 34425 passes 677 seconds 37.95 held_mae 9.2891
+stage 9 train 649954 held 34391 passes 960 seconds 55.49 held_mae 7.3340
+stage 10 train 648687 held 34325 passes 860 seconds 48.19 held_mae 6.5375
+stage 11 train 640569 held 33923 passes 1236 seconds 66.73 held_mae 3.6648
+total stages 12 examples 8211764 seconds 710.34
+
+=== step 0.005 floor 50 patience 100 max 2000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 8.31 held_mae 14.3364
+stage 1 train 651229 held 34445 passes 1897 seconds 131.82 held_mae 14.1254
+stage 2 train 651203 held 34445 passes 760 seconds 48.82 held_mae 13.5272
+stage 3 train 651158 held 34445 passes 636 seconds 45.13 held_mae 12.6401
+stage 4 train 651138 held 34445 passes 650 seconds 47.72 held_mae 11.4159
+stage 5 train 651135 held 34445 passes 725 seconds 64.63 held_mae 9.9190
+stage 6 train 651125 held 34445 passes 973 seconds 68.74 held_mae 8.0614
+stage 7 train 651021 held 34441 passes 791 seconds 44.76 held_mae 9.0063
+stage 8 train 650695 held 34425 passes 768 seconds 42.74 held_mae 9.2652
+stage 9 train 649954 held 34391 passes 1086 seconds 62.86 held_mae 7.3178
+stage 10 train 648687 held 34325 passes 962 seconds 53.89 held_mae 6.5191
+stage 11 train 640569 held 33923 passes 1512 seconds 81.60 held_mae 3.6592
+total stages 12 examples 8211764 seconds 739.59
+
+=== step 0.005 floor 100 patience 100 max 2000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 8.32 held_mae 14.3364
+stage 1 train 651229 held 34445 passes 2000 seconds 138.91 held_mae 14.1246
+stage 2 train 651203 held 34445 passes 763 seconds 49.84 held_mae 13.5240
+stage 3 train 651158 held 34445 passes 682 seconds 48.68 held_mae 12.6391
+stage 4 train 651138 held 34445 passes 766 seconds 62.31 held_mae 11.4066
+stage 5 train 651135 held 34445 passes 1189 seconds 113.21 held_mae 9.9163
+stage 6 train 651125 held 34445 passes 1352 seconds 69.44 held_mae 8.0557
+stage 7 train 651021 held 34441 passes 1010 seconds 54.49 held_mae 8.9950
+stage 8 train 650695 held 34425 passes 995 seconds 54.17 held_mae 9.2472
+stage 9 train 649954 held 34391 passes 1340 seconds 74.50 held_mae 7.3083
+stage 10 train 648687 held 34325 passes 1191 seconds 64.66 held_mae 6.5091
+stage 11 train 640569 held 33923 passes 2000 seconds 102.17 held_mae 3.6594
+total stages 12 examples 8211764 seconds 876.58
+
+=== step 0.005 floor 200 patience 100 max 4000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.25 held_mae 14.3364
+stage 1 train 651229 held 34445 passes 2458 seconds 156.69 held_mae 14.1242
+stage 2 train 651203 held 34445 passes 794 seconds 46.45 held_mae 13.5229
+stage 3 train 651158 held 34445 passes 795 seconds 43.69 held_mae 12.6419
+stage 4 train 651138 held 34445 passes 1167 seconds 60.56 held_mae 11.4009
+stage 5 train 651135 held 34445 passes 2101 seconds 97.90 held_mae 9.9136
+stage 6 train 651125 held 34445 passes 2375 seconds 110.63 held_mae 8.0534
+stage 7 train 651021 held 34441 passes 1494 seconds 73.22 held_mae 8.9912
+stage 8 train 650695 held 34425 passes 1361 seconds 69.27 held_mae 9.2368
+stage 9 train 649954 held 34391 passes 2013 seconds 104.73 held_mae 7.3039
+stage 10 train 648687 held 34325 passes 1742 seconds 91.42 held_mae 6.5067
+stage 11 train 640569 held 33923 passes 4000 seconds 200.76 held_mae 3.6591
+total stages 12 examples 8211764 seconds 1091.31
+
+=== step 0.01 floor 25 patience 100 max 2000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.51 held_mae 14.3389
+stage 1 train 651229 held 34445 passes 1119 seconds 74.36 held_mae 14.1265
+stage 2 train 651203 held 34445 passes 421 seconds 25.80 held_mae 13.5300
+stage 3 train 651158 held 34445 passes 358 seconds 20.19 held_mae 12.6433
+stage 4 train 651138 held 34445 passes 367 seconds 19.04 held_mae 11.4272
+stage 5 train 651135 held 34445 passes 358 seconds 17.31 held_mae 9.9243
+stage 6 train 651125 held 34445 passes 461 seconds 24.02 held_mae 8.0713
+stage 7 train 651021 held 34441 passes 398 seconds 21.71 held_mae 9.0245
+stage 8 train 650695 held 34425 passes 388 seconds 21.80 held_mae 9.2891
+stage 9 train 649954 held 34391 passes 530 seconds 30.19 held_mae 7.3340
+stage 10 train 648687 held 34325 passes 480 seconds 27.21 held_mae 6.5375
+stage 11 train 640569 held 33923 passes 668 seconds 35.86 held_mae 3.6648
+total stages 12 examples 8211764 seconds 354.85
+
+=== step 0.01 floor 50 patience 100 max 2000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.50 held_mae 14.3389
+stage 1 train 651229 held 34445 passes 993 seconds 66.05 held_mae 14.1254
+stage 2 train 651203 held 34445 passes 429 seconds 26.14 held_mae 13.5272
+stage 3 train 651158 held 34445 passes 383 seconds 21.66 held_mae 12.6402
+stage 4 train 651138 held 34445 passes 380 seconds 19.74 held_mae 11.4159
+stage 5 train 651135 held 34445 passes 412 seconds 19.85 held_mae 9.9191
+stage 6 train 651125 held 34445 passes 536 seconds 27.73 held_mae 8.0614
+stage 7 train 651021 held 34441 passes 445 seconds 24.23 held_mae 9.0063
+stage 8 train 650695 held 34425 passes 441 seconds 24.96 held_mae 9.2653
+stage 9 train 649954 held 34391 passes 593 seconds 34.47 held_mae 7.3178
+stage 10 train 648687 held 34325 passes 526 seconds 29.20 held_mae 6.5191
+stage 11 train 640569 held 33923 passes 806 seconds 43.11 held_mae 3.6592
+total stages 12 examples 8211764 seconds 374.51
+
+=== step 0.01 floor 100 patience 100 max 2000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.53 held_mae 14.3389
+stage 1 train 651229 held 34445 passes 1221 seconds 81.17 held_mae 14.1242
+stage 2 train 651203 held 34445 passes 444 seconds 27.14 held_mae 13.5240
+stage 3 train 651158 held 34445 passes 401 seconds 22.63 held_mae 12.6391
+stage 4 train 651138 held 34445 passes 433 seconds 22.47 held_mae 11.4066
+stage 5 train 651135 held 34445 passes 644 seconds 32.74 held_mae 9.9163
+stage 6 train 651125 held 34445 passes 721 seconds 37.35 held_mae 8.0557
+stage 7 train 651021 held 34441 passes 554 seconds 30.33 held_mae 8.9950
+stage 8 train 650695 held 34425 passes 547 seconds 29.79 held_mae 9.2472
+stage 9 train 649954 held 34391 passes 730 seconds 40.09 held_mae 7.3083
+stage 10 train 648687 held 34325 passes 645 seconds 36.69 held_mae 6.5091
+stage 11 train 640569 held 33923 passes 1231 seconds 63.57 held_mae 3.6590
+total stages 12 examples 8211764 seconds 461.30
+
+=== step 0.01 floor 200 patience 100 max 2300 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.25 held_mae 14.3389
+stage 1 train 651229 held 34445 passes 1712 seconds 109.14 held_mae 14.1237
+stage 2 train 651203 held 34445 passes 464 seconds 27.40 held_mae 13.5229
+stage 3 train 651158 held 34445 passes 453 seconds 24.62 held_mae 12.6419
+stage 4 train 651138 held 34445 passes 633 seconds 31.65 held_mae 11.4009
+stage 5 train 651135 held 34445 passes 1100 seconds 51.57 held_mae 9.9136
+stage 6 train 651125 held 34445 passes 1229 seconds 58.35 held_mae 8.0534
+stage 7 train 651021 held 34441 passes 796 seconds 39.48 held_mae 8.9912
+stage 8 train 650695 held 34425 passes 730 seconds 38.81 held_mae 9.2368
+stage 9 train 649954 held 34391 passes 1071 seconds 55.68 held_mae 7.3039
+stage 10 train 648687 held 34325 passes 930 seconds 48.57 held_mae 6.5067
+stage 11 train 640569 held 33923 passes 2300 seconds 116.07 held_mae 3.6590
+total stages 12 examples 8211764 seconds 637.31
+
+=== step 0.02 floor 25 patience 100 max 1000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.34 held_mae 14.3439
+stage 1 train 651229 held 34445 passes 897 seconds 58.41 held_mae 14.1261
+stage 2 train 651203 held 34445 passes 261 seconds 15.59 held_mae 13.5300
+stage 3 train 651158 held 34445 passes 229 seconds 12.50 held_mae 12.6434
+stage 4 train 651138 held 34445 passes 233 seconds 11.64 held_mae 11.4273
+stage 5 train 651135 held 34445 passes 231 seconds 10.68 held_mae 9.9244
+stage 6 train 651125 held 34445 passes 278 seconds 12.97 held_mae 8.0714
+stage 7 train 651021 held 34441 passes 248 seconds 12.11 held_mae 9.0246
+stage 8 train 650695 held 34425 passes 244 seconds 12.31 held_mae 9.2893
+stage 9 train 649954 held 34391 passes 313 seconds 16.16 held_mae 7.3340
+stage 10 train 648687 held 34325 passes 289 seconds 15.34 held_mae 6.5376
+stage 11 train 640569 held 33923 passes 380 seconds 19.54 held_mae 3.6649
+total stages 12 examples 8211764 seconds 233.43
+
+=== step 0.02 floor 50 patience 100 max 1000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.33 held_mae 14.3439
+stage 1 train 651229 held 34445 passes 611 seconds 39.37 held_mae 14.1252
+stage 2 train 651203 held 34445 passes 264 seconds 16.24 held_mae 13.5273
+stage 3 train 651158 held 34445 passes 238 seconds 13.18 held_mae 12.6403
+stage 4 train 651138 held 34445 passes 241 seconds 12.11 held_mae 11.4160
+stage 5 train 651135 held 34445 passes 258 seconds 11.94 held_mae 9.9192
+stage 6 train 651125 held 34445 passes 318 seconds 14.76 held_mae 8.0615
+stage 7 train 651021 held 34441 passes 275 seconds 13.51 held_mae 9.0064
+stage 8 train 650695 held 34425 passes 270 seconds 14.13 held_mae 9.2653
+stage 9 train 649954 held 34391 passes 352 seconds 18.17 held_mae 7.3178
+stage 10 train 648687 held 34325 passes 319 seconds 16.58 held_mae 6.5191
+stage 11 train 640569 held 33923 passes 451 seconds 23.60 held_mae 3.6592
+total stages 12 examples 8211764 seconds 229.68
+
+=== step 0.02 floor 100 patience 100 max 1000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.34 held_mae 14.3439
+stage 1 train 651229 held 34445 passes 783 seconds 50.38 held_mae 14.1240
+stage 2 train 651203 held 34445 passes 271 seconds 16.80 held_mae 13.5241
+stage 3 train 651158 held 34445 passes 252 seconds 13.80 held_mae 12.6392
+stage 4 train 651138 held 34445 passes 264 seconds 13.18 held_mae 11.4067
+stage 5 train 651135 held 34445 passes 385 seconds 17.76 held_mae 9.9163
+stage 6 train 651125 held 34445 passes 413 seconds 19.33 held_mae 8.0557
+stage 7 train 651021 held 34441 passes 326 seconds 15.89 held_mae 8.9950
+stage 8 train 650695 held 34425 passes 322 seconds 16.40 held_mae 9.2472
+stage 9 train 649954 held 34391 passes 414 seconds 22.63 held_mae 7.3084
+stage 10 train 648687 held 34325 passes 372 seconds 19.79 held_mae 6.5092
+stage 11 train 640569 held 33923 passes 677 seconds 34.72 held_mae 3.6590
+total stages 12 examples 8211764 seconds 276.75
+
+=== step 0.02 floor 200 patience 100 max 1000 ===
+stage 0 train 651230 held 34445 passes 101 seconds 7.32 held_mae 14.3440
+stage 1 train 651229 held 34445 passes 1000 seconds 65.08 held_mae 14.1235
+stage 2 train 651203 held 34445 passes 273 seconds 16.26 held_mae 13.5230
+stage 3 train 651158 held 34445 passes 273 seconds 14.90 held_mae 12.6420
+stage 4 train 651138 held 34445 passes 366 seconds 18.30 held_mae 11.4009
+stage 5 train 651135 held 34445 passes 600 seconds 27.82 held_mae 9.9136
+stage 6 train 651125 held 34445 passes 665 seconds 31.23 held_mae 8.0534
+stage 7 train 651021 held 34441 passes 454 seconds 23.44 held_mae 8.9913
+stage 8 train 650695 held 34425 passes 414 seconds 21.55 held_mae 9.2368
+stage 9 train 649954 held 34391 passes 591 seconds 31.05 held_mae 7.3040
+stage 10 train 648687 held 34325 passes 504 seconds 27.30 held_mae 6.5067
+stage 11 train 640569 held 33923 passes 1000 seconds 50.92 held_mae 3.6591
+total stages 12 examples 8211764 seconds 363.98
+
+summary (weighted mean held MAE; max-hit stages)
+0.005 floor 25 max 2000: mean 10.0018 maxhit [1]
+0.005 floor 50 max 2000: mean 9.9922 maxhit []
+0.005 floor 100 max 2000: mean 9.9862 maxhit [1, 11]
+0.005 floor 200 max 4000: mean 9.9836 maxhit [11]
+0.01 floor 25 max 2000: mean 10.0020 maxhit []
+0.01 floor 50 max 2000: mean 9.9924 maxhit []
+0.01 floor 100 max 2000: mean 9.9863 maxhit []
+0.01 floor 200 max 2300: mean 9.9838 maxhit [11]
+0.02 floor 25 max 1000: mean 10.0025 maxhit []
+0.02 floor 50 max 1000: mean 9.9928 maxhit []
+0.02 floor 100 max 1000: mean 9.9868 maxhit []
+0.02 floor 200 max 1000: mean 9.9843 maxhit [1, 11]
