@@ -25,7 +25,7 @@ to the first legal move.
 
 The side panel has two session-persistent toggles, both off by default.
 **Opponent move counts** prints on each of your legal moves the number of
-legal moves the opponent would have afterwards; a red-ringed `0` means the
-move forces a pass. **Frontier discs** rings your discs that touch at least
+legal moves the opponent would have afterwards; an amber-ringed `0` means
+the move forces a pass. **Frontier discs** rings your discs that touch at least
 one empty square. Prefer moves that leave you few discs touching empty
 squares, and leave the opponent few moves.
