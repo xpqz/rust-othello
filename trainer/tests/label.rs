@@ -147,7 +147,7 @@ fn pass_chain() {
     let mut ctx = Ctx::new(&config);
     let mut solver = |position| solve_with(position, &mut ctx);
     let labels = label::labels(p3, &games[0], &replay, &mut solver).unwrap();
-    let chain: Vec<(bool, i32)> = labels
+    let mut chain: Vec<(bool, i32)> = labels
         .iter()
         .filter(|label| empty_count(label.board) <= 10)
         .map(|label| {
@@ -162,16 +162,16 @@ fn pass_chain() {
         })
         .collect();
     assert!(chain.len() > 2);
+    chain.push((replay.final_black, 48));
     for pair in chain.windows(2) {
         let (black, value) = pair[0];
         let next = pair[1].1;
         if black {
-            assert!(next >= value, "{value} fell to {next} after black");
+            assert!(next <= value, "{value} rose to {next} after black");
         } else {
-            assert!(next <= value, "{value} rose to {next} after white");
+            assert!(next >= value, "{value} fell to {next} after white");
         }
     }
-    assert_eq!(chain.last().unwrap().1, 48);
 }
 
 #[test]
