@@ -45,12 +45,11 @@ fn manifest(hash: &str, name: &str) -> String {
 
 #[test]
 fn header_fields() {
-    let db = wthor::read(&archive(&[record(&GAME, 8, 8)], 2025, 24)).unwrap();
-    assert_eq!(db.header.games, 1);
-    assert_eq!(db.header.year, 2025);
-    assert_eq!(db.header.p3, 24);
-    let db = wthor::read(&archive(&[record(&GAME, 8, 8)], 2025, 0)).unwrap();
-    assert_eq!(db.header.p3, 22);
+    let (p3, records) = wthor::read(&archive(&[record(&GAME, 8, 8)], 2025, 24)).unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(p3, 24);
+    let (p3, _) = wthor::read(&archive(&[record(&GAME, 8, 8)], 2025, 0)).unwrap();
+    assert_eq!(p3, 22);
 }
 
 #[test]
@@ -74,48 +73,53 @@ fn wrong_length() {
 
 #[test]
 fn move_decoding() {
-    let db = wthor::read(&archive(&[record(&[11, 88, 18, 81, 56], 0, 0)], 2025, 24)).unwrap();
-    assert_eq!(db.games[0].moves, vec![0, 63, 7, 56, 37]);
+    let (_, records) =
+        wthor::read(&archive(&[record(&[11, 88, 18, 81, 56], 0, 0)], 2025, 24)).unwrap();
+    assert_eq!(records[0].moves, vec![0, 63, 7, 56, 37]);
 }
 
 #[test]
 fn known_game() {
-    let db = wthor::read(&archive(&[record(&GAME, 56, 56)], 2025, 24)).unwrap();
-    let replay = wthor::replay(&db.games[0]).unwrap();
-    assert_eq!(replay.passes, 4);
+    let (_, records) = wthor::read(&archive(&[record(&GAME, 56, 56)], 2025, 24)).unwrap();
+    let replay = wthor::replay(&records[0]).unwrap();
+    let passes = replay
+        .positions
+        .windows(2)
+        .filter(|pair| pair[0].1 == pair[1].1)
+        .count();
+    assert_eq!(passes, 4);
     assert_eq!(final_score(replay.final_board), -48);
     assert!(!replay.final_black);
     assert_eq!(replay.final_board.opp.count_ones(), 55);
     assert_eq!(replay.positions.len(), GAME.len());
-    assert_eq!(replay.black.len(), replay.positions.len());
-    assert_eq!(replay.positions[0], Board::START);
+    assert_eq!(replay.positions[0].0, Board::START);
 }
 
 #[test]
 fn illegal_move() {
-    let db = wthor::read(&archive(&[record(&[11], 0, 0)], 2025, 24)).unwrap();
-    assert_eq!(wthor::replay(&db.games[0]), Err(Reject::Illegal { ply: 0 }));
+    let (_, records) = wthor::read(&archive(&[record(&[11], 0, 0)], 2025, 24)).unwrap();
+    assert_eq!(wthor::replay(&records[0]), Err(Reject::Illegal { ply: 0 }));
 }
 
 #[test]
 fn invalid_byte() {
     for byte in [19, 99] {
-        let db = wthor::read(&archive(&[record(&[byte], 0, 0)], 2025, 24)).unwrap();
-        assert_eq!(wthor::replay(&db.games[0]), Err(Reject::Illegal { ply: 0 }));
+        let (_, records) = wthor::read(&archive(&[record(&[byte], 0, 0)], 2025, 24)).unwrap();
+        assert_eq!(wthor::replay(&records[0]), Err(Reject::Illegal { ply: 0 }));
     }
 }
 
 #[test]
 fn incomplete_game() {
-    let db = wthor::read(&archive(&[record(&GAME[..10], 0, 0)], 2025, 24)).unwrap();
-    assert_eq!(wthor::replay(&db.games[0]), Err(Reject::Incomplete));
+    let (_, records) = wthor::read(&archive(&[record(&GAME[..10], 0, 0)], 2025, 24)).unwrap();
+    assert_eq!(wthor::replay(&records[0]), Err(Reject::Incomplete));
 }
 
 #[test]
 fn positions_playable() {
-    let db = wthor::read(&archive(&[record(&GAME, 56, 56)], 2025, 24)).unwrap();
-    let replay = wthor::replay(&db.games[0]).unwrap();
-    for position in &replay.positions {
+    let (_, records) = wthor::read(&archive(&[record(&GAME, 56, 56)], 2025, 24)).unwrap();
+    let replay = wthor::replay(&records[0]).unwrap();
+    for (position, _) in &replay.positions {
         assert!(!is_terminal(*position));
         assert_ne!(legal_moves(position.me, position.opp), 0);
     }
@@ -131,14 +135,15 @@ fn summary_counts() {
         record(&GAME[..10], 0, 0),
         record(&[19], 0, 0),
     ];
-    let db = wthor::read(&archive(&records, 2025, 24)).unwrap();
-    let summary = check::summarise(&db);
-    assert_eq!(summary.games_read, 6);
-    assert_eq!(summary.replayed, 3);
-    assert_eq!(summary.rejected_illegal, 2);
-    assert_eq!(summary.rejected_incomplete, 1);
-    assert_eq!(summary.real_agree, 2);
-    assert_eq!(summary.theoretical_equal, 1);
+    let (p3, records) = wthor::read(&archive(&records, 2025, 24)).unwrap();
+    let mut summary = check::Summary::default();
+    check::summarise(p3, &records, &mut summary);
+    assert_eq!(summary.metrics["games"].0, 6);
+    assert_eq!(summary.metrics["replayed"].0, 3);
+    assert_eq!(summary.metrics["rejected illegal"].0, 2);
+    assert_eq!(summary.metrics["rejected incomplete"].0, 1);
+    assert_eq!(summary.metrics["real"], (2, 3));
+    assert_eq!(summary.metrics["theoretical"], (1, 3));
     assert_eq!(summary.p3_values.get(&24), Some(&1));
 }
 

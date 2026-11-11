@@ -33,13 +33,7 @@ fn check_synthetic() {
         .collect();
     let manifest = dir.join("wthor.sha256");
     std::fs::write(&manifest, format!("{hash}  empty.wtb\n")).unwrap();
-    let output = bin(&[
-        "check",
-        "--dir",
-        dir.to_str().unwrap(),
-        "--manifest",
-        manifest.to_str().unwrap(),
-    ]);
+    let output = bin(&["check", dir.to_str().unwrap(), manifest.to_str().unwrap()]);
     assert!(
         output.status.success(),
         "{}",
