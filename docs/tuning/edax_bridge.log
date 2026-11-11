@@ -1,0 +1,23 @@
+bridge header commit 13ff240f0b22846398af82ab4d9823dc97efd432 date 2026-11-11T22:06:56Z edax /var/folders/5f/46s87cp917n5dfqbcbf_6y540007dl/T/opencode/edax-reversi/bin/mEdax-native edax_sha256 b578cf0931784909f51666934463c4de2dde0218af2277e668bec06e4340cbcc eval_sha256 f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792
+bridge pair 0 game 0 engine_black false points 0.0 discs -40 final 52-12 edax_ms 0 passes 3
+bridge pair 0 game 1 engine_black true points 0.0 discs -30 final 17-47 edax_ms 0 passes 4
+bridge pair 1 game 0 engine_black false points 0.0 discs -58 final 59-1 edax_ms 0 passes 11
+bridge pair 1 game 1 engine_black true points 0.0 discs -40 final 12-52 edax_ms 0 passes 2
+bridge pair 2 game 0 engine_black false points 0.0 discs -55 final 58-3 edax_ms 0 passes 12
+bridge pair 2 game 1 engine_black true points 0.0 discs -41 final 11-52 edax_ms 0 passes 3
+bridge pair 3 game 0 engine_black false points 0.0 discs -34 final 49-15 edax_ms 0 passes 4
+bridge pair 3 game 1 engine_black true points 0.0 discs -61 final 0-61 edax_ms 0 passes 5
+bridge pair 4 game 0 engine_black false points 0.0 discs -30 final 47-17 edax_ms 0 passes 5
+bridge pair 4 game 1 engine_black true points 1.0 discs +25 final 25-0 edax_ms 0 passes 0
+bridge pair 5 game 0 engine_black false points 1.0 discs +30 final 0-30 edax_ms 0 passes 0
+bridge pair 5 game 1 engine_black true points 0.0 discs -55 final 2-57 edax_ms 0 passes 11
+bridge pair 6 game 0 engine_black false points 0.0 discs -63 final 63-0 edax_ms 0 passes 14
+bridge pair 6 game 1 engine_black true points 0.0 discs -34 final 15-49 edax_ms 0 passes 2
+bridge pair 7 game 0 engine_black false points 0.0 discs -28 final 46-18 edax_ms 0 passes 4
+bridge pair 7 game 1 engine_black true points 0.0 discs -20 final 22-42 edax_ms 0 passes 2
+bridge pair 8 game 0 engine_black false points 0.0 discs -45 final 45-0 edax_ms 0 passes 10
+bridge pair 8 game 1 engine_black true points 0.0 discs -50 final 0-50 edax_ms 0 passes 12
+bridge pair 9 game 0 engine_black false points 1.0 discs +17 final 23-40 edax_ms 0 passes 5
+bridge pair 9 game 1 engine_black true points 0.0 discs -56 final 4-60 edax_ms 0 passes 10
+pass probes: edax pass output and play-pass input agree
+bridge 20/20 games: final disc counts agree, total passes 119
