@@ -241,7 +241,7 @@ may use any crate it wants.
 - **Lined up:**
   - `sha2` 0.11 (RustCrypto, pure Rust): SHA-256 for the WTHOR manifest,
     the label journal and the asset. Hand-written, it would take about 60
-    of the trainer's 350 lines.
+    of the trainer's 450 lines.
   - `rayon`: parallel labelling by game and parallel fitting by stage,
     in place of hand-rolled thread and channel code.
   - Others at the builder's discretion.
