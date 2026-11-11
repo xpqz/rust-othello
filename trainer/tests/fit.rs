@@ -2,7 +2,7 @@ use othello::board::Board;
 use othello::pattern;
 use othello::rng::Rng;
 use othello_tools::sym;
-use othello_trainer::fit::{self, Example, Fit, Options, Report, Stage, StageReport};
+use othello_trainer::fit::{self, Example, Fit, Options, Stage};
 use othello_trainer::wthor::Game;
 
 fn options() -> Options {
@@ -227,46 +227,6 @@ fn inspect_output() {
     let low = text.find("-2.43").unwrap_or_else(|| panic!("{text}"));
     assert!(high < mid && mid < low, "{text}");
     assert!(!text.contains("count 0"), "{text}");
-}
-
-#[test]
-fn report_fields() {
-    let report = Report {
-        inputs: vec![
-            ("trainer".into(), "abc".into()),
-            ("journal".into(), "def".into()),
-            ("toolchain".into(), "rustc 1.99".into()),
-        ],
-        constants: options(),
-        stages: vec![StageReport {
-            stage: 0,
-            curve: vec![(1.0, 1.1), (0.5, 0.6)],
-            held: 0.6,
-            rounded: 0.61,
-            zero: 1.2,
-            classic: 0.9,
-            correlation: 0.5,
-            nonzero: 0.25,
-            largest: 3.0,
-        }],
-        label_quality: 0.4,
-        asset_sha: "0123".into(),
-    };
-    let text = fit::report(&report);
-    for needle in [
-        "trainer",
-        "journal",
-        "toolchain",
-        "stage 0",
-        "step",
-        "1.10",
-        "0.60",
-        "asset",
-        "classic",
-        "label",
-    ] {
-        assert!(text.contains(needle), "{needle}\n{text}");
-    }
 }
 
 #[test]

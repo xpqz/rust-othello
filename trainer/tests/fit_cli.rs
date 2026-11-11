@@ -14,6 +14,16 @@ fn fit_pipeline() {
     let (asset_path, report_path) = run_fit(&full);
     let asset = std::fs::read(&asset_path).unwrap();
     let report = std::fs::read_to_string(&report_path).unwrap();
+    for needle in [
+        "toolchain",
+        "stage 0",
+        "classic",
+        "trained",
+        "asset",
+        "rejected",
+    ] {
+        assert!(report.contains(needle), "{needle}\n{report}");
+    }
     let inspect = Command::new(env!("CARGO_BIN_EXE_othello-trainer"))
         .args([
             "inspect",
@@ -69,7 +79,7 @@ fn run_fit(root: &Path) -> (PathBuf, PathBuf) {
         String::from_utf8_lossy(&output.stderr)
     );
     (
-        root.join("assets/eval.bin"),
+        root.join("data/fit/eval.bin"),
         root.join("docs/tuning/pattern_fit.log"),
     )
 }

@@ -89,19 +89,9 @@ fn fit_command(args: &[String]) -> Result<(), String> {
 }
 
 fn inspect_command(args: &[String]) -> Result<(), String> {
-    let names = [
-        "edge",
-        "corner3",
-        "corner2x5",
-        "row2",
-        "row3",
-        "row4",
-        "diag8",
-        "diag7",
-        "diag6",
-        "diag5",
-        "diag4",
-    ];
+    let names: Vec<&str> = "edge corner3 corner2x5 row2 row3 row4 diag8 diag7 diag6 diag5 diag4"
+        .split_whitespace()
+        .collect();
     let mut root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
     let mut family = 0;
     let mut stage = 0;

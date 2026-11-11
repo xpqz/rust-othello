@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::process::Command;
 use std::sync::LazyLock;
@@ -289,55 +289,6 @@ fn shape(family: usize, index: u32) -> String {
         .collect()
 }
 
-pub struct Report {
-    pub inputs: Vec<(String, String)>,
-    pub constants: Options,
-    pub stages: Vec<StageReport>,
-    pub label_quality: f32,
-    pub asset_sha: String,
-}
-
-pub struct StageReport {
-    pub stage: usize,
-    pub curve: Vec<(f32, f32)>,
-    pub held: f32,
-    pub rounded: f32,
-    pub zero: f32,
-    pub classic: f32,
-    pub correlation: f32,
-    pub nonzero: f32,
-    pub largest: f32,
-}
-
-pub fn report(report: &Report) -> String {
-    let mut out = String::new();
-    for (name, value) in &report.inputs {
-        out.push_str(&format!("{name} {value}\n"));
-    }
-    out.push_str(&format!(
-        "constants step {} floor {} patience {} max {}\n",
-        report.constants.step,
-        report.constants.floor,
-        report.constants.patience,
-        report.constants.max_passes
-    ));
-    for stage in &report.stages {
-        out.push_str(&format!("stage {}\n", stage.stage));
-        for (pass, (train, held)) in stage.curve.iter().enumerate() {
-            out.push_str(&format!("pass {pass} {train:.2} {held:.2}\n"));
-        }
-        out.push_str(&format!(
-            "held {:.2} rounded {:.2} zero {:.2} classic {:.2} correlation {:.2} nonzero {:.2} largest {:.2}\n",
-            stage.held, stage.rounded, stage.zero, stage.classic, stage.correlation, stage.nonzero, stage.largest
-        ));
-    }
-    out.push_str(&format!(
-        "label quality {:.2}\nasset {}\n",
-        report.label_quality, report.asset_sha
-    ));
-    out
-}
-
 pub fn held_out(game: &Game) -> bool {
     let digest = Sha256::digest(&game.moves);
     u64::from_le_bytes(digest[..8].try_into().unwrap()) % 20 == 0
@@ -350,140 +301,186 @@ pub fn run(root: &Path, options: &Options) -> Result<(), String> {
     let fingerprint = layout_fingerprint();
     let commit = git_commit();
     let (toolchain, target) = toolchain();
-    let quality = label_quality(&games, &labels);
-    let start = Instant::now();
+    let rejected = rejected_count(&games, &labels);
+    let positions: usize = labels.iter().map(|(_, values)| values.len()).sum();
+    let mut report = format!(
+        "trainer {commit}\ntoolchain {toolchain}\ntarget {target}\nprofile {}\nmanifest {manifest_sha}\njournal {journal_sha}\nlayout {fingerprint}\ngames {}\nrejected {rejected}\npositions {positions}\nconstants step {} floor {} patience {} max {}\n",
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        },
+        labels.len(),
+        options.step,
+        options.floor,
+        options.patience,
+        options.max_passes
+    );
+    let mut quality = Vec::new();
+    let mut seen = BTreeSet::new();
     let mut stages = Vec::new();
-    let mut reports = Vec::new();
+    let start = Instant::now();
     let mut total = 0;
     for stage in 0..pattern::STAGES {
-        let mut train = Vec::new();
-        let mut held = Vec::new();
-        let mut counts = vec![0u32; pattern::TABLE_SLOTS];
-        let mut classic = Corr::default();
-        let mut classic_abs = 0.0;
-        let mut zero_abs = 0.0;
-        for (key, values) in &labels {
-            let Some(game) = games.get(key) else {
-                continue;
-            };
-            let replay = wthor::replay(game).map_err(|_| format!("{key}: replay rejected"))?;
-            if replay.positions.len() != values.len() {
-                return Err(format!("{key}: label count mismatch"));
-            }
-            let is_held = held_out(game);
-            for (ply, &(board, _)) in replay.positions.iter().enumerate() {
-                if pattern::stage(empty_count(board)) != stage {
-                    continue;
-                }
-                let features: Vec<u32> = pattern::features(board)
-                    .iter()
-                    .map(|&feature| canonical(feature))
-                    .collect();
-                let label = values[ply];
-                if is_held {
-                    let value = eval::evaluate(board) as f32 / 100.0;
-                    classic.add(value, label);
-                    classic_abs += (value - label).abs();
-                    zero_abs += label.abs();
-                    held.push(Example { features, label });
-                } else {
-                    for &feature in &features {
-                        counts[feature as usize] += 1;
-                    }
-                    train.push(Example { features, label });
-                }
-            }
-        }
-        if held.is_empty() {
+        let data = stage_data(stage, &games, &labels, &mut quality, &mut seen)?;
+        if data.held.is_empty() {
             return Err(format!("stage {stage}: no held-out examples"));
         }
         let started = Instant::now();
-        let fit = fit(pattern::TABLE_SLOTS, &train, &held, options);
-        let error = mae(&fit.values, &held);
+        let fit = fit(pattern::TABLE_SLOTS, &data.train, &data.held, options);
+        let held_count = data.held.len() as f32;
+        let trained: Vec<(f32, f32)> = data
+            .held
+            .iter()
+            .map(|example| (predict(&fit.values, &example.features), example.label))
+            .collect();
         let rounded: Vec<f32> = quantise(&fit.values)?
             .iter()
             .map(|value| *value as f32 / 100.0)
             .collect();
-        let held_count = held.len() as f32;
-        reports.push(StageReport {
-            stage,
-            curve: fit.curve.clone(),
-            held: error,
-            rounded: mae(&rounded, &held),
-            zero: zero_abs / held_count,
-            classic: classic_abs / held_count,
-            correlation: classic.value(),
-            nonzero: fit.values.iter().filter(|value| **value != 0.0).count() as f32
+        let error = mae(&fit.values, &data.held);
+        report.push_str(&format!("stage {stage}\n"));
+        for (pass, (train, held)) in fit.curve.iter().enumerate() {
+            report.push_str(&format!("pass {pass} {train:.2} {held:.2}\n"));
+        }
+        report.push_str(&format!(
+            "held {error:.2} rounded {:.2} zero {:.2} classic {:.2} trained {:.2} classic_corr {:.2} nonzero {:.2} largest {:.2}\n",
+            mae(&rounded, &data.held),
+            data.zero_abs / held_count,
+            data.classic_abs / held_count,
+            correlation(&trained),
+            correlation(&data.classic),
+            fit.values.iter().filter(|value| **value != 0.0).count() as f32
                 / pattern::TABLE_SLOTS as f32,
-            largest: fit
-                .values
+            fit.values
                 .iter()
-                .fold(0.0f32, |max, value| max.max(value.abs())),
-        });
+                .fold(0.0f32, |max, value| max.max(value.abs()))
+        ));
+        total += data.train.len() + data.held.len();
         stages.push(Stage {
             values: fit.values,
-            counts,
+            counts: data.counts,
             curve: fit.curve,
         });
-        total += train.len() + held.len();
         println!(
             "stage {stage} train {} held {} passes {} seconds {:.2} held_mae {error:.4}",
-            train.len(),
-            held.len(),
+            data.train.len(),
+            data.held.len(),
             stages.last().unwrap().curve.len(),
             started.elapsed().as_secs_f64()
         );
     }
-    for dir in ["assets", "data/fit", "docs/tuning"] {
+    for dir in ["data/fit", "docs/tuning"] {
         std::fs::create_dir_all(root.join(dir)).map_err(|error| error.to_string())?;
     }
     let values: Vec<Vec<f32>> = stages.iter().map(|stage| stage.values.clone()).collect();
     let asset = self::asset(&values)?;
     let asset_sha = check::digest(&asset);
-    write(&root.join("assets/eval.bin"), &asset)?;
+    write(&root.join("data/fit/eval.bin"), &asset)?;
     write_counts(&root.join("data/fit/counts.bin"), &stages)?;
     write_layout(
-        &root.join("assets/eval.layout"),
+        &root.join("data/fit/eval.layout"),
         &fingerprint,
         &asset_sha,
         &commit,
         &asset,
     )?;
-    let report = Report {
-        inputs: vec![
-            ("trainer".into(), commit),
-            ("toolchain".into(), toolchain),
-            ("target".into(), target),
-            (
-                "profile".into(),
-                if cfg!(debug_assertions) {
-                    "debug".into()
-                } else {
-                    "release".into()
-                },
-            ),
-            ("manifest".into(), manifest_sha),
-            ("journal".into(), journal_sha),
-            ("layout".into(), fingerprint),
-            ("games".into(), labels.len().to_string()),
-            ("rejected".into(), "0".into()),
-            ("positions".into(), total.to_string()),
-        ],
-        constants: *options,
-        stages: reports,
-        label_quality: quality,
-        asset_sha,
-    };
-    write(
-        &root.join("docs/tuning/pattern_fit.log"),
-        self::report(&report).as_bytes(),
-    )?;
+    report.push_str(&format!(
+        "label quality {:.2}\nasset {asset_sha}\n",
+        correlation(&quality)
+    ));
+    write(&root.join("docs/tuning/pattern_fit.log"), report.as_bytes())?;
     println!(
         "total stages {} examples {total} seconds {:.2}",
         pattern::STAGES,
         start.elapsed().as_secs_f64()
     );
     Ok(())
+}
+
+struct StageData {
+    train: Vec<Example>,
+    held: Vec<Example>,
+    counts: Vec<u32>,
+    classic: Vec<(f32, f32)>,
+    classic_abs: f32,
+    zero_abs: f32,
+}
+
+fn stage_data(
+    stage: usize,
+    games: &BTreeMap<String, Game>,
+    labels: &Labels,
+    quality: &mut Vec<(f32, f32)>,
+    seen: &mut BTreeSet<String>,
+) -> Result<StageData, String> {
+    let mut data = StageData {
+        train: Vec::new(),
+        held: Vec::new(),
+        counts: vec![0u32; pattern::TABLE_SLOTS],
+        classic: Vec::new(),
+        classic_abs: 0.0,
+        zero_abs: 0.0,
+    };
+    for (key, values) in labels {
+        let Some(game) = games.get(key) else {
+            continue;
+        };
+        let replay = wthor::replay(game).map_err(|_| format!("{key}: replay rejected"))?;
+        if replay.positions.len() != values.len() {
+            return Err(format!("{key}: label count mismatch"));
+        }
+        let is_held = held_out(game);
+        for (ply, &(board, black)) in replay.positions.iter().enumerate() {
+            if empty_count(board) <= 14 && seen.insert(key.clone()) {
+                let value = if black { values[ply] } else { -values[ply] };
+                quality.push((2.0 * game.theoretical as f32 - 64.0, value));
+            }
+            if pattern::stage(empty_count(board)) != stage {
+                continue;
+            }
+            let features: Vec<u32> = pattern::features(board)
+                .iter()
+                .map(|&feature| canonical(feature))
+                .collect();
+            let label = values[ply];
+            if is_held {
+                let value = eval::evaluate(board) as f32 / 100.0;
+                data.classic.push((value, label));
+                data.classic_abs += (value - label).abs();
+                data.zero_abs += label.abs();
+                data.held.push(Example { features, label });
+            } else {
+                for &feature in &features {
+                    data.counts[feature as usize] += 1;
+                }
+                data.train.push(Example { features, label });
+            }
+        }
+    }
+    Ok(data)
+}
+
+fn correlation(pairs: &[(f32, f32)]) -> f32 {
+    let n = pairs.len() as f64;
+    if n == 0.0 {
+        return 0.0;
+    }
+    let (mut x, mut y, mut xx, mut yy, mut xy) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for &(a, b) in pairs {
+        let (a, b) = (f64::from(a), f64::from(b));
+        x += a;
+        y += b;
+        xx += a * a;
+        yy += b * b;
+        xy += a * b;
+    }
+    let denominator = ((n * xx - x * x) * (n * yy - y * y)).sqrt();
+    if denominator == 0.0 {
+        0.0
+    } else {
+        ((n * xy - x * y) / denominator) as f32
+    }
 }
 
 fn hash_file(path: &Path) -> Result<String, String> {
@@ -496,19 +493,14 @@ fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 fn toolchain() -> (String, String) {
-    let version = Command::new("rustc")
-        .arg("--version")
-        .output()
-        .ok()
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
-        .unwrap_or_else(|| "unknown".into());
-    let verbose = Command::new("rustc")
+    let text = Command::new("rustc")
         .arg("-vV")
         .output()
         .ok()
         .map(|output| String::from_utf8_lossy(&output.stdout).into_owned())
         .unwrap_or_default();
-    let target = verbose
+    let version = text.lines().next().unwrap_or("rustc unknown").to_string();
+    let target = text
         .lines()
         .find_map(|line| line.strip_prefix("host: "))
         .unwrap_or("unknown")
@@ -531,38 +523,11 @@ fn layout_fingerprint() -> String {
     check::digest(text.as_bytes())
 }
 
-fn label_quality(games: &BTreeMap<String, Game>, labels: &BTreeMap<String, Vec<f32>>) -> f32 {
-    let mut correlation = Corr::default();
-    for (key, values) in labels {
-        let Some(game) = games.get(key) else {
-            continue;
-        };
-        let Ok(replay) = wthor::replay(game) else {
-            continue;
-        };
-        if replay.positions.len() != values.len() {
-            continue;
-        }
-        if let Some((ply, &(_, black))) = replay
-            .positions
-            .iter()
-            .enumerate()
-            .find(|(_, (board, _))| empty_count(*board) <= 14)
-        {
-            let value = if black { values[ply] } else { -values[ply] };
-            correlation.add(2.0 * game.theoretical as f32 - 64.0, value);
-        }
-    }
-    correlation.value()
-}
-
 fn write_counts(path: &Path, stages: &[Stage]) -> Result<(), String> {
-    let mut bytes = Vec::with_capacity(stages.len() * pattern::TABLE_SLOTS * 4);
-    for stage in stages {
-        for &count in &stage.counts {
-            bytes.extend_from_slice(&count.to_le_bytes());
-        }
-    }
+    let bytes: Vec<u8> = stages
+        .iter()
+        .flat_map(|stage| stage.counts.iter().flat_map(|count| count.to_le_bytes()))
+        .collect();
     write(path, &bytes)
 }
 
@@ -574,7 +539,7 @@ fn write_layout(
     asset: &[u8],
 ) -> Result<(), String> {
     let mut text = format!("layout {fingerprint}\nasset {asset_sha}\ncommit {commit}\n");
-    for board in fixed_boards() {
+    for board in FIXED_BOARDS {
         let stage = pattern::stage(empty_count(board));
         let value: i32 = pattern::features(board)
             .iter()
@@ -592,56 +557,21 @@ fn write_layout(
     write(path, text.as_bytes())
 }
 
-fn fixed_boards() -> Vec<Board> {
-    let mut boards = vec![Board::START];
-    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/corpus.txt"))
-        .unwrap_or_default();
-    boards.extend(
-        text.lines()
-            .filter(|line| !line.starts_with('#'))
-            .filter_map(|line| {
-                let mut parts = line.split_whitespace();
-                let me = u64::from_str_radix(parts.next()?, 16).ok()?;
-                let opp = u64::from_str_radix(parts.next()?, 16).ok()?;
-                Some(Board { me, opp })
-            })
-            .filter(|board| (board.me | board.opp).count_ones() >= 40)
-            .take(3),
-    );
-    boards
-}
-
-#[derive(Default)]
-struct Corr {
-    n: f64,
-    x: f64,
-    y: f64,
-    xx: f64,
-    yy: f64,
-    xy: f64,
-}
-
-impl Corr {
-    fn add(&mut self, x: f32, y: f32) {
-        let (x, y) = (f64::from(x), f64::from(y));
-        self.n += 1.0;
-        self.x += x;
-        self.y += y;
-        self.xx += x * x;
-        self.yy += y * y;
-        self.xy += x * y;
-    }
-
-    fn value(&self) -> f32 {
-        let denominator =
-            ((self.n * self.xx - self.x * self.x) * (self.n * self.yy - self.y * self.y)).sqrt();
-        if denominator == 0.0 {
-            0.0
-        } else {
-            ((self.n * self.xy - self.x * self.y) / denominator) as f32
-        }
-    }
-}
+const FIXED_BOARDS: [Board; 4] = [
+    Board::START,
+    Board {
+        me: 0x785c68e1f14f0d11,
+        opp: 0x0223171e0e3070a0,
+    },
+    Board {
+        me: 0x03e723c0c88c1000,
+        opp: 0xd0181c3e37726e7e,
+    },
+    Board {
+        me: 0x7c03370918b4f8e4,
+        opp: 0x80fcc8f6e64b0612,
+    },
+];
 
 fn load_games(dir: &Path) -> Result<BTreeMap<String, Game>, String> {
     let mut games = BTreeMap::new();
@@ -660,22 +590,50 @@ fn load_games(dir: &Path) -> Result<BTreeMap<String, Game>, String> {
     Ok(games)
 }
 
-fn load_labels(path: &Path) -> Result<(BTreeMap<String, Vec<f32>>, String), String> {
-    let (_, mut records) = othello_tools::journal::read(path)?;
-    records.sort_by(|a, b| a.id.cmp(&b.id));
-    let mut text = String::new();
-    let mut labels = BTreeMap::new();
-    for record in &records {
-        text.push_str(&format!("{}\t{}\n", record.id, record.line));
+type Labels = Vec<(String, Vec<f32>)>;
+
+fn load_labels(path: &Path) -> Result<(Labels, String), String> {
+    let (_, records) = othello_tools::journal::read(path)?;
+    let mut parsed = Vec::new();
+    for record in records {
+        let Some((file, index)) = key_parts(&record.id) else {
+            return Err(format!("{}: invalid key", record.id));
+        };
         let values: Vec<f32> = record
             .line
             .split_whitespace()
             .map(|part| part.parse::<i32>().map(|value| value as f32))
             .collect::<Result<_, _>>()
             .map_err(|_| format!("{}: invalid label", record.id))?;
-        labels.insert(record.id.clone(), values);
+        parsed.push((file.to_string(), index, record.id, record.line, values));
+    }
+    parsed.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    let mut text = String::new();
+    let mut labels = Vec::new();
+    for (_, _, id, line, values) in parsed {
+        text.push_str(&format!("{id}\t{line}\n"));
+        labels.push((id, values));
     }
     Ok((labels, check::digest(text.as_bytes())))
+}
+
+fn key_parts(key: &str) -> Option<(&str, usize)> {
+    let (file, index) = key.rsplit_once(':')?;
+    Some((file, index.parse().ok()?))
+}
+
+fn rejected_count(games: &BTreeMap<String, Game>, labels: &Labels) -> usize {
+    let Some((last, _)) = labels.last() else {
+        return 0;
+    };
+    let Some(max) = key_parts(last) else {
+        return 0;
+    };
+    games
+        .keys()
+        .filter(|key| key_parts(key) <= Some(max))
+        .count()
+        .saturating_sub(labels.len())
 }
 
 pub fn inspect_path(
@@ -687,8 +645,8 @@ pub fn inspect_path(
     if stage >= pattern::STAGES {
         return Err("invalid stage".into());
     }
-    let asset = std::fs::read(root.join("assets/eval.bin"))
-        .map_err(|error| format!("assets/eval.bin: {error}"))?;
+    let asset = std::fs::read(root.join("data/fit/eval.bin"))
+        .map_err(|error| format!("data/fit/eval.bin: {error}"))?;
     let counts = std::fs::read(root.join("data/fit/counts.bin"))
         .map_err(|error| format!("data/fit/counts.bin: {error}"))?;
     let table = pattern::TABLE_SLOTS;
@@ -696,22 +654,17 @@ pub fn inspect_path(
         return Err("asset or counts file has the wrong size".into());
     }
     let start = stage * table;
-    let values: Vec<f32> = (0..table)
-        .map(|index| {
-            let offset = (start + index) * 2;
-            i16::from_le_bytes([asset[offset], asset[offset + 1]]) as f32 / 100.0
-        })
+    let values = asset[start * 2..(start + table) * 2]
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|bytes| i16::from_le_bytes(*bytes) as f32 / 100.0)
         .collect();
-    let counts: Vec<u32> = (0..table)
-        .map(|index| {
-            let offset = (start + index) * 4;
-            u32::from_le_bytes([
-                counts[offset],
-                counts[offset + 1],
-                counts[offset + 2],
-                counts[offset + 3],
-            ])
-        })
+    let counts = counts[start * 4..(start + table) * 4]
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|bytes| u32::from_le_bytes(*bytes))
         .collect();
     Ok(inspect(
         &Stage {
