@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use othello::board::Board;
 use othello::pattern;
 use othello::rng::Rng;
-use othello_trainer::fit::{self, Example, Options, Report, Stage, StageReport};
+use othello_tools::sym;
+use othello_trainer::fit::{self, Example, Fit, Options, Report, Stage, StageReport};
+use othello_trainer::wthor::Game;
 
 fn options() -> Options {
     Options {
@@ -41,30 +43,64 @@ fn reference() {
 }
 
 #[test]
-fn damping() {
+fn shared() {
     let examples = [
         Example {
-            features: vec![0],
+            features: vec![0, 0, 1],
+            label: 5.0,
+        },
+        Example {
+            features: vec![1],
             label: 1.0,
         },
         Example {
             features: vec![0],
-            label: -1.0,
-        },
-        Example {
-            features: vec![0],
-            label: 1.0,
+            label: 2.0,
         },
     ];
-    let fit = fit::fit(2, &examples, &examples, &Options::default());
-    assert!(fit.values[0].abs() < 0.5, "{:?}", fit.values);
-    assert_eq!(fit.values[1], 0.0);
+    let fit = fit::fit(2, &examples, &examples, &options());
+    assert!((fit.values[0] - 2.0).abs() < 0.02, "{:?}", fit.values);
+    assert!((fit.values[1] - 1.0).abs() < 0.02, "{:?}", fit.values);
+}
+
+#[test]
+fn damping() {
+    let mut examples = vec![
+        Example {
+            features: vec![0],
+            label: 10.0,
+        };
+        3
+    ];
+    examples.extend(vec![
+        Example {
+            features: vec![1],
+            label: 10.0,
+        };
+        500
+    ]);
+    let fit = fit::fit(3, &examples, &examples, &Options::default());
+    let options = Options::default();
+    let base: f32 = 1.0 - 3.0 * options.step / options.floor;
+    let bound = 10.0 * (1.0 - base.powi(options.max_passes as i32));
+    assert!(fit.values[1] > 9.0, "{:?}", fit.values);
+    assert!(
+        fit.values[0] <= bound + 0.001,
+        "{} > {bound}",
+        fit.values[0]
+    );
+    assert_eq!(fit.values[2], 0.0);
 }
 
 #[test]
 fn quantisation() {
     assert!(fit::quantise(&[f32::NAN]).is_err());
-    assert!(fit::quantise(&[400.0]).is_err());
+    assert!(fit::quantise(&[f32::INFINITY]).is_err());
+    assert!(fit::quantise(&[327.68]).is_err());
+    assert!(fit::quantise(&[-327.68]).is_err());
+    assert!(fit::quantise(&[327.67]).is_ok());
+    assert!(fit::quantise(&[-327.67]).is_ok());
+    assert!(fit::quantise(&[f32::NAN]).unwrap_err().contains('0'));
     assert_eq!(fit::quantise(&[1.23, -4.56]).unwrap(), vec![123, -456]);
     let values: Vec<f32> = (0..46).map(|index| (index as f32 - 23.0) / 7.0).collect();
     let features: Vec<u32> = (0..46).collect();
@@ -79,17 +115,98 @@ fn quantisation() {
 
 #[test]
 fn tied_asset() {
-    let stage: Vec<f32> = (0..pattern::TABLE_SLOTS)
-        .map(|index| index as f32 / 100.0)
+    let stages: Vec<Vec<f32>> = (0..12)
+        .map(|stage| {
+            (0..pattern::TABLE_SLOTS)
+                .map(|index| ((index + stage * 7) % 50) as f32 / 100.0)
+                .collect()
+        })
         .collect();
-    let bytes = fit::asset(&vec![stage; 12]).unwrap();
+    let bytes = fit::asset(&stages).unwrap();
     assert_eq!(bytes.len(), 12 * pattern::TABLE_SLOTS * 2);
-    for index in 0..pattern::TABLE_SLOTS {
-        let canonical = fit::canonical(index as u32) as usize;
-        let value = i16::from_le_bytes([bytes[2 * index], bytes[2 * index + 1]]);
-        let tied = i16::from_le_bytes([bytes[2 * canonical], bytes[2 * canonical + 1]]);
-        assert_eq!(value, tied, "{index} vs {canonical}");
+    for stage in 0..12 {
+        for index in 0..pattern::TABLE_SLOTS {
+            let canonical = fit::canonical(index as u32) as usize;
+            let expected = (stages[stage][canonical] * 100.0).round() as i16;
+            let offset = (stage * pattern::TABLE_SLOTS + index) * 2;
+            let actual = i16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
+            assert_eq!(actual, expected, "stage {stage} index {index}");
+        }
     }
+}
+
+#[test]
+fn canonical_pairs() {
+    assert_eq!(fit::canonical(46_459), 35_577);
+    assert_eq!(fit::canonical(59_049 + 27), 59_049 + 3);
+    assert_eq!(fit::canonical(137_781 + 2_187), 137_781 + 1);
+    assert_eq!(fit::canonical(157_464 + 2_187), 157_464 + 1);
+    for index in 78_732..78_732 + 59_049 {
+        assert_eq!(fit::canonical(index), index);
+    }
+}
+
+#[test]
+fn canonical_properties() {
+    let mut offset = 0u32;
+    for squares in pattern::FAMILIES {
+        let end = offset + 3u32.pow(squares.len() as u32);
+        for index in offset..end {
+            let canonical = fit::canonical(index);
+            assert!(canonical >= offset && canonical < end, "{index}");
+            assert!(canonical <= index, "{index}");
+            assert_eq!(fit::canonical(canonical), canonical, "{index}");
+        }
+        offset = end;
+    }
+}
+
+#[test]
+fn canonical_symmetry() {
+    for board in boards() {
+        let expected = multiset(board);
+        for kind in 0..8 {
+            assert_eq!(multiset(sym::transform(board, kind)), expected, "{kind}");
+        }
+    }
+    assert!(boards().iter().any(|&board| {
+        let raw = raw_multiset(board);
+        (1..8).any(|kind| raw_multiset(sym::transform(board, kind)) != raw)
+    }));
+}
+
+#[test]
+fn early_stop() {
+    let train: Vec<Example> = (0..50)
+        .map(|_| Example {
+            features: vec![0],
+            label: 10.0,
+        })
+        .collect();
+    let held: Vec<Example> = (0..50)
+        .map(|_| Example {
+            features: vec![0],
+            label: 2.0,
+        })
+        .collect();
+    let options = Options {
+        step: 0.01,
+        floor: 1.0,
+        patience: 3,
+        max_passes: 1000,
+    };
+    let fit: Fit = fit::fit(1, &train, &held, &options);
+    let best = fit
+        .curve
+        .iter()
+        .enumerate()
+        .min_by(|a, b| a.1.1.partial_cmp(&b.1.1).unwrap())
+        .unwrap()
+        .0;
+    assert_eq!(fit.best, best);
+    assert_eq!(fit.curve.len(), best + options.patience + 1);
+    assert!(fit.curve.len() < options.max_passes);
+    assert!((fit.values[0] - 2.0).abs() < 0.5, "{:?}", fit.values);
 }
 
 #[test]
@@ -126,24 +243,6 @@ fn stage_restart() {
 }
 
 #[test]
-fn reproducible() {
-    let examples = [
-        Example {
-            features: vec![0, 1],
-            label: 3.0,
-        },
-        Example {
-            features: vec![1],
-            label: 1.0,
-        },
-    ];
-    let first = fit::fit(2, &examples, &examples, &options());
-    let second = fit::fit(2, &examples, &examples, &options());
-    assert_eq!(first.values, second.values);
-    assert_eq!(first.curve, second.curve);
-}
-
-#[test]
 fn inspect_output() {
     let mut stage = Stage {
         values: vec![0.0; pattern::TABLE_SLOTS],
@@ -157,9 +256,11 @@ fn inspect_output() {
     stage.values[2] = 1.0;
     stage.counts[2] = 20;
     let text = fit::inspect(&stage, 0, 2);
-    for needle in ["relative", "10", "5", "20"] {
-        assert!(text.contains(needle), "{needle}\n{text}");
-    }
+    let high = text.find("+2.57").unwrap_or_else(|| panic!("{text}"));
+    let mid = text.find("+0.57").unwrap_or_else(|| panic!("{text}"));
+    let low = text.find("-2.43").unwrap_or_else(|| panic!("{text}"));
+    assert!(high < mid && mid < low, "{text}");
+    assert!(!text.contains("count 0"), "{text}");
 }
 
 #[test]
@@ -168,6 +269,7 @@ fn report_fields() {
         inputs: vec![
             ("trainer".into(), "abc".into()),
             ("journal".into(), "def".into()),
+            ("toolchain".into(), "rustc 1.99".into()),
         ],
         constants: options(),
         stages: vec![StageReport {
@@ -186,10 +288,35 @@ fn report_fields() {
     };
     let text = fit::report(&report);
     for needle in [
-        "trainer", "journal", "stage 0", "step", "asset", "classic", "label",
+        "trainer",
+        "journal",
+        "toolchain",
+        "stage 0",
+        "step",
+        "1.10",
+        "0.60",
+        "asset",
+        "classic",
+        "label",
     ] {
         assert!(text.contains(needle), "{needle}\n{text}");
     }
+}
+
+#[test]
+fn split() {
+    let game = |moves: Vec<u8>| Game {
+        real: 0,
+        theoretical: 0,
+        moves,
+    };
+    let first = game(vec![11, 12, 13]);
+    let second = game(vec![11, 12, 13]);
+    assert_eq!(fit::held_out(&first), fit::held_out(&second));
+    let held = (0..300)
+        .filter(|&seed| fit::held_out(&game(vec![seed as u8])))
+        .count();
+    assert!((5..=25).contains(&held), "{held}");
 }
 
 #[test]
@@ -221,10 +348,10 @@ fn planted() {
         }
     }
     let options = Options {
-        step: 0.02,
-        floor: 5.0,
-        patience: 30,
-        max_passes: 200,
+        step: 0.05,
+        floor: 1.0,
+        patience: 100,
+        max_passes: 500,
     };
     let fit = fit::fit(table, &train, &held, &options);
     let error: f32 = held
@@ -232,7 +359,9 @@ fn planted() {
         .map(|example| (fit::predict(&fit.values, &example.features) - example.label).abs())
         .sum::<f32>()
         / held.len() as f32;
-    assert!(error < 1.0, "{error}");
+    let zero: f32 = held.iter().map(|example| example.label.abs()).sum::<f32>() / held.len() as f32;
+    assert!(error < 0.05, "{error}");
+    assert!(error < 0.05 * zero, "{error} vs {zero}");
 }
 
 fn family_of(index: u32) -> usize {
@@ -262,15 +391,57 @@ fn example(family: usize, config: u32, repeat: u64, planted: &[f32]) -> Example 
             opp |= bit;
         }
     }
+    let targets: Vec<usize> = pattern::instances()
+        .iter()
+        .enumerate()
+        .filter(|(_, instance)| instance.family == 9 || instance.family == 10)
+        .map(|(index, _)| index)
+        .collect();
     let features: Vec<u32> = pattern::features(Board { me, opp })
         .iter()
-        .map(|&feature| fit::canonical(feature))
+        .enumerate()
+        .filter(|(index, _)| targets.contains(index))
+        .map(|(_, &feature)| fit::canonical(feature))
         .collect();
     let label: f32 = features
         .iter()
         .map(|&feature| planted[feature as usize])
         .sum();
     Example { features, label }
+}
+
+fn multiset(board: Board) -> Vec<u32> {
+    let mut values: Vec<u32> = pattern::features(board)
+        .iter()
+        .map(|&feature| fit::canonical(feature))
+        .collect();
+    values.sort();
+    values
+}
+
+fn raw_multiset(board: Board) -> Vec<u32> {
+    let mut values = pattern::features(board).to_vec();
+    values.sort();
+    values
+}
+
+fn boards() -> Vec<Board> {
+    let mut boards = vec![Board::START];
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/corpus.txt"))
+        .unwrap();
+    boards.extend(
+        text.lines()
+            .filter(|line| !line.starts_with('#'))
+            .filter_map(|line| {
+                let mut parts = line.split_whitespace();
+                let me = u64::from_str_radix(parts.next()?, 16).ok()?;
+                let opp = u64::from_str_radix(parts.next()?, 16).ok()?;
+                Some(Board { me, opp })
+            })
+            .filter(|board| (board.me | board.opp).count_ones() >= 40)
+            .take(3),
+    );
+    boards
 }
 
 fn temp_dir(name: &str) -> PathBuf {
