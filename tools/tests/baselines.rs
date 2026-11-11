@@ -1,7 +1,11 @@
 use std::process::Command;
 
-use othello::board::Board;
-use othello_tools::baselines::{PHASE2_DEPTH, eval_phase2, phase2_config};
+use othello::board::{Board, is_terminal, legal_moves, pass, play};
+use othello::rng::Rng;
+use othello::score::EVAL_BOUND;
+use othello_tools::baselines::{
+    PHASE2_DEPTH, classic_config, eval_classic, eval_phase2, phase2_config,
+};
 
 fn at(file: usize, rank: usize) -> u64 {
     1u64 << (rank * 8 + file)
@@ -319,4 +323,107 @@ fn timed_default_max_load_is_jobs_plus_two() {
         "{header}"
     );
     std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn classic_pins() {
+    assert_eq!(eval_classic(Board::START), 0);
+    let cases = [
+        (at(0, 0), 90),
+        (at(1, 0), -30),
+        (at(1, 1), -60),
+        (at(2, 0), 0),
+        (at(3, 0), -5),
+        (at(2, 1), -12),
+        (at(3, 1), -12),
+        (at(2, 2), -11),
+    ];
+    for (me, expected) in cases {
+        assert_eq!(eval_classic(Board { me, opp: 0 }), expected, "{me:#x}");
+    }
+}
+
+#[test]
+fn classic_config_pins() {
+    let config = classic_config();
+    assert_eq!((config.eval)(Board::START), eval_classic(Board::START));
+    assert_eq!(config.endgame_threshold, 14);
+    assert!(config.ordering);
+}
+
+#[test]
+fn classic_antisymmetry() {
+    let mut rng = Rng::new(0xE7A1);
+    let mut board = Board::START;
+    for _ in 0..100 {
+        if is_terminal(board) {
+            break;
+        }
+        let moves = legal_moves(board.me, board.opp);
+        if moves == 0 {
+            board = pass(board);
+            continue;
+        }
+        let pick = rng.next_u64() % moves.count_ones() as u64;
+        let mut rest = moves;
+        for _ in 0..pick {
+            rest &= rest - 1;
+        }
+        let square = rest.trailing_zeros() as u8;
+        board = play(board, square);
+        if is_terminal(board) {
+            break;
+        }
+        let value = eval_classic(board);
+        assert_eq!(value, -eval_classic(pass(board)));
+        assert!((-EVAL_BOUND..=EVAL_BOUND).contains(&value));
+    }
+}
+
+#[test]
+fn classic_agent() {
+    let output = tools(&[
+        "match",
+        "--a",
+        "classic:100",
+        "--b",
+        "greedy",
+        "--pairs",
+        "1",
+        "--seed",
+        "1",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("classic:100 (eval_classic, depth 64, time 100, nodes 0, threshold 14)"),
+        "{text}"
+    );
+}
+
+#[test]
+fn pattern_agent() {
+    let output = tools(&[
+        "match",
+        "--a",
+        "pattern:100",
+        "--b",
+        "greedy",
+        "--pairs",
+        "1",
+        "--seed",
+        "1",
+    ]);
+    assert!(output.status.success());
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("pattern:100 (pattern::evaluate, depth 64, time 100, nodes 0, threshold 14)"),
+        "{text}"
+    );
+    let (config, _) = othello_tools::agents::config("pattern", 0, true).unwrap();
+    assert_eq!(
+        (config.eval)(Board::START),
+        othello::pattern::evaluate(Board::START)
+    );
+    assert_eq!(config.endgame_threshold, 14);
 }

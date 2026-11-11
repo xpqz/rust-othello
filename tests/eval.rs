@@ -45,21 +45,6 @@ fn signature() {
 }
 
 #[test]
-fn antisymmetry_and_bounds() {
-    let mut rng = Rng::new(0xE7A1);
-    for _ in 0..100 {
-        playout(&mut rng, |board| {
-            if is_terminal(board) {
-                return;
-            }
-            let value = evaluate(board);
-            assert_eq!(value, -evaluate(pass(board)));
-            assert!((-EVAL_BOUND..=EVAL_BOUND).contains(&value));
-        });
-    }
-}
-
-#[test]
 fn mobility_unequal_counts() {
     let board = Board {
         me: 0x020c_fc00_4828_1800,

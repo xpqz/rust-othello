@@ -1,7 +1,7 @@
 use othello::board::{Board, final_score, is_terminal, legal_moves, pass};
-use othello::eval::evaluate;
 use othello::score::terminal_score;
 use othello::search::{SearchConfig, SearchLimits, search_limited};
+use othello_tools::baselines::classic_config;
 
 #[derive(Clone, Copy)]
 struct Golden {
@@ -177,11 +177,7 @@ const GOLDEN_V1: [Golden; 23] = [
 ];
 
 fn config() -> SearchConfig {
-    SearchConfig {
-        eval: evaluate,
-        endgame_threshold: 14,
-        ordering: true,
-    }
+    classic_config()
 }
 
 fn fingerprint(board: Board, config: &SearchConfig) -> (u8, i32, u64) {
