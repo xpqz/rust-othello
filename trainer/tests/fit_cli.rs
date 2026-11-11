@@ -14,6 +14,25 @@ fn fit_pipeline() {
     let (asset_path, report_path) = run_fit(&full);
     let asset = std::fs::read(&asset_path).unwrap();
     let report = std::fs::read_to_string(&report_path).unwrap();
+    let inspect = Command::new(env!("CARGO_BIN_EXE_othello-trainer"))
+        .args([
+            "inspect",
+            full.to_str().unwrap(),
+            "--family",
+            "edge",
+            "--stage",
+            "6",
+            "--count",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        inspect.status.success(),
+        "{}",
+        String::from_utf8_lossy(&inspect.stderr)
+    );
+    assert!(String::from_utf8_lossy(&inspect.stdout).contains("relative"));
 
     let bytes = std::fs::read(full.join("data/wthor/games.wtb")).unwrap();
     let (_, games) = wthor::read(&bytes).unwrap();
