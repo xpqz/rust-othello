@@ -1,22 +1,22 @@
 stage 0 train 4735 held 210 passes 21 seconds 0.01 held_mae 18.2057
-stage 1 train 4735 held 210 passes 500 seconds 0.26 held_mae 17.2216
-stage 2 train 4735 held 210 passes 111 seconds 0.05 held_mae 15.0775
-stage 3 train 4735 held 210 passes 97 seconds 0.04 held_mae 13.5126
+stage 1 train 4735 held 210 passes 500 seconds 0.27 held_mae 17.2216
+stage 2 train 4735 held 210 passes 111 seconds 0.06 held_mae 15.0775
+stage 3 train 4735 held 210 passes 97 seconds 0.05 held_mae 13.5126
 stage 4 train 4735 held 210 passes 74 seconds 0.03 held_mae 13.0279
 stage 5 train 4735 held 210 passes 73 seconds 0.03 held_mae 12.3511
 stage 6 train 4733 held 210 passes 60 seconds 0.02 held_mae 10.2563
 stage 7 train 4726 held 210 passes 53 seconds 0.02 held_mae 13.2436
-stage 8 train 4719 held 210 passes 127 seconds 0.05 held_mae 14.0473
+stage 8 train 4719 held 210 passes 127 seconds 0.06 held_mae 14.0473
 stage 9 train 4705 held 210 passes 60 seconds 0.03 held_mae 12.4343
 stage 10 train 4696 held 210 passes 198 seconds 0.09 held_mae 9.7328
 stage 11 train 4604 held 210 passes 397 seconds 0.17 held_mae 6.2318
-total stages 12 examples 59113 seconds 1.06
-        1.44 real         1.20 user         0.09 sys
-            75939840  maximum resident set size
+total stages 12 examples 59113 seconds 1.12
+        2.88 real         1.22 user         0.08 sys
+            75333632  maximum resident set size
                    0  average shared memory size
                    0  average unshared data size
                    0  average unshared stack size
-               19066  page reclaims
+               14972  page reclaims
                    8  page faults
                    0  swaps
                    0  block input operations
@@ -25,7 +25,7 @@ total stages 12 examples 59113 seconds 1.06
                    0  messages received
                    0  signals received
                   57  voluntary context switches
-                 673  involuntary context switches
-         12743902884  instructions retired
-          4019105717  cycles elapsed
-            75006360  peak memory footprint
+                 924  involuntary context switches
+         13130965707  instructions retired
+          4151076637  cycles elapsed
+            74416560  peak memory footprint

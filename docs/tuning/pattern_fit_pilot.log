@@ -1,12 +1,12 @@
-trainer 0c09bc31879cd0148a311db56bc587203cea4b79
+trainer 9b3df3f3458e4e3c95e543d0d37c0f23a616e9a4
 toolchain rustc 1.99.1 (58cf8f9c3 2026-10-13)
 target aarch64-apple-darwin
 profile release
 manifest 03d2fc5339fbf82b45af5b879aff02bf100c90d3eff8e700395d934b89590072
-journal 6e50fee3ed24000530c06333f1e02f745e8a521ea350fb9cf1025c2f131b3ea8
+journal 1dad9205673034715c85ce7aae6cf1c5e031cfa8fe3943b9bd7b132f4cd2dd29
 layout 31daeef0688137988fb11a917fcd3923441c72ade470e2f3a1d11a326238d664
 games 989
-rejected 0
+rejected 11
 positions 59113
 constants step 0.01 floor 50 patience 20 max 500
 stage 0
@@ -31,7 +31,7 @@ pass 17 21.58 18.40
 pass 18 21.57 18.41
 pass 19 21.57 18.42
 pass 20 21.57 18.43
-held 18.21 rounded 18.20 zero 18.19 classic 18.23 correlation -0.04 nonzero 0.00 largest 0.14
+held 18.21 rounded 18.20 zero 18.19 classic 18.23 trained -0.03 classic_corr -0.04 nonzero 0.00 largest 0.14
 stage 1
 pass 0 21.71 18.18
 pass 1 21.64 18.17
@@ -340,7 +340,7 @@ pass 303 19.19 17.37
 pass 304 19.19 17.37
 pass 305 19.19 17.37
 pass 306 19.19 17.37
-pass 307 19.19 17.37
+pass 307 19.18 17.37
 pass 308 19.18 17.37
 pass 309 19.18 17.37
 pass 310 19.18 17.37
@@ -533,7 +533,7 @@ pass 496 19.00 17.22
 pass 497 19.00 17.22
 pass 498 19.00 17.22
 pass 499 19.00 17.22
-held 17.22 rounded 17.23 zero 18.19 classic 18.00 correlation 0.26 nonzero 0.00 largest 15.74
+held 17.22 rounded 17.23 zero 18.19 classic 18.00 trained 0.36 classic_corr 0.26 nonzero 0.00 largest 15.74
 stage 2
 pass 0 21.71 18.04
 pass 1 21.54 17.90
@@ -646,7 +646,7 @@ pass 107 16.92 15.08
 pass 108 16.91 15.08
 pass 109 16.90 15.08
 pass 110 16.89 15.09
-held 15.08 rounded 15.08 zero 18.19 classic 18.00 correlation 0.33 nonzero 0.01 largest 6.73
+held 15.08 rounded 15.08 zero 18.19 classic 18.00 trained 0.57 classic_corr 0.33 nonzero 0.01 largest 6.73
 stage 3
 pass 0 21.71 17.88
 pass 1 21.36 17.59
@@ -678,7 +678,7 @@ pass 26 16.69 14.16
 pass 27 16.61 14.12
 pass 28 16.53 14.07
 pass 29 16.45 14.02
-pass 30 16.38 13.98
+pass 30 16.37 13.98
 pass 31 16.30 13.94
 pass 32 16.24 13.90
 pass 33 16.17 13.87
@@ -745,7 +745,7 @@ pass 93 14.42 13.55
 pass 94 14.41 13.55
 pass 95 14.39 13.56
 pass 96 14.38 13.56
-held 13.51 rounded 13.52 zero 18.19 classic 17.74 correlation 0.47 nonzero 0.02 largest 6.71
+held 13.51 rounded 13.52 zero 18.19 classic 17.74 trained 0.67 classic_corr 0.47 nonzero 0.02 largest 6.71
 stage 4
 pass 0 21.71 17.75
 pass 1 21.11 17.35
@@ -821,7 +821,7 @@ pass 70 12.48 13.05
 pass 71 12.46 13.05
 pass 72 12.44 13.06
 pass 73 12.41 13.06
-held 13.03 rounded 13.02 zero 18.19 classic 17.47 correlation 0.65 nonzero 0.03 largest 5.59
+held 13.03 rounded 13.02 zero 18.19 classic 17.47 trained 0.69 classic_corr 0.65 nonzero 0.03 largest 5.59
 stage 5
 pass 0 21.71 17.55
 pass 1 20.81 16.96
@@ -896,7 +896,7 @@ pass 69 10.56 12.42
 pass 70 10.54 12.42
 pass 71 10.51 12.43
 pass 72 10.49 12.44
-held 12.35 rounded 12.35 zero 18.19 classic 17.13 correlation 0.72 nonzero 0.03 largest 6.52
+held 12.35 rounded 12.35 zero 18.19 classic 17.13 trained 0.74 classic_corr 0.72 nonzero 0.03 largest 6.52
 stage 6
 pass 0 21.69 17.18
 pass 1 20.35 16.26
@@ -958,7 +958,7 @@ pass 56 8.69 10.32
 pass 57 8.66 10.33
 pass 58 8.63 10.33
 pass 59 8.60 10.34
-held 10.26 rounded 10.26 zero 18.19 classic 16.73 correlation 0.80 nonzero 0.04 largest 7.43
+held 10.26 rounded 10.26 zero 18.19 classic 16.73 trained 0.83 classic_corr 0.80 nonzero 0.04 largest 7.43
 stage 7
 pass 0 22.94 18.80
 pass 1 21.33 17.81
@@ -1013,7 +1013,7 @@ pass 49 9.70 13.34
 pass 50 9.67 13.35
 pass 51 9.63 13.36
 pass 52 9.60 13.37
-held 13.24 rounded 13.25 zero 19.99 classic 18.23 correlation 0.75 nonzero 0.05 largest 8.07
+held 13.24 rounded 13.25 zero 19.99 classic 18.23 trained 0.75 classic_corr 0.75 nonzero 0.05 largest 8.07
 stage 8
 pass 0 23.75 19.91
 pass 1 21.93 18.95
@@ -1142,7 +1142,7 @@ pass 123 7.59 14.07
 pass 124 7.58 14.08
 pass 125 7.56 14.08
 pass 126 7.55 14.08
-held 14.05 rounded 14.05 zero 21.19 classic 19.17 correlation 0.73 nonzero 0.06 largest 7.81
+held 14.05 rounded 14.05 zero 21.19 classic 19.17 trained 0.74 classic_corr 0.73 nonzero 0.06 largest 7.81
 stage 9
 pass 0 24.11 20.53
 pass 1 21.93 19.27
@@ -1204,7 +1204,7 @@ pass 56 7.64 12.45
 pass 57 7.61 12.45
 pass 58 7.58 12.45
 pass 59 7.54 12.45
-held 12.43 rounded 12.43 zero 22.07 classic 19.65 correlation 0.82 nonzero 0.07 largest 6.05
+held 12.43 rounded 12.43 zero 22.07 classic 19.65 trained 0.81 classic_corr 0.82 nonzero 0.07 largest 6.05
 stage 10
 pass 0 24.79 20.74
 pass 1 22.32 19.27
@@ -1404,7 +1404,7 @@ pass 194 5.24 9.74
 pass 195 5.23 9.74
 pass 196 5.22 9.74
 pass 197 5.21 9.74
-held 9.73 rounded 9.73 zero 22.50 classic 19.22 correlation 0.87 nonzero 0.07 largest 7.76
+held 9.73 rounded 9.73 zero 22.50 classic 19.22 trained 0.89 classic_corr 0.87 nonzero 0.07 largest 7.76
 stage 11
 pass 0 24.02 19.13
 pass 1 19.87 16.65
@@ -1803,6 +1803,6 @@ pass 393 2.91 6.23
 pass 394 2.91 6.23
 pass 395 2.91 6.23
 pass 396 2.91 6.23
-held 6.23 rounded 6.23 zero 22.64 classic 19.12 correlation 0.80 nonzero 0.05 largest 9.16
+held 6.23 rounded 6.23 zero 22.64 classic 19.12 trained 0.96 classic_corr 0.80 nonzero 0.05 largest 9.16
 label quality 0.84
-asset 9df14da4e9eaa54caea5a8860edabb0f526cb483bea597cb889f69c18e2ed3c3
+asset 05acc9d24ff8d542c4fedfa7ad32ccc48c06fc6a95da206152377dc38cd774fb
