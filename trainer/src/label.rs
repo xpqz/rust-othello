@@ -164,7 +164,7 @@ fn inputs(dir: &Path, limit: Option<usize>) -> Result<(String, Vec<Job>), String
     let header = format!(
         "header v1 engine {} input {} p3 {} threshold 14",
         git_commit(),
-        check::digest(hasher.finalize().as_slice()),
+        check::hex(hasher.finalize().as_slice()),
         p3s.join(",")
     );
     Ok((header, jobs))

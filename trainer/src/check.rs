@@ -112,8 +112,9 @@ fn verify_files(files: &[PathBuf], manifest: &str) -> Result<(), String> {
 }
 
 pub(crate) fn digest(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    hex(Sha256::digest(bytes).as_slice())
+}
+
+pub(crate) fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
