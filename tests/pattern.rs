@@ -44,7 +44,7 @@ fn feature(board: Board, family: usize) -> u32 {
     let (position, instance) = pattern::instances()
         .iter()
         .enumerate()
-        .find(|(_, instance)| instance.family == family && instance.squares == base)
+        .find(|(_, instance)| instance.family == family && instance.squares.as_slice() == base)
         .unwrap();
     pattern::features(board)[position] - instance.offset
 }
@@ -73,13 +73,13 @@ fn instances_match_symmetries() {
     assert_eq!(pattern::instances().len(), expected.len());
     for (instance, (family, squares, offset)) in pattern::instances().iter().zip(expected) {
         assert_eq!(instance.family, family);
-        assert_eq!(instance.squares, squares.as_slice());
+        assert_eq!(instance.squares.as_slice(), squares.as_slice());
         assert_eq!(instance.offset, offset);
     }
     let sets: BTreeSet<Vec<u8>> = pattern::instances()
         .iter()
         .map(|instance| {
-            let mut set = instance.squares.to_vec();
+            let mut set = instance.squares.clone();
             set.sort();
             set
         })
@@ -125,7 +125,7 @@ fn features_reference() {
         for (instance, &index) in pattern::instances().iter().zip(&features) {
             let mut local = 0u32;
             let mut power = 1u32;
-            for &square in instance.squares {
+            for &square in &instance.squares {
                 let digit = if board.me & (1u64 << square) != 0 {
                     1
                 } else if board.opp & (1u64 << square) != 0 {

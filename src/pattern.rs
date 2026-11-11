@@ -21,7 +21,7 @@ pub const FAMILIES: [&[u8]; 11] = [
 ];
 
 pub struct Instance {
-    pub squares: &'static [u8],
+    pub squares: Vec<u8>,
     pub family: usize,
     pub offset: u32,
 }
@@ -37,7 +37,7 @@ pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
     for (slot, instance) in out.iter_mut().zip(instances()) {
         let mut index = 0;
         let mut power = 1;
-        for &square in instance.squares {
+        for &square in &instance.squares {
             let bit = 1u64 << square;
             let digit = if board.me & bit != 0 {
                 1
@@ -71,7 +71,7 @@ fn build() -> Vec<Instance> {
             if !seen.contains(&mask) {
                 seen.push(mask);
                 instances.push(Instance {
-                    squares: Box::leak(squares.into_boxed_slice()),
+                    squares,
                     family,
                     offset,
                 });
