@@ -540,13 +540,21 @@ fn tt_deep_then_shallow() {
 #[test]
 fn tt_warm_nodes() {
     let config = config();
-    let board = Board::START;
+    let board = Board {
+        me: 0x000813224bc22260,
+        opp: 0x82742c1c343c1c1a,
+    };
     let limits = SearchLimits::depth(8);
     let mut table = Table::new(1 << 16);
     let cold = search_tt(board, limits, &config, &mut table);
     let warm = search_tt(board, limits, &config, &mut table);
     assert_eq!(warm.score, cold.score);
-    assert!(warm.nodes < cold.nodes, "{} vs {}", warm.nodes, cold.nodes);
+    assert!(
+        warm.nodes * 2 < cold.nodes,
+        "{} warm vs {} cold",
+        warm.nodes,
+        cold.nodes
+    );
 }
 
 #[test]

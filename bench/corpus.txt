@@ -7,7 +7,7 @@
 # exact test-side oracle meaning in Phase 6.
 # 12 midgame lines spread over 20-44 discs and 8 endgames over 5-12 empties,
 # each from a distinct playout, plus one pass root and two terminals.
-# Regenerated for the Phase 7 tuned evaluator (#99, disc term removed);
+# Regenerated for #126 with pattern::evaluate and asset 676987110ca65667;
 # depth-4 heuristic snapshots with endgame_threshold = 0.
 # Regenerate only with a provenance note when the evaluator changes.
 2002242e10000000 023c181028400000 -309
