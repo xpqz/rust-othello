@@ -1058,10 +1058,12 @@ Phase 2 is complete when all of the following hold:
 ### Progress
 
 ProbCut v1 (full-width probes, selective TT domain) is implemented and
-calibrated. It failed the pre-registered equal-nodes validation gate: +18 Elo
-point estimate, 95% interval [-8.69, 46.31] over 200 pairs. The `standard()`
-switch remains off. The validation set has been seen once; any later attempt
-is a declared second look.
+calibrated. It failed the first validation gate (+18 Elo point estimate,
+[-8.69, 46.31], 200 pairs). A second attempt on a fresh 1,024-opening set
+passed equal nodes (0.5220, [0.5055, 0.5383]) and 500 ms (0.5240,
+[0.5075, 0.5403]) but failed the 3 s point-estimate check (0.4825,
+[0.4350, 0.5325]). The `standard()` switch remains off. Both validation sets
+have been seen; later work is a declared second look.
 
 ### Process
 

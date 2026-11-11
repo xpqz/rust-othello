@@ -7,6 +7,13 @@ Nov 9, 2026 · Draft, revision 2
 > budgets, the statistics policy and process. Revision 2 answers the first
 > review; [Review response](#review-response) maps each finding to its change.
 
+## Status (11 November 2026)
+
+ProbCut v1 failed validation and the second-attempt gate: gate 1 equal nodes
+0.5220 [0.5055, 0.5383], gate 2 500 ms 0.5240 [0.5075, 0.5403], gate 3 3 s
+0.4825 [0.4350, 0.5325]. The switch was never enabled. The implementation is
+preserved by the `probcut-v1` tag and removed from the engine after #118.
+
 ## Summary
 
 ProbCut uses a cheap shallow search to predict an expensive deep search, and
