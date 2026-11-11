@@ -526,8 +526,8 @@ What this removes and what it leaves:
   existing journal test. The fit reads the journal into a map, and the
   SHA-256 recorded in the fit log is of the sorted lines.
 - Cost: the 1,000-game pilot labelled 989 games and 59,113 positions in
-  19.85 s wall and 94.97 s CPU on five jobs. Scaled to the 137,548-game
-  archive, the full run is projected at about 46 minutes wall and 3.6
+  19.0 s wall and 92.9 s CPU on five jobs. Scaled to the 137,548-game
+  archive, the full run is projected at about 44 minutes wall and 3.6
   CPU-hours on five jobs. The pilot journal is 204 KiB; the full journal is
   projected at about 28 MiB.
 - The first fit is run on the pilot's labels before the full labelling run
