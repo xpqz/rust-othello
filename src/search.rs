@@ -3,7 +3,6 @@
 use std::time::{Duration, Instant};
 
 use crate::board::{Board, empty_count, final_score, legal_moves, pass, play, squares};
-use crate::probcut::{ProbCut, shallow_depth};
 use crate::score::{INF, terminal_score};
 use crate::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
@@ -12,7 +11,6 @@ pub struct SearchConfig {
     pub eval: fn(Board) -> i32,
     pub endgame_threshold: u32,
     pub ordering: bool,
-    pub probcut: Option<ProbCut>,
 }
 
 impl SearchConfig {
@@ -21,32 +19,12 @@ impl SearchConfig {
             eval: crate::eval::evaluate,
             endgame_threshold: 14,
             ordering: true,
-            probcut: None,
         }
     }
 }
 
 pub const NO_DEADLINE: u64 = u64::MAX;
 const EXACT_ORDER_DEPTH: u32 = 2;
-const FIT_BUCKETS: [(i32, i32); 6] = [(19, 36), (10, 42), (8, 34), (5, 37), (5, 30), (73, 0)];
-
-// docs/tuning/probcut_fit.log from e012aa8; refit when the evaluator changes.
-pub fn probcut_at(t_centi: u32) -> Result<ProbCut, String> {
-    ProbCut::new(
-        t_centi,
-        1134,
-        0,
-        crate::probcut::SigmaModel::StageTable {
-            buckets: FIT_BUCKETS,
-        },
-        (3, 10),
-        (18, 41),
-    )
-}
-
-pub fn probcut_fit() -> ProbCut {
-    probcut_at(150).expect("fitted ProbCut parameters are valid")
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct SearchLimits {
@@ -84,14 +62,11 @@ pub enum SearchStatus {
 pub struct SearchResult {
     pub best: u8,
     pub score: i32,
-    /// 0 for an exact solve; heuristic iteration depth otherwise. With
-    /// ProbCut enabled this is the nominal selective depth.
+    /// 0 for an exact solve; heuristic iteration depth otherwise.
     pub depth: u32,
     pub nodes: u64,
     pub status: SearchStatus,
     pub solved: bool,
-    pub probcut_tries: [u64; 2],
-    pub probcut_cuts: [u64; 2],
 }
 
 impl SearchResult {
@@ -103,8 +78,6 @@ impl SearchResult {
             nodes,
             status,
             solved: false,
-            probcut_tries: [0; 2],
-            probcut_cuts: [0; 2],
         }
     }
 }
@@ -116,9 +89,6 @@ pub struct Ctx<'a> {
     deadline: Option<Instant>,
     table: Option<&'a mut Table>,
     exact: bool,
-    pub probing: bool,
-    pub probcut_tries: [u64; 2],
-    pub probcut_cuts: [u64; 2],
 }
 
 impl<'a> Ctx<'a> {
@@ -130,18 +100,11 @@ impl<'a> Ctx<'a> {
             deadline: None,
             table: None,
             exact: false,
-            probing: false,
-            probcut_tries: [0; 2],
-            probcut_cuts: [0; 2],
         }
     }
 
     pub fn set_table(&mut self, table: &'a mut Table) {
         self.table = Some(table);
-    }
-
-    pub fn limit(&mut self, max_nodes: u64) {
-        self.max_nodes = max_nodes;
     }
 
     fn expired(&self) -> bool {
@@ -210,20 +173,12 @@ fn natural(moves: u64) -> ([u8; 64], usize) {
     (order, len)
 }
 
-fn probe(board: Board, depth: u32, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
-    ctx.probing = true;
-    let value = negamax(board, shallow_depth(depth), alpha, beta, ctx);
-    ctx.probing = false;
-    value
-}
-
 pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.nodes += 1;
     if ctx.stop() {
         return None;
     }
     let exact = ctx.exact;
-    let selective = !exact && !ctx.probing && ctx.config.probcut.is_some();
     let moves = legal_moves(board.me, board.opp);
     if moves == 0 {
         if legal_moves(board.opp, board.me) == 0 {
@@ -240,40 +195,13 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         if exact {
             entry.endgame_cutoff(alpha, beta)
         } else {
-            entry.cutoff(depth, alpha, beta, selective)
+            entry.cutoff(depth, alpha, beta)
         }
     });
     if cutoff.is_some() {
         return cutoff;
     }
     let alpha_orig = alpha;
-    let empties = empty_count(board);
-    if selective
-        && let Some(probcut) = ctx.config.probcut
-        && probcut.supports(depth, empties)
-    {
-        if let Some(high) = probcut.high(beta, depth, empties) {
-            ctx.probcut_tries[0] += 1;
-            if probe(
-                board,
-                depth,
-                high.saturating_sub(1) as i32,
-                high as i32,
-                ctx,
-            )? >= high as i32
-            {
-                ctx.probcut_cuts[0] += 1;
-                return Some(beta);
-            }
-        }
-        if let Some(low) = probcut.low(alpha, depth, empties) {
-            ctx.probcut_tries[1] += 1;
-            if probe(board, depth, low as i32, (low + 1) as i32, ctx)? <= low as i32 {
-                ctx.probcut_cuts[1] += 1;
-                return Some(alpha);
-            }
-        }
-    }
     let hint = (!exact)
         .then(|| entry.and_then(|entry| entry.move_hint(depth)))
         .flatten();
@@ -303,15 +231,19 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
             (_, true) => Bound::Lower,
             _ => Bound::Exact,
         };
-        let domain = if exact {
-            Domain::Endgame
-        } else if selective {
-            Domain::Selective
+        let entry = if exact {
+            Entry {
+                key,
+                value: best,
+                depth: 0,
+                flag,
+                domain: Domain::Endgame,
+                mv: chosen,
+            }
         } else {
-            Domain::Heuristic
+            Entry::heuristic(key, best, depth as u8, flag, chosen)
         };
-        let depth = if exact { 0 } else { depth as u8 };
-        table.store(Entry::search(key, best, depth, flag, chosen, domain));
+        table.store(entry);
     }
     Some(best)
 }
@@ -364,10 +296,7 @@ pub fn search(board: Board, depth: u32, config: &SearchConfig) -> SearchResult {
     }
     let mut ctx = Ctx::new(config);
     let (best, score) = root(board, moves, depth, first, -INF, INF, &mut ctx).unwrap();
-    let mut result = SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete);
-    result.probcut_tries = ctx.probcut_tries;
-    result.probcut_cuts = ctx.probcut_cuts;
-    result
+    SearchResult::new(best, score, depth, ctx.nodes, SearchStatus::Complete)
 }
 
 /// Deepens to `max_depth`; on tied root scores it keeps the previous best,
@@ -399,12 +328,12 @@ fn search_inner(
     let (moves, fallback, fallback_result) = root_setup(board, config);
     if empty_count(board) <= config.endgame_threshold {
         let mut ctx = Ctx {
+            config,
             nodes: 0,
             max_nodes: limits.max_nodes,
             deadline,
             table: None,
             exact: true,
-            ..Ctx::new(config)
         };
         if let Some(table) = table.as_deref_mut() {
             ctx.set_table(table);
@@ -438,12 +367,12 @@ fn search_inner(
     let mut result = fallback_result;
     for depth in 1..=limits.max_depth {
         let mut ctx = Ctx {
+            config,
             nodes,
             max_nodes: limits.max_nodes,
             deadline,
             table: table.as_deref_mut(),
             exact: false,
-            ..Ctx::new(config)
         };
         if ctx.stop_iteration() {
             break;
@@ -454,8 +383,6 @@ fn search_inner(
         best = square;
         nodes = ctx.nodes;
         result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
-        result.probcut_tries = ctx.probcut_tries;
-        result.probcut_cuts = ctx.probcut_cuts;
     }
     if result.depth > 0 && result.depth < limits.max_depth {
         result.status = SearchStatus::Partial;

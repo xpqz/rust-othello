@@ -1027,7 +1027,7 @@ priorities still have to be chosen. Estimates are formatted engine lines:
 
 | Candidate | Est. lines | Notes |
 | --- | ---: | --- |
-| ProbCut (v1: full-width probes, selective TT domain) | 50-70 | [design](design/probcut.md) |
+| ProbCut (v1: full-width probes, selective TT domain) | 50-70 | Deferred; preserved by tag `probcut-v1` |
 | PVS and aspiration windows | 20-30 | Narrower root and child windows |
 | Endgame speed (parity ordering, fastest-first, small-empty solvers) | 60-90 | Lets the exact threshold rise above 14 |
 | Learned pattern evaluation | 120-180 net | Replaces most of `eval.rs`; weights are an asset |
@@ -1057,13 +1057,15 @@ Phase 2 is complete when all of the following hold:
 
 ### Progress
 
-ProbCut v1 (full-width probes, selective TT domain) is implemented and
-calibrated. It failed the first validation gate (+18 Elo point estimate,
-[-8.69, 46.31], 200 pairs). A second attempt on a fresh 1,024-opening set
-passed equal nodes (0.5220, [0.5055, 0.5383]) and 500 ms (0.5240,
-[0.5075, 0.5403]) but failed the 3 s point-estimate check (0.4825,
-[0.4350, 0.5325]). The `standard()` switch remains off. Both validation sets
-have been seen; later work is a declared second look.
+ProbCut v1 (full-width probes, selective TT domain) failed validation twice:
+first equal nodes +18 Elo [-8.69, 46.31]; the second attempt passed equal
+nodes (0.5220, [0.5055, 0.5383]) and 500 ms (0.5240, [0.5075, 0.5403]) but
+failed the 3 s check (0.4825, [0.4350, 0.5325]). The switch was never enabled.
+The implementation is preserved by tag `probcut-v1` (095f4e4) and has been
+removed from the engine/tools. A second version waits for the new evaluator.
+Both validation sets have been seen; later work is a declared second look.
+`bench/openings_probcut2.txt` remains as a valid fresh set, used once by the
+failed gate.
 
 ### Process
 

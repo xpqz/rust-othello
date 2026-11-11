@@ -12,7 +12,19 @@ Nov 9, 2026 · Draft, revision 2
 ProbCut v1 failed validation and the second-attempt gate: gate 1 equal nodes
 0.5220 [0.5055, 0.5383], gate 2 500 ms 0.5240 [0.5075, 0.5403], gate 3 3 s
 0.4825 [0.4350, 0.5325]. The switch was never enabled. The implementation is
-preserved by the `probcut-v1` tag and removed from the engine after #118.
+preserved by tag `probcut-v1` (095f4e4) and has been removed from the engine
+and tools.
+
+Lessons for a second version:
+
+- Fit only after the evaluator is final; v1's fit was tied to the current
+  evaluation and was shelved when that evaluator is replaced.
+- Calibrate deep enough to lift the depth-10 probe cap; the 3 s gate weakened
+  as the game lengthened.
+- Tune margins over a wider range; the selected `t` was the lowest value tried.
+- Require about 40% node saving at equal depth before spending matches.
+- Make the binding strength gate 3 s/move with about 400 pairs; 100 pairs
+  cannot resolve a small effect.
 
 ## Summary
 

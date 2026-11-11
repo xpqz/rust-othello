@@ -33,8 +33,7 @@ cargo run --release -- bench --board 785c68e1f14f0d11:0223171e0e3070a0
 ```
 
 `bench` accepts `--depth`, `--time-ms`, `--max-nodes`, `--board me:opp`,
-`--endgame-threshold`, and `--probcut <t_centi>`. With ProbCut on it prints
-the selective depth label and try/cut counters.
+`--endgame-threshold`.
 
 ## Desktop GUI
 

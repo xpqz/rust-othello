@@ -7,7 +7,6 @@ pub const MAX_ENTRIES: usize = 1 << 22;
 pub enum Domain {
     #[default]
     Heuristic,
-    Selective,
     Endgame,
 }
 
@@ -30,18 +29,21 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn search(key: u64, value: i32, depth: u8, flag: Bound, mv: u8, domain: Domain) -> Self {
+    pub fn heuristic(key: u64, value: i32, depth: u8, flag: Bound, mv: u8) -> Self {
         Self {
             key,
             value,
             depth,
             flag,
-            domain,
+            domain: Domain::Heuristic,
             mv,
         }
     }
 
-    fn window(&self, alpha: i32, beta: i32) -> Option<i32> {
+    fn window(&self, alpha: i32, beta: i32, domain: Domain) -> Option<i32> {
+        if self.domain != domain {
+            return None;
+        }
         match self.flag {
             Bound::Exact => Some(self.value),
             Bound::Lower if self.value >= beta => Some(self.value),
@@ -50,24 +52,18 @@ impl Entry {
         }
     }
 
-    pub fn cutoff(&self, depth: u32, alpha: i32, beta: i32, selective: bool) -> Option<i32> {
-        let domain =
-            self.domain == Domain::Heuristic || (selective && self.domain == Domain::Selective);
-        (domain && self.depth as u32 == depth)
-            .then(|| self.window(alpha, beta))
+    pub fn cutoff(&self, depth: u32, alpha: i32, beta: i32) -> Option<i32> {
+        (self.depth as u32 == depth)
+            .then(|| self.window(alpha, beta, Domain::Heuristic))
             .flatten()
     }
 
     pub fn endgame_cutoff(&self, alpha: i32, beta: i32) -> Option<i32> {
-        (self.domain == Domain::Endgame)
-            .then(|| self.window(alpha, beta))
-            .flatten()
+        self.window(alpha, beta, Domain::Endgame)
     }
 
     pub fn move_hint(&self, depth: u32) -> Option<u8> {
-        (matches!(self.domain, Domain::Heuristic | Domain::Selective)
-            && self.depth as u32 >= depth
-            && self.mv != NO_MOVE)
+        (self.domain == Domain::Heuristic && self.depth as u32 >= depth && self.mv != NO_MOVE)
             .then_some(self.mv)
     }
 }
@@ -81,10 +77,6 @@ impl Table {
 
     pub fn capacity(&self) -> usize {
         self.0.len()
-    }
-
-    pub fn entries(&self) -> impl Iterator<Item = &Entry> {
-        self.0.iter().filter(|entry| entry.key != 0)
     }
 
     pub fn clear(&mut self) {

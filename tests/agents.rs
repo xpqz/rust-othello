@@ -20,7 +20,6 @@ fn config() -> SearchConfig {
         eval: evaluate,
         endgame_threshold: 12,
         ordering: true,
-        probcut: None,
     }
 }
 

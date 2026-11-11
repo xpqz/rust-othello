@@ -294,53 +294,29 @@ fn node_rule_records_limits() {
 }
 
 #[test]
-fn pc_agents_parse() {
+fn timed_default_max_load_is_jobs_plus_two() {
+    let path =
+        std::env::temp_dir().join(format!("othello_timed_load_{}.journal", std::process::id()));
     let output = tools(&[
-        "match", "--a", "pc:150", "--b", "pc:off", "--pairs", "1", "--nodes", "100",
+        "match",
+        "--a",
+        "ab:2:1",
+        "--b",
+        "greedy",
+        "--pairs",
+        "1",
+        "--seed",
+        "1",
+        "--jobs",
+        "1",
+        "--out",
+        path.to_str().unwrap(),
     ]);
     assert!(output.status.success());
-    let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("pc:150 (evaluate, depth 64"), "{text}");
-    assert!(text.contains("probcut t=150"), "{text}");
-    assert!(text.contains("pc:off (evaluate, depth 64"), "{text}");
-    assert!(text.contains("probcut off"), "{text}");
-
-    for name in ["pc", "pc:30", "pc:150:x", "pc:off:1:2"] {
-        let output = tools(&["match", "--a", name, "--b", "greedy", "--pairs", "1"]);
-        assert!(!output.status.success(), "{name}");
-    }
-    for name in ["pc:150:10", "pc:off:10"] {
-        let output = tools(&["match", "--a", name, "--b", "greedy", "--pairs", "1"]);
-        assert!(output.status.success(), "{name}");
-    }
-}
-
-#[test]
-fn pc_off_uses_the_full_node_budget() {
-    use othello::board::{Board, empty_count, legal_moves};
-    use othello::search::search_limited;
-    use othello_tools::agents::config;
-    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/corpus.txt"))
-        .unwrap();
-    let boards: Vec<Board> = text
-        .lines()
-        .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            let me = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
-            let opp = u64::from_str_radix(parts.next().unwrap(), 16).unwrap();
-            let board = Board { me, opp };
-            ((20..=40).contains(&empty_count(board)) && legal_moves(board.me, board.opp) != 0)
-                .then_some(board)
-        })
-        .collect();
-    for name in ["pc:off", "pc:150"] {
-        let (config, limits) = config(name, 1000, true).unwrap();
-        assert!(
-            boards
-                .iter()
-                .any(|&board| search_limited(board, limits, &config).nodes >= 900),
-            "{name} did not use the budget"
-        );
-    }
+    let header = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        header.lines().next().unwrap().contains("max_load 3.000"),
+        "{header}"
+    );
+    std::fs::remove_file(path).unwrap();
 }

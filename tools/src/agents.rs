@@ -1,6 +1,6 @@
 use crate::baselines::{PHASE2_DEPTH, phase2_config};
 use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
-use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits, probcut_at};
+use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits};
 
 fn unknown(name: &str) -> String {
     format!("unknown agent: {name}")
@@ -16,14 +16,6 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
     let (depth, time) = match kind {
         "random" | "greedy" => (0, None),
         "phase2" => (PHASE2_DEPTH, time(&mut parts)?),
-        "pc" => {
-            let parameter = parts.next().ok_or_else(|| unknown(name))?;
-            if parameter != "off" {
-                probcut_at(parameter.parse().map_err(|_| unknown(name))?)
-                    .map_err(|_| unknown(name))?;
-            }
-            (64, time(&mut parts)?)
-        }
         "ab" => {
             let depth = parts
                 .next()
@@ -66,19 +58,6 @@ pub fn config(
             ordering,
             ..phase2_config()
         },
-        "pc" => {
-            let parameter = name.split(':').nth(1).ok_or_else(|| unknown(name))?;
-            let probcut = if parameter == "off" {
-                None
-            } else {
-                Some(probcut_at(parameter.parse().map_err(|_| unknown(name))?)?)
-            };
-            SearchConfig {
-                ordering,
-                probcut,
-                ..SearchConfig::standard()
-            }
-        }
         _ => SearchConfig {
             ordering,
             ..SearchConfig::standard()

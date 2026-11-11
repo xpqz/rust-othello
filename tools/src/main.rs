@@ -53,17 +53,7 @@ fn describe(name: &str, nodes: u64) -> String {
     } else {
         SearchConfig::standard().endgame_threshold
     };
-    let extra = if kind == "pc" {
-        match name.split(':').nth(1).unwrap() {
-            "off" => " probcut off".to_string(),
-            t => format!(" probcut t={t}"),
-        }
-    } else {
-        String::new()
-    };
-    format!(
-        "{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold {threshold}{extra})"
-    )
+    format!("{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold {threshold})")
 }
 
 fn stream(seed: u64, pair: usize, game: u64, side: u64) -> u64 {
@@ -230,13 +220,19 @@ impl Run {
         if first > past || (explicit && first == past) || past > pairs || jobs == 0 {
             return Err("invalid range or jobs".into());
         }
-        let max_load = max_load.unwrap_or(jobs as f64);
+        let a = a.ok_or("missing --a")?;
+        let b = b.ok_or("missing --b")?;
+        let max_load = match max_load {
+            Some(value) => value,
+            None if control(&a, &b, nodes)? == "time" => jobs as f64 + 2.0,
+            None => jobs as f64,
+        };
         if max_load <= 0.0 {
             return Err("max-load must be positive".into());
         }
         Ok(Self {
-            a: a.ok_or("missing --a")?,
-            b: b.ok_or("missing --b")?,
+            a,
+            b,
             pairs,
             seed,
             nodes,

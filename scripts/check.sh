@@ -7,7 +7,5 @@ cargo clippy --all-targets -- -D warnings
 cargo clippy --manifest-path tools/Cargo.toml --all-targets -- -D warnings
 cargo test
 cargo test --manifest-path tools/Cargo.toml
-cargo build --release --manifest-path tools/Cargo.toml --example fit_probcut
-cargo test --release --manifest-path tools/Cargo.toml --example fit_probcut
 cargo test --test budget -- --nocapture
 cargo test --manifest-path tools/Cargo.toml --test budget -- --nocapture
