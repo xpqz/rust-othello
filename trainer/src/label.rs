@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use othello::board::{Board, empty_count};
@@ -96,31 +97,35 @@ pub fn run(dir: &Path, path: &Path, jobs: usize, limit: Option<usize>) -> Result
         .num_threads(jobs)
         .build()
         .map_err(|error| error.to_string())?;
-    let (games, positions, rejected) = pool.install(|| {
-        tasks
-            .par_iter()
-            .try_fold(
-                || (0usize, 0usize, 0usize),
-                |(games, positions, rejected), job| -> Result<(usize, usize, usize), String> {
-                    let replay = match wthor::replay(&job.game) {
-                        Ok(replay) => replay,
-                        Err(_) => return Ok((games, positions, rejected + 1)),
-                    };
-                    let config = SearchConfig::standard();
-                    let mut ctx = Ctx::new(&config);
-                    let mut solver = |board| {
-                        search::solve(board, -INF, INF, &mut ctx).ok_or("solve failed".to_string())
-                    };
-                    let values = labels(job.p3, &job.game, &replay, &mut solver)?;
-                    let line = encode(&values);
-                    journal.lock().unwrap().append(&job.key, &line)?;
-                    Ok((games + 1, positions + values.len(), rejected))
-                },
-            )
-            .try_reduce(|| (0, 0, 0), |a, b| Ok((a.0 + b.0, a.1 + b.1, a.2 + b.2)))
+    let games = AtomicUsize::new(0);
+    let positions = AtomicUsize::new(0);
+    let rejected = AtomicUsize::new(0);
+    pool.install(|| {
+        tasks.par_iter().try_for_each(|job| -> Result<(), String> {
+            let replay = match wthor::replay(&job.game) {
+                Ok(replay) => replay,
+                Err(_) => {
+                    rejected.fetch_add(1, Ordering::Relaxed);
+                    return Ok(());
+                }
+            };
+            let config = SearchConfig::standard();
+            let mut ctx = Ctx::new(&config);
+            let mut solver =
+                |board| search::solve(board, -INF, INF, &mut ctx).ok_or("solve failed".to_string());
+            let values = labels(job.p3, &job.game, &replay, &mut solver)?;
+            let line = encode(&values);
+            journal.lock().unwrap().append(&job.key, &line)?;
+            games.fetch_add(1, Ordering::Relaxed);
+            positions.fetch_add(values.len(), Ordering::Relaxed);
+            Ok(())
+        })
     })?;
     println!(
-        "games {games} positions {positions} rejected {rejected} elapsed {:.2}s",
+        "games {} positions {} rejected {} elapsed {:.2}s",
+        games.load(Ordering::Relaxed),
+        positions.load(Ordering::Relaxed),
+        rejected.load(Ordering::Relaxed),
         start.elapsed().as_secs_f64()
     );
     Ok(())
