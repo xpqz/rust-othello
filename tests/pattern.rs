@@ -3,8 +3,9 @@ mod common;
 use std::collections::BTreeSet;
 
 use common::{Sym, transform};
-use othello::board::Board;
+use othello::board::{Board, empty_count};
 use othello::pattern;
+use othello::score::EVAL_BOUND;
 
 const HAND_ME: u64 = 0x0209;
 const HAND_OPP: u64 = 0x8000_0000_0800_4824;
@@ -186,4 +187,78 @@ fn stage_boundaries() {
     ] {
         assert_eq!(pattern::stage(empties), stage, "{empties}");
     }
+}
+
+fn layout() -> Vec<(Board, i32)> {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/eval.layout"))
+        .unwrap();
+    text.lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            if parts.next()? != "board" {
+                return None;
+            }
+            let me = u64::from_str_radix(parts.next()?, 16).ok()?;
+            let opp = u64::from_str_radix(parts.next()?, 16).ok()?;
+            let value = parts.next()?.parse().ok()?;
+            Some((Board { me, opp }, value))
+        })
+        .collect()
+}
+
+fn asset() -> Vec<u8> {
+    std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/eval.bin")).unwrap()
+}
+
+fn reference(board: Board, asset: &[u8]) -> i32 {
+    let stage = pattern::stage(empty_count(board));
+    let value: i32 = pattern::features(board)
+        .iter()
+        .map(|&feature| {
+            let offset = (stage * pattern::TABLE_SLOTS + feature as usize) * 2;
+            i16::from_le_bytes([asset[offset], asset[offset + 1]]) as i32
+        })
+        .sum();
+    value.clamp(-EVAL_BOUND, EVAL_BOUND)
+}
+
+#[test]
+fn evaluate_layout() {
+    for (board, expected) in layout() {
+        assert_eq!(pattern::evaluate(board), expected, "{board:?}");
+    }
+}
+
+#[test]
+fn evaluate_bound() {
+    for board in boards() {
+        assert!(pattern::evaluate(board).abs() <= EVAL_BOUND, "{board:?}");
+    }
+}
+
+#[test]
+fn evaluate_reference() {
+    let asset = asset();
+    for board in boards() {
+        assert_eq!(
+            pattern::evaluate(board),
+            reference(board, &asset),
+            "{board:?}"
+        );
+    }
+}
+
+#[test]
+fn asset_length() {
+    let length = std::fs::metadata(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/eval.bin"))
+        .unwrap()
+        .len();
+    assert_eq!(length, 4_014_360);
+}
+
+#[test]
+fn engine_source() {
+    let source = include_str!("../src/pattern.rs");
+    assert!(!source.contains("canonical"));
+    assert!(!source.contains("othello_tools"));
 }

@@ -47,6 +47,8 @@ pub struct Fit {
     pub best: usize,
 }
 
+const MAX_WINDOW: usize = 100;
+
 pub fn fit(table: usize, train: &[Example], held: &[Example], options: &Options) -> Fit {
     let mut values = vec![0.0; table];
     let mut best_values = values.clone();
@@ -259,7 +261,7 @@ pub fn inspect(stage: &Stage, family: usize, count: usize) -> String {
         .collect();
     entries.sort_by(|a, b| b.0.total_cmp(&a.0));
     let mut out = format!(
-        "family {family} squares {:?} relative to occurrence-weighted mean {mean:+.2}\n",
+        "family {family} squares {:?} (X mover, O opponent, . empty) relative to occurrence-weighted mean {mean:+.2}\n",
         pattern::FAMILIES[family]
     );
     let mut selected = Vec::new();
@@ -340,7 +342,7 @@ pub fn run(root: &Path, options: &Options) -> Result<(), String> {
             .collect();
         let error = mae(&fit.values, &data.held);
         let max_improvement = if fit.curve.len() == options.max_passes {
-            let before = fit.curve[fit.curve.len().saturating_sub(options.patience)].1;
+            let before = fit.curve[fit.curve.len().saturating_sub(MAX_WINDOW)].1;
             let after = fit.curve.last().unwrap().1;
             let improvement = before - after;
             if improvement > 0.01 {
@@ -357,7 +359,7 @@ pub fn run(root: &Path, options: &Options) -> Result<(), String> {
             report.push_str(&format!("pass {pass} {train:.2} {held:.2}\n"));
         }
         let max_text = max_improvement
-            .map(|value| format!(" max_improvement {value:.4}"))
+            .map(|value| format!(" max_improvement {value:.4} window {MAX_WINDOW}"))
             .unwrap_or_default();
         report.push_str(&format!(
             "held {error:.2} rounded {:.2} zero {:.2} classic {:.2} trained {:.2} classic_corr {:.2} nonzero {:.2} largest {:.2}{max_text}\n",

@@ -22,6 +22,30 @@ fn fixture_lines() {
         rules::source_error("include_bytes!(\"data\")"),
         Some("include macro")
     );
+    assert_eq!(
+        rules::source_error(r#"include_bytes!("../assets/eval.bin")"#),
+        None
+    );
+    assert_eq!(
+        rules::source_error(r#"include_bytes!("../assets/eval.layout")"#),
+        None
+    );
+    assert_eq!(
+        rules::source_error(r#"include_bytes!("../data/eval.bin")"#),
+        Some("include macro")
+    );
+    assert_eq!(
+        rules::source_error(r#"include!("../assets/eval.bin")"#),
+        Some("include macro")
+    );
+    assert_eq!(
+        rules::source_error(r#"include_bytes!("/tmp/eval.bin")"#),
+        Some("include macro")
+    );
+    assert_eq!(
+        rules::source_error(r#"include_bytes!("../assets/../src/secret")"#),
+        Some("include macro")
+    );
     assert_eq!(rules::source_error("let x = 1;"), None);
 }
 
@@ -36,6 +60,39 @@ fn budget_guard() {
     let total = rules::count_dir(&root.join("src"));
     println!("engine production lines: {total}");
     assert!(total <= 1499, "engine production lines {total} exceed 1499");
+}
+
+#[test]
+fn coexist_budget() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let total = rules::count_dir(&root.join("src"));
+    println!("engine production lines: {total}");
+    assert!(
+        total <= 1230,
+        "engine production lines {total} exceed 1230 while both evaluators coexist"
+    );
+}
+
+#[test]
+fn asset_budget() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut total = 0u64;
+    let mut pending = vec![root.join("assets")];
+    while let Some(path) = pending.pop() {
+        for entry in std::fs::read_dir(path).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if let Ok(metadata) = path.metadata() {
+                total += metadata.len();
+            }
+        }
+    }
+    println!("assets bytes: {total}");
+    assert!(
+        total <= 4 * 1024 * 1024,
+        "assets total {total} exceeds 4 MiB"
+    );
 }
 
 #[test]
