@@ -44,15 +44,16 @@ fn describe(name: &str, nodes: u64) -> String {
     } else {
         time.to_string()
     };
-    let eval = if kind == "phase2" {
-        "eval_phase2"
-    } else {
-        "evaluate"
+    let eval = match kind {
+        "phase2" => "eval_phase2",
+        "classic" => "eval_classic",
+        "pattern" => "pattern::evaluate",
+        _ => "evaluate",
     };
-    let threshold = if kind == "phase2" {
-        12
-    } else {
-        SearchConfig::standard().endgame_threshold
+    let threshold = match kind {
+        "phase2" => 12,
+        "classic" | "pattern" => 14,
+        _ => SearchConfig::standard().endgame_threshold,
     };
     format!("{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold {threshold})")
 }

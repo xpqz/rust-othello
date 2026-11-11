@@ -1,4 +1,4 @@
-use crate::baselines::{PHASE2_DEPTH, phase2_config};
+use crate::baselines::{PHASE2_DEPTH, classic_config, phase2_config};
 use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
 use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits};
 
@@ -16,6 +16,21 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
     let (depth, time) = match kind {
         "random" | "greedy" => (0, None),
         "phase2" => (PHASE2_DEPTH, time(&mut parts)?),
+        "classic" | "pattern" => {
+            let mut depth = 64;
+            let mut time = None;
+            if let Some(field) = parts.next() {
+                if let Some(value) = field.strip_prefix('d') {
+                    depth = value.parse().map_err(|_| unknown(name))?;
+                    if depth == 0 || depth > 64 {
+                        return Err(unknown(name));
+                    }
+                } else {
+                    time = Some(field.parse().map_err(|_| unknown(name))?);
+                }
+            }
+            (depth, time)
+        }
         "ab" => {
             let depth = parts
                 .next()
@@ -57,6 +72,15 @@ pub fn config(
         "phase2" => SearchConfig {
             ordering,
             ..phase2_config()
+        },
+        "classic" => SearchConfig {
+            ordering,
+            ..classic_config()
+        },
+        "pattern" => SearchConfig {
+            ordering,
+            eval: othello::pattern::evaluate,
+            endgame_threshold: 14,
         },
         _ => SearchConfig {
             ordering,
