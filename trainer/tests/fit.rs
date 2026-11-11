@@ -83,6 +83,7 @@ fn damping() {
     let options = Options::default();
     let base: f32 = 1.0 - 3.0 * options.step / options.floor;
     let bound = 10.0 * (1.0 - base.powi(options.max_passes as i32));
+    assert!(bound <= 3.0, "{bound}");
     assert!(fit.values[1] > 9.0, "{:?}", fit.values);
     assert!(
         fit.values[0] <= bound + 0.001,
@@ -305,16 +306,16 @@ fn report_fields() {
 
 #[test]
 fn split() {
-    let game = |moves: Vec<u8>| Game {
-        real: 0,
-        theoretical: 0,
+    let game = |moves: Vec<u8>, real: u8, theoretical: u8| Game {
+        real,
+        theoretical,
         moves,
     };
-    let first = game(vec![11, 12, 13]);
-    let second = game(vec![11, 12, 13]);
+    let first = game(vec![11, 12, 13], 0, 0);
+    let second = game(vec![11, 12, 13], 56, 24);
     assert_eq!(fit::held_out(&first), fit::held_out(&second));
-    let held = (0..300)
-        .filter(|&seed| fit::held_out(&game(vec![seed as u8])))
+    let held = (0u16..300)
+        .filter(|&seed| fit::held_out(&game(seed.to_le_bytes().to_vec(), 0, 0)))
         .count();
     assert!((5..=25).contains(&held), "{held}");
 }
