@@ -18,9 +18,8 @@ and tools.
 Lessons for a second version:
 
 - Fit only after the evaluator is final; v1's fit was tied to the current
-  evaluation and was shelved when that evaluator is replaced.
-- Calibrate deep enough to lift the depth-10 probe cap; the 3 s gate weakened
-  as the game lengthened.
+  evaluation and is shelved until that evaluator is replaced.
+- Calibrate deep enough to lift the depth-10 probe cap; the 3 s gate may have failed because probes stop at depth 10.
 - Tune margins over a wider range; the selected `t` was the lowest value tried.
 - Require about 40% node saving at equal depth before spending matches.
 - Make the binding strength gate 3 s/move with about 400 pairs; 100 pairs
