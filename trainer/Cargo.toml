@@ -1,0 +1,9 @@
+[package]
+name = "othello-trainer"
+version = "1.0.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[dependencies]
+othello = { path = ".." }
+othello-tools = { path = "../tools" }

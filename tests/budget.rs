@@ -37,3 +37,26 @@ fn budget_guard() {
     println!("engine production lines: {total}");
     assert!(total <= 1499, "engine production lines {total} exceed 1499");
 }
+
+#[test]
+fn no_engine_deps() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let text = std::fs::read_to_string(path).unwrap();
+    for line in text.lines() {
+        let line = line.trim();
+        let Some(name) = line
+            .strip_prefix('[')
+            .and_then(|rest| rest.strip_suffix(']'))
+        else {
+            continue;
+        };
+        let name = name.trim();
+        assert!(
+            !name.split('.').any(|part| matches!(
+                part,
+                "dependencies" | "dev-dependencies" | "build-dependencies"
+            )),
+            "engine dependency table: {name}"
+        );
+    }
+}

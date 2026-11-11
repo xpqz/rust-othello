@@ -14,18 +14,18 @@ fixes. Revision 3 resolved the second review.
 
 **Revision 5** (after release 1.0.0) opens [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 Release 1.0.0 (tag `v1.0.0`) froze the engine + CLI at 998 lines under the
-999 ceiling. Phase 2 raises the engine ceiling to 1,499 and the tools budget
-to 1,200, adds a model-asset budget, and sets a strength target. Everything
-else in this plan still applies.
+999 ceiling. Phase 2 raises the engine ceiling to 1,499, the tools budget
+to 1,300, adds a 450-line trainer budget, a model-asset budget, and sets a
+strength target. Everything else in this plan still applies.
 
 ## Constraints and targets
 
 | Constraint | Target | How it is enforced |
 | --- | --- | --- |
 | Implementation size | **Hard ceiling: 1,499 LOC for the engine + playable CLI, excluding tests** (Phase 2; 999 in release 1.0.0) | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
-| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,200-line budget (650 in release 1.0.0); tests, `bench/` data, examples, and benchmark data are not engine production source |
+| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,300-line budget (650 in release 1.0.0); the trainer is a separate crate with a 450-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
 | Early feasibility | A complete playable vertical slice with actual counts by the end of Phase 2 | Phase 2 gate records formatted LOC and cuts scope before Phase 3 if needed |
-| Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies; the tools crate may path-depend on the engine |
+| Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies, guarded by a test; the tools crate may path-depend on the engine; the trainer may use external crates and depends on the engine and tools crates |
 | Safety | No `unsafe` in library or binary | `#![forbid(unsafe_code)]` in both `src/lib.rs` and `src/main.rs` |
 | Test separation | Zero test code in production targets | All tests under `tests/`; production cannot depend on tests; the budget guard rejects `include!`, `#[path]`, generated `build.rs` source, and formatting-config evasion |
 | Speed | perft(8) < 0.2 s, perft(10) < 2 s, search >= 1 M nodes/s, 12-empty solve median < 1 s | Frozen corpus, recorded hardware, release-only checks |
@@ -39,7 +39,8 @@ comments are documentation, not code. `scripts/check.sh` runs `cargo fmt
 `.rustfmt.toml` so formatting cannot compress code. The budget test counts the
 source as written; a bare `cargo test` is not a substitute for the formatted
 check. `tests/`, `tools/`, `bench/`, examples, and benchmark data are not engine
-production source. The tools crate has its own 1,200-line budget. Model
+production source. The tools crate has its own 1,300-line budget and the
+trainer crate its own 450-line budget. Model
 assets have their own budget; see [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 
 Timing and node-reduction targets are measured on the frozen corpus and
@@ -264,9 +265,12 @@ struct Entry {
   (roughly above the 12-empty solver threshold); tune it on positions where
   the heuristic actually runs, not on solver-only endgames.
 - Stability is optional and added last, only if the tools harness shows a gain.
-- Evaluation is antisymmetric. This deliberately rules out a side-to-move
-  tempo term or a parity term; those would need a separate non-antisymmetric
-  layer.
+- Evaluation is antisymmetric for the classic evaluator. This deliberately
+  rules out a side-to-move tempo term or a parity term. The learned pattern
+  evaluator is deliberately not antisymmetric: passing changes whose move it
+  is, which is a different position with a different value. Negamax does not
+  need antisymmetry. The antisymmetry test stays with the classic evaluator;
+  it is not applied to the learned one.
 
 ## Decisions resolved from the design's open questions
 
@@ -305,7 +309,7 @@ struct Entry {
 11. **Platform:** the engine plus playable CLI is the 999-line product.
     Experiment tooling (match harness, baselines, position-set generation,
     bootstrap, tuning ladder, logs, `match`) lives in `tools/` with a separate
-    600-line budget.
+    1,300-line budget.
 
 ## File layout
 
@@ -346,16 +350,25 @@ tools/
     stats.rs        pair bootstrap, degeneracy fallback, Elo
     positions.rs    position-set load/validate and canonical D4 keys
     sym.rs          D4 transforms for canonical keys
+    provenance.rs   file hash and engine commit lookup
   tests/
     harness.rs      lifecycle, position splits, bootstrap degeneracy, logs
+    golden.rs       frozen v1.0.0 node, move and score fingerprint
     budget.rs       tools LOC ceiling
+trainer/
+  Cargo.toml        separate trainer crate, path-depends on othello and othello-tools
+  src/
+    main.rs         check, label, fit and inspect commands
+  tests/
+    cli.rs          command smoke
+    budget.rs       trainer LOC ceiling
 bench/
   corpus.txt        frozen midgame/endgame positions
   openings_tune.txt
   openings_validation.txt
   openings_final.txt
 scripts/
-  check.sh          fmt + clippy + engine tests + tools tests + budgets
+  check.sh          fmt + clippy + build + engine/tools/trainer tests + budgets
 ```
 
 ### Module budgets (release 1.0.0 allocation; engine ceiling then 999)
@@ -377,9 +390,9 @@ scripts/
 This table records the 1.0.0 allocation. Phase 2 issues state their own
 per-module estimates within the 1,499 ceiling.
 
-The tools crate has a separate budget (650 in release 1.0.0, 1,200 in Phase 2).
-Its code is not part of the engine claim and does not consume the engine
-headroom.
+The tools crate has a separate budget (650 in release 1.0.0, 1,300 in Phase 2).
+The trainer crate has a separate 450-line budget. Their code is not part of
+the engine claim and does not consume the engine headroom.
 
 These are estimates, not evidence. Phase 2 proves a vertical slice with actual
 formatted counts. Every later phase records cumulative counts.
@@ -466,9 +479,11 @@ special hooks.
     lines for the engine + CLI, rejects `#[cfg(test)]` in production files, and
     rejects implementation hidden in `include!`, `#[path]`, `build.rs`
     generation, or test-only files. It also rejects `rustfmt.toml` and
-    `.rustfmt.toml`. `tools/tests/budget.rs` enforces the tools 650-line budget
-    over `tools/src`; committed one-off data-generation scripts in
-    `tools/examples` are outside that budget.
+    `.rustfmt.toml`, and asserts that the engine `Cargo.toml` has no dependency
+    table. `tools/tests/budget.rs` enforces the tools 1,300-line budget over
+    `tools/src`; committed one-off data-generation scripts in `tools/examples`
+    are outside that budget. `trainer/tests/budget.rs` enforces the trainer
+    450-line budget with the same metric and anti-evasion rules.
 12. **CLI.** Validate moves and depth bounds before shifting/indexing, handle
     EOF cleanly, reject malformed input and illegal squares, and define seed
     zero for xorshift. The printer/parser round-trip is exact: parse the printed
@@ -1004,21 +1019,23 @@ a new budget and with the same discipline.
 | Item | 1.0.0 | Phase 2 | Enforced by |
 | --- | ---: | ---: | --- |
 | Engine + playable CLI | 999 | **1,499** | `tests/budget.rs` (same metric) |
-| Tools crate | 650 | **1,200** | `tools/tests/budget.rs` |
-| Model assets | — | **8 MiB** total | Guard added with the first asset |
+| Tools crate | 650 | **1,300** | `tools/tests/budget.rs` |
+| Trainer crate | — | **450** | `trainer/tests/budget.rs` |
+| Model assets | — | **4 MiB** total | Guard added with the first asset |
 
 - **Same metric, same rules:** formatted lines that are neither blank nor
   comment-only. The anti-evasion rules (no formatter config, no `include!`,
   `#[path]` or generated source) all stay.
 - **Model assets** are generated data such as evaluation weights or an
-  opening book. They live under `assets/`, must be reproducible from a
-  `tools/examples` program with documented inputs and seed, and do not count
+  opening book. They live under `assets/`, must be reproducible from the
+  trainer crate with documented inputs and seed, and do not count
   as lines. The code that loads or uses them counts as engine lines. The
   include guard currently rejects `include_bytes!`. The issue that adds the
   first asset relaxes it for files under `assets/` only, with a test, and adds
-  the 8 MiB size check.
+  the 4 MiB size check.
 - **`tools/examples` stays uncounted** data-generation code (decision
-  045ea9b). Training and fitting pipelines belong there.
+  045ea9b). Training and fitting pipelines live in the counted `trainer/`
+  crate.
 
 ### Why 1,499
 
@@ -1142,7 +1159,7 @@ data) must be cheap to re-run from scratch. They need no checkpointing.
 | Tools harness state leaks or invalid actions pass | Per-game agent factories; separate agent/bootstrap RNG streams; absolute side-to-move; release action validation |
 | Bootstrap intervals are degenerate | Finite-sample conservative fallback; withhold claims; define zero/one/all-equal cases and Elo endpoints |
 | Feature gains are not isolated | Compare with the preceding accepted config; ablate; predeclare selection; untouched final validation |
-| Size budget is optimistic | `<=999` engine+CLI metric, separate 650-line tools budget; Phase 2 vertical slice; cumulative counts every phase; early cuts |
+| Size budget is optimistic | `<=999` engine+CLI metric, separate 1,300-line tools budget and 450-line trainer budget; Phase 2 vertical slice; cumulative counts every phase; early cuts |
 | Phase gates depend on future work | Stage score tests with real dependencies; move solver timeout to Phase 6; local abort-store rule |
 | Deadline tests are flaky | Deterministic expired-deadline/node-limit tests; tolerant wall-clock smoke; define clock start and overrun |
 | DESIGN and PLAN conflict | Mark DESIGN superseded and point to these contracts |
