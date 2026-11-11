@@ -237,7 +237,7 @@ fn stage_restart() {
     fit::save_stage(&path, "header", &stage).unwrap();
     let mut bytes = std::fs::read(&path).unwrap();
     let last = bytes.len() - 1;
-    bytes[last] ^= 0xff;
+    bytes[last] = b'x';
     std::fs::write(&path, bytes).unwrap();
     assert!(fit::load_stage(&path, "header").unwrap().is_none());
     std::fs::remove_dir_all(dir).unwrap();
