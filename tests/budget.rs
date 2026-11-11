@@ -63,13 +63,13 @@ fn budget_guard() {
 }
 
 #[test]
-fn coexist_budget() {
+fn engine_budget() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let total = rules::count_dir(&root.join("src"));
     println!("engine production lines: {total}");
     assert!(
-        total <= 1230,
-        "engine production lines {total} exceed 1230 while both evaluators coexist"
+        total <= 1150,
+        "engine production lines {total} exceed 1150 after the switch"
     );
 }
 

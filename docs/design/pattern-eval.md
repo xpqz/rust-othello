@@ -770,6 +770,17 @@ evaluator leaves the engine and survives only as the tools copy; the
 `tools/examples/tune.rs`, which tuned the old evaluator, is deleted;
 `docs/PLAN.md` records the result.
 
+**Result (issue 126).** The pre-registered gate passed. 200 pairs of
+`pattern:3000` against `classic:3000` on the first 200
+`openings_probcut2.txt` openings scored **0.7788** [0.7450, 0.8113], seed
+126; the lower bound is above 0.5. `SearchConfig::standard()` now uses
+`pattern::evaluate`. The old evaluator leaves the engine and remains in
+`tools/src/baselines.rs` as `classic`; the `pattern` agent name and
+`tools/examples/tune.rs` are gone. The asset SHA-256 is
+`676987110ca656677d18ef1bf54810ed559d417fde7cd0e88c87ba61ff5ea8cb`.
+The engine is 1,017 production lines and `pattern.rs` is 100, under the
+1,150 and 230 budgets.
+
 On a fail: the switch stays off and nothing is deleted. No single cause is
 assumed. The evidence is read together: the learning report (including the
 classic evaluator's error on the same positions), the equal-depth and

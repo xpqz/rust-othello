@@ -5,9 +5,9 @@ use std::sync::LazyLock;
 use std::time::Instant;
 
 use othello::board::{Board, empty_count};
-use othello::eval;
 use othello::pattern;
 use othello::score::EVAL_BOUND;
+use othello_tools::baselines::eval_classic;
 use othello_tools::provenance::git_commit;
 use othello_tools::sym;
 use sha2::{Digest, Sha256};
@@ -463,7 +463,7 @@ fn stage_data(
                 .collect();
             let label = values[ply];
             if is_held {
-                let value = eval::evaluate(board) as f32 / 100.0;
+                let value = eval_classic(board) as f32 / 100.0;
                 data.classic.push((value, label));
                 data.classic_abs += (value - label).abs();
                 data.zero_abs += label.abs();

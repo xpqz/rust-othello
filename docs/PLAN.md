@@ -320,7 +320,7 @@ src/
   score.rs          score units, pure terminal conversion, INF and EVAL_BOUND
   board.rs          Board, masks, shifts, legal moves, flips, play, pass, score
   perft.rs          perft tree walk, shared by the CLI and tests
-  eval.rs           hand-built evaluation and feature functions
+  pattern.rs        pattern families, features, stage and learned evaluation
   search.rs         negamax, alpha-beta, ordering, iterative deepening, exact mode
   tt.rs             Zobrist transposition table with domains
   agents.rs         agent trait/factory, random, greedy, search agents
@@ -335,7 +335,7 @@ tests/
   perft.rs          exact counts, pass and early-terminal fixtures
   symmetry.rs       D4 orders, composition, commutation
   invariants.rs     board invariants during random playouts
-  eval.rs           feature values, antisymmetry, mobility/frontier/corner fixes
+  pattern.rs        pattern tables, features, stage, asset and evaluate
   search.rs         minimax, terminal/pass, fail-soft, TT domains, solver, abort
   cli.rs            spawned-binary smoke, malformed input, EOF
   budget.rs         engine LOC ceiling and source-scope guard
@@ -1090,6 +1090,16 @@ removed from the engine/tools. A second version waits for the new evaluator.
 Both validation sets have been seen; later work is a declared second look.
 `bench/openings_probcut2.txt` remains as a valid fresh set, used once by the
 failed gate.
+
+The learned pattern evaluator became the default after its own
+pre-registered gate: 200 pairs of `pattern:3000` against `classic:3000` on
+the first 200 `openings_probcut2.txt` openings, score **0.7788**
+[0.7450, 0.8113], seed 126. `SearchConfig::standard()` now uses
+`pattern::evaluate`; the old evaluator remains only in
+`tools/src/baselines.rs` as `classic`. The asset SHA-256 is
+`676987110ca656677d18ef1bf54810ed559d417fde7cd0e88c87ba61ff5ea8cb`.
+The engine is 1,017 production lines and `pattern.rs` is 100; tools are
+1,278.
 
 ### Process
 

@@ -112,7 +112,7 @@ fn ab_selectable() {
     assert!(output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stdout)
-            .contains("ab:2 (evaluate, depth 2, time none, nodes 0, threshold 14)")
+            .contains("ab:2 (pattern::evaluate, depth 2, time none, nodes 0, threshold 14)")
     );
 }
 
@@ -216,7 +216,7 @@ fn timed_and_node_agents() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("ab:2:1000 (evaluate, depth 64, time 1000"),
+        text.contains("ab:2:1000 (pattern::evaluate, depth 64, time 1000"),
         "{text}"
     );
 
@@ -280,7 +280,7 @@ fn node_rule_records_limits() {
     assert!(output.status.success());
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
-        text.contains("ab:2 (evaluate, depth 64, time none, nodes 100, threshold 14)"),
+        text.contains("ab:2 (pattern::evaluate, depth 64, time none, nodes 100, threshold 14)"),
         "{text}"
     );
 
@@ -386,21 +386,12 @@ fn classic_antisymmetry() {
 }
 
 #[test]
-fn classic_matches() {
-    // Temporary while the old evaluator still ships; #126 deletes this.
-    playouts(|board| {
-        assert_eq!(eval_classic(board), othello::eval::evaluate(board));
-    });
-}
-
-#[test]
 fn agent_depth() {
-    for name in ["classic:d8", "pattern:d8"] {
-        let (kind, depth, time) = othello_tools::agents::parse_name(name).unwrap();
-        assert_eq!(kind, name.split(':').next().unwrap());
-        assert_eq!(depth, 8);
-        assert_eq!(time, None);
-    }
+    let name = "classic:d8";
+    let (kind, depth, time) = othello_tools::agents::parse_name(name).unwrap();
+    assert_eq!(kind, "classic");
+    assert_eq!(depth, 8);
+    assert_eq!(time, None);
 }
 
 #[test]
@@ -425,28 +416,8 @@ fn classic_agent() {
 }
 
 #[test]
-fn pattern_agent() {
-    let output = tools(&[
-        "match",
-        "--a",
-        "pattern:100",
-        "--b",
-        "greedy",
-        "--pairs",
-        "1",
-        "--seed",
-        "1",
-    ]);
-    assert!(output.status.success());
-    let text = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        text.contains("pattern:100 (pattern::evaluate, depth 64, time 100, nodes 0, threshold 14)"),
-        "{text}"
-    );
-    let (config, _) = othello_tools::agents::config("pattern", 0, true).unwrap();
-    assert_eq!(
-        (config.eval)(Board::START),
-        othello::pattern::evaluate(Board::START)
-    );
-    assert_eq!(config.endgame_threshold, 14);
+fn pattern_name_removed() {
+    for name in ["pattern", "pattern:100", "pattern:d8"] {
+        assert!(othello_tools::agents::parse_name(name).is_err(), "{name}");
+    }
 }

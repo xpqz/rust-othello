@@ -6,6 +6,15 @@ A Rust Othello engine with a terminal front end and an optional egui desktop
 GUI. The engine uses iterative-deepening alpha-beta search, move ordering, a
 transposition table, and a root-only exact endgame solver.
 
+## Evaluation
+
+The evaluator is learned from the public WTHOR archive: 11 pattern families
+over 12 stages, with weights stored in `assets/eval.bin` and read by
+`pattern::evaluate`. The hand-written 1.0.0 evaluator is frozen in
+`tools/src/baselines.rs` as the `classic` agent for matches. The learned
+evaluator became the default after its pre-registered gate scored 0.7788
+[0.7450, 0.8113] against `classic:3000` at 3 s per move.
+
 ## Build
 
 ```sh

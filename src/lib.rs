@@ -31,7 +31,6 @@
 pub mod agents;
 pub mod board;
 pub mod cli;
-pub mod eval;
 pub mod pattern;
 pub mod perft;
 pub mod rng;

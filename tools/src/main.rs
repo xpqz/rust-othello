@@ -47,12 +47,11 @@ fn describe(name: &str, nodes: u64) -> String {
     let eval = match kind {
         "phase2" => "eval_phase2",
         "classic" => "eval_classic",
-        "pattern" => "pattern::evaluate",
-        _ => "evaluate",
+        _ => "pattern::evaluate",
     };
     let threshold = match kind {
         "phase2" => 12,
-        "classic" | "pattern" => 14,
+        "classic" => 14,
         _ => SearchConfig::standard().endgame_threshold,
     };
     format!("{name} ({eval}, depth {depth}, time {time}, nodes {nodes}, threshold {threshold})")

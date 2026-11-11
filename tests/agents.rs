@@ -3,7 +3,7 @@ mod common;
 use common::playout;
 use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
 use othello::board::{Board, is_terminal, legal_moves};
-use othello::eval::evaluate;
+use othello::pattern::evaluate;
 use othello::rng::Rng;
 use othello::search::{SearchConfig, SearchLimits, search_limited};
 

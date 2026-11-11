@@ -16,7 +16,7 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
     let (depth, time) = match kind {
         "random" | "greedy" => (0, None),
         "phase2" => (PHASE2_DEPTH, time(&mut parts)?),
-        "classic" | "pattern" => {
+        "classic" => {
             let mut depth = 64;
             let mut time = None;
             if let Some(field) = parts.next() {
@@ -76,11 +76,6 @@ pub fn config(
         "classic" => SearchConfig {
             ordering,
             ..classic_config()
-        },
-        "pattern" => SearchConfig {
-            ordering,
-            eval: othello::pattern::evaluate,
-            endgame_threshold: 14,
         },
         _ => SearchConfig {
             ordering,
