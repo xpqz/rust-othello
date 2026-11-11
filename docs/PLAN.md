@@ -357,10 +357,16 @@ tools/
     budget.rs       tools LOC ceiling
 trainer/
   Cargo.toml        separate trainer crate, path-depends on othello and othello-tools
+  README.md         archive download and check instructions
+  wthor.sha256      pinned WTHOR file hashes
   src/
+    lib.rs          trainer library wiring
     main.rs         check, label, fit and inspect commands
+    wthor.rs        WTHOR reader, replay and positions
+    check.rs        manifest verification and game summary
   tests/
     cli.rs          command smoke
+    wthor.rs        reader, replay, summary and manifest tests
     budget.rs       trainer LOC ceiling
 bench/
   corpus.txt        frozen midgame/endgame positions

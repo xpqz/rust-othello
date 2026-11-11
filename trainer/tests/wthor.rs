@@ -80,11 +80,14 @@ fn move_decoding() {
 
 #[test]
 fn known_game() {
-    let db = wthor::read(&archive(&[record(&GAME, 8, 8)], 2025, 24)).unwrap();
+    let db = wthor::read(&archive(&[record(&GAME, 56, 56)], 2025, 24)).unwrap();
     let replay = wthor::replay(&db.games[0]).unwrap();
     assert_eq!(replay.passes, 4);
     assert_eq!(final_score(replay.final_board), -48);
+    assert!(!replay.final_black);
+    assert_eq!(replay.final_board.opp.count_ones(), 55);
     assert_eq!(replay.positions.len(), GAME.len());
+    assert_eq!(replay.black.len(), replay.positions.len());
     assert_eq!(replay.positions[0], Board::START);
 }
 
@@ -110,7 +113,7 @@ fn incomplete_game() {
 
 #[test]
 fn positions_playable() {
-    let db = wthor::read(&archive(&[record(&GAME, 8, 8)], 2025, 24)).unwrap();
+    let db = wthor::read(&archive(&[record(&GAME, 56, 56)], 2025, 24)).unwrap();
     let replay = wthor::replay(&db.games[0]).unwrap();
     for position in &replay.positions {
         assert!(!is_terminal(*position));
@@ -121,9 +124,9 @@ fn positions_playable() {
 #[test]
 fn summary_counts() {
     let records = [
-        record(&GAME, 8, 8),
-        record(&GAME, 9, 8),
-        record(&GAME, 8, 20),
+        record(&GAME, 56, 56),
+        record(&GAME, 55, 56),
+        record(&GAME, 56, 20),
         record(&[11], 0, 0),
         record(&GAME[..10], 0, 0),
         record(&[19], 0, 0),
