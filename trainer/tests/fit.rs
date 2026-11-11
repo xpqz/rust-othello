@@ -4,6 +4,7 @@ use othello::rng::Rng;
 use othello_tools::sym;
 use othello_trainer::fit::{self, Example, Fit, Options, Stage};
 use othello_trainer::wthor::Game;
+use sha2::{Digest, Sha256};
 
 fn options() -> Options {
     Options {
@@ -368,4 +369,27 @@ fn boards() -> Vec<Board> {
             .take(3),
     );
     boards
+}
+
+#[test]
+fn asset_layout() {
+    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets");
+    let asset = std::fs::read(format!("{root}/eval.bin")).unwrap();
+    let sha: String = Sha256::digest(&asset)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let layout = std::fs::read_to_string(format!("{root}/eval.layout")).unwrap();
+    let mut asset_line = None;
+    let mut layout_line = None;
+    for line in layout.lines() {
+        if let Some(value) = line.strip_prefix("asset ") {
+            asset_line = Some(value.to_string());
+        }
+        if let Some(value) = line.strip_prefix("layout ") {
+            layout_line = Some(value.to_string());
+        }
+    }
+    assert_eq!(sha, asset_line.unwrap());
+    assert_eq!(fit::layout_fingerprint(), layout_line.unwrap());
 }

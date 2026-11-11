@@ -526,7 +526,7 @@ fn toolchain() -> (String, String) {
     (version, target)
 }
 
-fn layout_fingerprint() -> String {
+pub fn layout_fingerprint() -> String {
     let mut text = format!(
         "stages {} table {} digits 0,1,2\n",
         pattern::STAGES,

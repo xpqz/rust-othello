@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
-use crate::board::Board;
+use crate::board::{Board, empty_count};
+use crate::score::EVAL_BOUND;
 
 pub const INSTANCE_COUNT: usize = 46;
 pub const TABLE_SLOTS: usize = 167_265;
@@ -52,6 +53,18 @@ pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
         *slot = instance.offset + index;
     }
     out
+}
+
+static WEIGHTS: &[u8; 4_014_360] = include_bytes!("../assets/eval.bin");
+
+pub fn evaluate(board: Board) -> i32 {
+    let stage = stage(empty_count(board));
+    let mut value = 0;
+    for feature in features(board) {
+        let offset = (stage * TABLE_SLOTS + feature as usize) * 2;
+        value += i16::from_le_bytes([WEIGHTS[offset], WEIGHTS[offset + 1]]) as i32;
+    }
+    value.clamp(-EVAL_BOUND, EVAL_BOUND)
 }
 
 pub fn stage(empties: u32) -> usize {

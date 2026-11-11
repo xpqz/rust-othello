@@ -210,16 +210,19 @@ fn asset() -> Vec<u8> {
     std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/eval.bin")).unwrap()
 }
 
-fn reference(board: Board, asset: &[u8]) -> i32 {
+fn raw_sum(board: Board, asset: &[u8]) -> i32 {
     let stage = pattern::stage(empty_count(board));
-    let value: i32 = pattern::features(board)
+    pattern::features(board)
         .iter()
         .map(|&feature| {
             let offset = (stage * pattern::TABLE_SLOTS + feature as usize) * 2;
             i16::from_le_bytes([asset[offset], asset[offset + 1]]) as i32
         })
-        .sum();
-    value.clamp(-EVAL_BOUND, EVAL_BOUND)
+        .sum()
+}
+
+fn reference(board: Board, asset: &[u8]) -> i32 {
+    raw_sum(board, asset).clamp(-EVAL_BOUND, EVAL_BOUND)
 }
 
 #[test]
@@ -261,4 +264,16 @@ fn engine_source() {
     let source = include_str!("../src/pattern.rs");
     assert!(!source.contains("canonical"));
     assert!(!source.contains("othello_tools"));
+    assert!(!source.contains("othello_trainer"));
+}
+
+#[test]
+fn evaluate_clamp() {
+    let board = Board {
+        me: 0x003838183c4c8400,
+        opp: 0xe0c0c000c0004040,
+    };
+    let raw = raw_sum(board, &asset());
+    assert!(raw.abs() > EVAL_BOUND, "{raw}");
+    assert_eq!(pattern::evaluate(board), -EVAL_BOUND);
 }

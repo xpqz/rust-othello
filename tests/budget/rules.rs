@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 fn files(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
@@ -43,7 +43,10 @@ pub fn source_error(text: &str) -> Option<&'static str> {
         if line.contains("#[test]") || (line.contains("cfg") && line.contains("test")) {
             return Some("test code");
         }
-        if line.contains("include") && line.contains('!') {
+        if line.contains("include!(") {
+            return Some("include macro");
+        }
+        if line.contains("include") && line.contains('!') && !asset_include(line) {
             return Some("include macro");
         }
         if line.contains("#[path") {
@@ -51,6 +54,34 @@ pub fn source_error(text: &str) -> Option<&'static str> {
         }
     }
     None
+}
+
+fn asset_include(line: &str) -> bool {
+    let Some((_, rest)) = line.split_once("include_bytes!(") else {
+        return false;
+    };
+    let Some(end) = rest.find(')') else {
+        return false;
+    };
+    let literal = rest[..end].trim();
+    let Some(literal) = literal
+        .strip_prefix('"')
+        .and_then(|literal| literal.strip_suffix('"'))
+    else {
+        return false;
+    };
+    let path = Path::new("src").join(literal);
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::CurDir => {}
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized.starts_with("assets")
 }
 
 pub fn check_scope(root: &Path) {
