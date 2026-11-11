@@ -33,6 +33,21 @@ fn single_disc_values() {
 }
 
 #[test]
+fn antisymmetry_and_bounds() {
+    let mut rng = Rng::new(0xE7A1);
+    for _ in 0..100 {
+        playout(&mut rng, |board| {
+            if is_terminal(board) {
+                return;
+            }
+            let value = evaluate(board);
+            assert_eq!(value, -evaluate(pass(board)));
+            assert!((-EVAL_BOUND..=EVAL_BOUND).contains(&value));
+        });
+    }
+}
+
+#[test]
 fn mixed_table_sum() {
     let me = at(0, 0) | at(7, 7);
     let opp = at(1, 0) | at(6, 7);

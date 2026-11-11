@@ -351,32 +351,55 @@ fn classic_config_pins() {
     assert!(config.ordering);
 }
 
+fn playouts(mut check: impl FnMut(Board)) {
+    let mut rng = Rng::new(0xE7A1);
+    for _ in 0..100 {
+        let mut board = Board::START;
+        loop {
+            if is_terminal(board) {
+                break;
+            }
+            check(board);
+            let moves = legal_moves(board.me, board.opp);
+            if moves == 0 {
+                board = pass(board);
+                continue;
+            }
+            let pick = rng.next_u64() % moves.count_ones() as u64;
+            let mut rest = moves;
+            for _ in 0..pick {
+                rest &= rest - 1;
+            }
+            let square = rest.trailing_zeros() as u8;
+            board = play(board, square);
+        }
+    }
+}
+
 #[test]
 fn classic_antisymmetry() {
-    let mut rng = Rng::new(0xE7A1);
-    let mut board = Board::START;
-    for _ in 0..100 {
-        if is_terminal(board) {
-            break;
-        }
-        let moves = legal_moves(board.me, board.opp);
-        if moves == 0 {
-            board = pass(board);
-            continue;
-        }
-        let pick = rng.next_u64() % moves.count_ones() as u64;
-        let mut rest = moves;
-        for _ in 0..pick {
-            rest &= rest - 1;
-        }
-        let square = rest.trailing_zeros() as u8;
-        board = play(board, square);
-        if is_terminal(board) {
-            break;
-        }
+    playouts(|board| {
         let value = eval_classic(board);
         assert_eq!(value, -eval_classic(pass(board)));
         assert!((-EVAL_BOUND..=EVAL_BOUND).contains(&value));
+    });
+}
+
+#[test]
+fn classic_matches() {
+    // Temporary while the old evaluator still ships; #126 deletes this.
+    playouts(|board| {
+        assert_eq!(eval_classic(board), othello::eval::evaluate(board));
+    });
+}
+
+#[test]
+fn agent_depth() {
+    for name in ["classic:d8", "pattern:d8"] {
+        let (kind, depth, time) = othello_tools::agents::parse_name(name).unwrap();
+        assert_eq!(kind, name.split(':').next().unwrap());
+        assert_eq!(depth, 8);
+        assert_eq!(time, None);
     }
 }
 
