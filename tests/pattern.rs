@@ -16,29 +16,40 @@ fn hand() -> Board {
     }
 }
 
-fn transformed(board: Board, sym: Sym) -> Board {
-    Board {
-        me: transform(board.me, sym),
-        opp: transform(board.opp, sym),
-    }
+fn corpus() -> Vec<Board> {
+    let text = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/bench/corpus.txt"
+    ))
+    .unwrap();
+    text.lines()
+        .filter(|line| !line.starts_with('#'))
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let me = u64::from_str_radix(parts.next()?, 16).ok()?;
+            let opp = u64::from_str_radix(parts.next()?, 16).ok()?;
+            Some(Board { me, opp })
+        })
+        .filter(|board| (board.me | board.opp).count_ones() >= 40)
+        .take(3)
+        .collect()
 }
 
-fn canonical(board: Board) -> Vec<u32> {
-    let mut values: Vec<u32> = pattern::features(board)
-        .into_iter()
-        .map(pattern::canonical)
-        .collect();
-    values.sort();
-    values
+fn boards() -> Vec<Board> {
+    let mut boards = vec![Board::START];
+    boards.extend(corpus());
+    assert_eq!(boards.len(), 4);
+    boards
 }
 
 fn feature(board: Board, family: usize) -> u32 {
     let base = pattern::FAMILIES[family];
-    let index = pattern::instances()
+    let (position, instance) = pattern::instances()
         .iter()
-        .position(|instance| instance.family == family && instance.squares == base)
+        .enumerate()
+        .find(|(_, instance)| instance.family == family && instance.squares == base)
         .unwrap();
-    pattern::features(board)[index]
+    pattern::features(board)[position] - instance.offset
 }
 
 #[test]
@@ -80,6 +91,29 @@ fn instances_match_symmetries() {
 }
 
 #[test]
+fn instances_closed() {
+    let sets: Vec<(usize, BTreeSet<u8>)> = pattern::instances()
+        .iter()
+        .map(|instance| (instance.family, instance.squares.iter().copied().collect()))
+        .collect();
+    for instance in pattern::instances() {
+        for sym in Sym::ALL {
+            let transformed: BTreeSet<u8> = instance
+                .squares
+                .iter()
+                .map(|&square| transform(1u64 << square, sym).trailing_zeros() as u8)
+                .collect();
+            assert!(
+                sets.iter()
+                    .any(|(family, set)| *family == instance.family && *set == transformed),
+                "{:?} {sym:?}",
+                instance.squares
+            );
+        }
+    }
+}
+
+#[test]
 fn index_convention() {
     let board = hand();
     assert_eq!(feature(board, 0), 46_459);
@@ -88,8 +122,36 @@ fn index_convention() {
 }
 
 #[test]
+fn features_reference() {
+    for board in boards() {
+        let features = pattern::features(board);
+        for (instance, &index) in pattern::instances().iter().zip(&features) {
+            let mut local = 0u32;
+            let mut power = 1u32;
+            for &square in instance.squares {
+                let digit = if board.me & (1u64 << square) != 0 {
+                    1
+                } else if board.opp & (1u64 << square) != 0 {
+                    2
+                } else {
+                    0
+                };
+                local += digit * power;
+                power *= 3;
+            }
+            assert_eq!(
+                index,
+                instance.offset + local,
+                "{board:?} {:?}",
+                instance.squares
+            );
+        }
+    }
+}
+
+#[test]
 fn index_ranges() {
-    for board in [Board::START, hand()] {
+    for board in boards() {
         for (instance, &index) in pattern::instances().iter().zip(&pattern::features(board)) {
             let start = instance.offset;
             let end = start + 3u32.pow(instance.squares.len() as u32);
@@ -103,7 +165,10 @@ fn stage_boundaries() {
     for (empties, stage) in [
         (64, 0),
         (60, 0),
+        (59, 0),
+        (56, 0),
         (55, 1),
+        (51, 1),
         (50, 2),
         (45, 3),
         (40, 4),
@@ -113,18 +178,12 @@ fn stage_boundaries() {
         (20, 8),
         (15, 9),
         (10, 10),
+        (6, 10),
         (5, 11),
+        (4, 11),
+        (1, 11),
         (0, 11),
     ] {
         assert_eq!(pattern::stage(empties), stage, "{empties}");
-    }
-}
-
-#[test]
-fn canonical_symmetry() {
-    let board = hand();
-    let expected = canonical(board);
-    for sym in Sym::ALL {
-        assert_eq!(canonical(transformed(board, sym)), expected, "{sym:?}");
     }
 }
