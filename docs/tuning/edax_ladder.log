@@ -1,0 +1,242 @@
+cb05b59fb940fb09f4a29148bb79c948f13f6b5d
+Thu 12 Nov 2026 09:52:37 CET
+level 1 date 2026-11-12T08:52:38Z
+pairs 0/50 elapsed 60.3s
+pairs 4/50 elapsed 120.7s
+pairs 4/50 elapsed 180.9s
+pairs 8/50 elapsed 241.2s
+pairs 8/50 elapsed 301.4s
+pair 8 void above load 6
+pair 11 void above load 6
+pair 10 void above load 6
+pair 9 void above load 6
+pairs 12/50 elapsed 362.3s
+pairs 12/50 elapsed 422.6s
+pairs 16/50 elapsed 482.7s
+pairs 16/50 elapsed 543.0s
+pairs 20/50 elapsed 603.0s
+pairs 20/50 elapsed 663.3s
+pair 20 void above load 6
+pair 21 void above load 6
+pair 23 void above load 6
+pair 22 void above load 6
+pairs 24/50 elapsed 723.7s
+pairs 24/50 elapsed 784.0s
+pair 25 void above load 6
+pair 24 void above load 6
+pair 26 void above load 6
+pair 27 void above load 6
+pairs 28/50 elapsed 844.0s
+pairs 28/50 elapsed 904.3s
+pair 28 void above load 6
+pair 29 void above load 6
+pair 31 void above load 6
+pair 30 void above load 6
+pairs 32/50 elapsed 964.8s
+pairs 32/50 elapsed 1025.1s
+pairs 36/50 elapsed 1085.1s
+pairs 36/50 elapsed 1145.4s
+pairs 40/50 elapsed 1205.5s
+pairs 40/50 elapsed 1265.8s
+pairs 44/50 elapsed 1326.8s
+pairs 44/50 elapsed 1387.0s
+pairs 48/50 elapsed 1447.9s
+pairs 49/50 elapsed 1508.9s
+level 1 pairs 34 games 68 W 68 D 0 L 0 mean 1.0000 [0.7671, 1.0000] disc_diff 46.09 edax_ms_per_move 0.06 seed 1 resamples 10000
+level 1 elapsed 1511.7s
+replaying 16 pairs
+level 1 date 2026-11-12T09:17:49Z
+pairs 0/16 elapsed 60.3s
+pairs 3/16 elapsed 121.2s
+pairs 4/16 elapsed 181.5s
+pairs 8/16 elapsed 241.5s
+pairs 8/16 elapsed 301.7s
+pairs 12/16 elapsed 362.7s
+pairs 12/16 elapsed 423.0s
+level 1 pairs 50 games 100 W 99 D 0 L 1 mean 0.9900 [0.9700, 1.0000] disc_diff 46.43 edax_ms_per_move 0.06 seed 1 resamples 10000
+level 1 elapsed 475.2s
+level 2 date 2026-11-12T09:25:45Z
+pairs 0/50 elapsed 60.3s
+pairs 4/50 elapsed 120.8s
+pairs 4/50 elapsed 181.1s
+pairs 8/50 elapsed 242.1s
+pairs 8/50 elapsed 302.5s
+pairs 12/50 elapsed 363.4s
+pairs 12/50 elapsed 423.8s
+pairs 16/50 elapsed 484.8s
+pairs 16/50 elapsed 545.0s
+pairs 20/50 elapsed 605.7s
+pairs 20/50 elapsed 666.0s
+pairs 24/50 elapsed 726.3s
+pairs 24/50 elapsed 786.6s
+pairs 28/50 elapsed 847.6s
+pairs 28/50 elapsed 907.8s
+pair 29 void above load 6
+pair 28 void above load 6
+pair 31 void above load 6
+pair 30 void above load 6
+pairs 32/50 elapsed 968.6s
+pairs 32/50 elapsed 1028.9s
+pairs 36/50 elapsed 1089.2s
+pairs 37/50 elapsed 1149.6s
+pairs 40/50 elapsed 1210.6s
+pairs 44/50 elapsed 1271.5s
+pairs 44/50 elapsed 1331.8s
+pairs 48/50 elapsed 1391.9s
+pairs 48/50 elapsed 1452.1s
+level 2 pairs 46 games 92 W 78 D 1 L 13 mean 0.8533 [0.7880, 0.9130] disc_diff 34.08 edax_ms_per_move 0.06 seed 1 resamples 10000
+level 2 elapsed 1492.5s
+replaying 4 pairs
+level 2 date 2026-11-12T09:50:37Z
+pairs 0/4 elapsed 60.3s
+level 2 pairs 50 games 100 W 86 D 1 L 13 mean 0.8650 [0.8000, 0.9250] disc_diff 34.68 edax_ms_per_move 0.06 seed 1 resamples 10000
+level 2 elapsed 117.3s
+level 4 date 2026-11-12T09:52:35Z
+pairs 0/50 elapsed 60.2s
+pair 3 void above load 6
+pair 2 void above load 6
+pair 0 void above load 6
+pair 1 void above load 6
+pairs 4/50 elapsed 120.8s
+pairs 4/50 elapsed 181.1s
+pairs 8/50 elapsed 241.5s
+pairs 8/50 elapsed 301.7s
+pairs 12/50 elapsed 361.8s
+pairs 12/50 elapsed 422.1s
+pairs 16/50 elapsed 482.2s
+pairs 16/50 elapsed 542.4s
+pairs 20/50 elapsed 602.5s
+pairs 20/50 elapsed 662.8s
+pairs 24/50 elapsed 723.8s
+pairs 24/50 elapsed 784.1s
+pairs 28/50 elapsed 844.2s
+pairs 28/50 elapsed 904.5s
+pairs 32/50 elapsed 965.4s
+pairs 33/50 elapsed 1025.7s
+pairs 36/50 elapsed 1085.8s
+pairs 39/50 elapsed 1145.9s
+pairs 40/50 elapsed 1206.7s
+pairs 44/50 elapsed 1267.7s
+pairs 44/50 elapsed 1327.9s
+pairs 48/50 elapsed 1388.5s
+pairs 48/50 elapsed 1448.7s
+level 4 pairs 46 games 92 W 78 D 2 L 12 mean 0.8587 [0.7935, 0.9185] disc_diff 23.28 edax_ms_per_move 0.25 seed 1 resamples 10000
+level 4 elapsed 1481.7s
+replaying 4 pairs
+level 4 date 2026-11-12T10:17:16Z
+pairs 0/4 elapsed 60.3s
+level 4 pairs 50 games 100 W 84 D 2 L 14 mean 0.8500 [0.7850, 0.9100] disc_diff 23.33 edax_ms_per_move 0.24 seed 1 resamples 10000
+level 4 elapsed 116.6s
+level 6 date 2026-11-12T10:19:13Z
+pairs 0/50 elapsed 60.3s
+pairs 4/50 elapsed 120.5s
+pairs 4/50 elapsed 180.8s
+pairs 8/50 elapsed 241.2s
+pairs 8/50 elapsed 301.7s
+pairs 12/50 elapsed 361.8s
+pairs 12/50 elapsed 422.3s
+pairs 16/50 elapsed 483.3s
+pairs 16/50 elapsed 543.6s
+pairs 20/50 elapsed 603.9s
+pairs 20/50 elapsed 664.2s
+pairs 24/50 elapsed 724.8s
+pairs 24/50 elapsed 785.1s
+pairs 28/50 elapsed 845.2s
+pairs 28/50 elapsed 905.5s
+pairs 32/50 elapsed 965.9s
+pairs 35/50 elapsed 1025.9s
+pairs 36/50 elapsed 1086.4s
+pairs 40/50 elapsed 1147.3s
+pairs 40/50 elapsed 1207.8s
+pairs 44/50 elapsed 1268.7s
+pairs 44/50 elapsed 1329.0s
+pairs 48/50 elapsed 1390.0s
+pairs 48/50 elapsed 1450.2s
+level 6 pairs 50 games 100 W 66 D 1 L 33 mean 0.6650 [0.6000, 0.7300] disc_diff 9.75 edax_ms_per_move 1.32 seed 1 resamples 10000
+level 6 elapsed 1485.9s
+level 8 date 2026-11-12T10:43:59Z
+pairs 0/50 elapsed 60.3s
+pairs 4/50 elapsed 121.0s
+pairs 4/50 elapsed 181.2s
+pairs 8/50 elapsed 241.7s
+pairs 8/50 elapsed 301.9s
+pairs 12/50 elapsed 362.5s
+pairs 12/50 elapsed 422.8s
+pairs 16/50 elapsed 483.5s
+pairs 16/50 elapsed 543.8s
+pairs 20/50 elapsed 604.2s
+pairs 20/50 elapsed 664.7s
+pairs 24/50 elapsed 725.5s
+pairs 24/50 elapsed 786.0s
+pairs 28/50 elapsed 846.3s
+pairs 28/50 elapsed 906.6s
+pairs 32/50 elapsed 966.8s
+pairs 33/50 elapsed 1027.7s
+pairs 36/50 elapsed 1088.7s
+pairs 40/50 elapsed 1149.6s
+pairs 40/50 elapsed 1209.9s
+pairs 44/50 elapsed 1270.5s
+pairs 44/50 elapsed 1331.0s
+pairs 48/50 elapsed 1391.3s
+pairs 48/50 elapsed 1451.7s
+level 8 pairs 50 games 100 W 56 D 1 L 43 mean 0.5650 [0.5250, 0.6150] disc_diff 4.22 edax_ms_per_move 8.42 seed 1 resamples 10000
+level 8 elapsed 1485.7s
+level 10 date 2026-11-12T11:08:45Z
+pairs 0/50 elapsed 60.4s
+pairs 3/50 elapsed 120.4s
+pairs 4/50 elapsed 181.3s
+pairs 7/50 elapsed 242.2s
+pairs 8/50 elapsed 302.9s
+pairs 12/50 elapsed 363.0s
+pairs 12/50 elapsed 423.3s
+pairs 16/50 elapsed 483.8s
+pairs 16/50 elapsed 544.1s
+pairs 20/50 elapsed 604.4s
+pairs 20/50 elapsed 664.6s
+pairs 24/50 elapsed 725.6s
+pairs 24/50 elapsed 785.8s
+pairs 28/50 elapsed 846.3s
+pairs 28/50 elapsed 906.7s
+pairs 32/50 elapsed 967.3s
+pairs 32/50 elapsed 1027.5s
+pairs 36/50 elapsed 1087.9s
+pairs 36/50 elapsed 1148.1s
+pairs 40/50 elapsed 1208.3s
+pairs 40/50 elapsed 1268.6s
+pairs 44/50 elapsed 1329.5s
+pairs 44/50 elapsed 1389.8s
+pairs 48/50 elapsed 1450.0s
+pairs 48/50 elapsed 1510.2s
+level 10 pairs 50 games 100 W 49 D 2 L 49 mean 0.5000 [0.4550, 0.5450] disc_diff -3.85 edax_ms_per_move 64.20 seed 1 resamples 10000
+level 10 elapsed 1522.4s
+level 12 date 2026-11-12T11:34:07Z
+pairs 0/50 elapsed 60.3s
+pairs 3/50 elapsed 121.2s
+pairs 4/50 elapsed 181.6s
+pairs 8/50 elapsed 241.7s
+pairs 8/50 elapsed 302.0s
+pairs 12/50 elapsed 362.3s
+pairs 12/50 elapsed 422.6s
+pairs 16/50 elapsed 482.8s
+pairs 16/50 elapsed 543.0s
+pairs 20/50 elapsed 604.0s
+pairs 20/50 elapsed 664.2s
+pairs 24/50 elapsed 724.3s
+pairs 24/50 elapsed 784.6s
+pairs 28/50 elapsed 844.8s
+pairs 28/50 elapsed 905.1s
+pairs 32/50 elapsed 965.9s
+pairs 32/50 elapsed 1026.2s
+pairs 36/50 elapsed 1086.7s
+pairs 36/50 elapsed 1146.9s
+pairs 40/50 elapsed 1207.4s
+pairs 40/50 elapsed 1267.7s
+pairs 44/50 elapsed 1328.0s
+pairs 44/50 elapsed 1388.3s
+pairs 48/50 elapsed 1448.9s
+level 12 pairs 50 games 100 W 43 D 2 L 55 mean 0.4400 [0.3850, 0.4900] disc_diff -5.93 edax_ms_per_move 43.11 seed 1 resamples 10000
+level 12 elapsed 1507.7s
+real 11198.05
+user 42911.08
+sys 201.08
+exit 0

@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -8,9 +9,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use othello::agents::{Agent, greedy_agent, search_agent};
-use othello::board::{Board, disc_count, final_score, legal_moves, pass, play};
+use othello::board::{Board, disc_count, empty_count, final_score, legal_moves, pass, play};
 use othello::score::terminal_score;
-use othello::search::{SearchConfig, SearchLimits};
+use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_tt};
+use othello::tt::Table;
 use othello_tools::journal::Journal;
 use othello_tools::positions::{self, Opening};
 use othello_tools::provenance::{file_hash, git_commit};
@@ -30,6 +32,8 @@ struct Args {
     time: u64,
     bridge: bool,
     ladder: bool,
+    attribute: bool,
+    levels: String,
 }
 
 impl Args {
@@ -47,6 +51,8 @@ impl Args {
             time: 3000,
             bridge: false,
             ladder: false,
+            attribute: false,
+            levels: "10,12".into(),
         };
         let mut index = 0;
         while index < args.len() {
@@ -57,6 +63,10 @@ impl Args {
                 }
                 "--ladder" => {
                     a.ladder = true;
+                    index += 1;
+                }
+                "--attribute" => {
+                    a.attribute = true;
                     index += 1;
                 }
                 flag => {
@@ -74,6 +84,7 @@ impl Args {
                         "--out" => a.out = Some(value.clone()),
                         "--seed" => a.seed = value.parse().map_err(|_| "invalid seed")?,
                         "--time" => a.time = value.parse().map_err(|_| "invalid time")?,
+                        "--levels" => a.levels = value.clone(),
                         _ => return Err(format!("unknown option: {flag}")),
                     }
                     index += 2;
@@ -717,11 +728,218 @@ fn run_level(args: &Args, openings: &[Opening], level: u32) -> Result<f64, Strin
     }
 }
 
+fn field<'a>(line: &'a str, key: &str) -> Result<&'a str, String> {
+    line.split_whitespace()
+        .skip_while(|part| *part != key)
+        .nth(1)
+        .ok_or_else(|| format!("missing {key}"))
+}
+
+fn parse_attr_moves(payload: &str) -> Result<Vec<Option<u8>>, String> {
+    let text = payload.split_once(" moves ").ok_or("missing moves")?.1;
+    text.split_whitespace()
+        .map(|mv| {
+            if mv == "pass" {
+                Ok(None)
+            } else {
+                square(mv).map(Some)
+            }
+        })
+        .collect()
+}
+
+fn replay(moves: &[Option<u8>]) -> Result<Vec<(Board, bool)>, String> {
+    let mut board = Board::START;
+    let mut black = true;
+    let mut positions = vec![(board, black)];
+    for mv in moves {
+        if let Some(sq) = mv {
+            if legal_moves(board.me, board.opp) & (1u64 << sq) == 0 {
+                return Err(format!("illegal replay move {}", coord(*sq)));
+            }
+            board = play(board, *sq);
+        } else {
+            board = pass(board);
+        }
+        black = !black;
+        positions.push((board, black));
+    }
+    Ok(positions)
+}
+
+fn exact_edax(args: &Args, board: Board, black: bool, tag: &str) -> Result<i32, String> {
+    let mut text = String::new();
+    let (black_bits, white_bits) = if black {
+        (board.me, board.opp)
+    } else {
+        (board.opp, board.me)
+    };
+    for sq in 0..64 {
+        let bit = 1u64 << sq;
+        text.push(if black_bits & bit != 0 {
+            'X'
+        } else if white_bits & bit != 0 {
+            'O'
+        } else {
+            '-'
+        });
+    }
+    text.push(' ');
+    text.push(if black { 'X' } else { 'O' });
+    text.push_str(";\n");
+
+    let tag = tag.replace(':', "_");
+    let path = std::env::temp_dir().join(format!("othello-attr-{}-{tag}.obf", std::process::id()));
+    fs::write(&path, text).map_err(|error| error.to_string())?;
+    let output = Command::new(&args.edax)
+        .current_dir(&args.cwd)
+        .args([
+            "-solve",
+            path.to_str().ok_or("non-utf8 temp path")?,
+            "-level",
+            "60",
+            "-verbose",
+            "1",
+            "-n",
+            "1",
+            "-book-usage",
+            "off",
+            "-eval-file",
+            "data/eval.dat",
+        ])
+        .output()
+        .map_err(|error| format!("{}: {error}", args.edax.display()))?;
+    let _ = fs::remove_file(&path);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        let Some((_, rest)) = line.split_once('|') else {
+            continue;
+        };
+        if rest.contains("depth") {
+            continue;
+        }
+        let numbers: Vec<&str> = rest.split_whitespace().collect();
+        if numbers.len() < 2 {
+            continue;
+        }
+        if let Ok(score) = numbers[1].parse::<i32>() {
+            return Ok(score * 100);
+        }
+    }
+    Err(format!(
+        "no exact score for {tag}: stdout={:?} stderr={:?}",
+        String::from_utf8_lossy(&output.stdout).trim(),
+        String::from_utf8_lossy(&output.stderr).trim()
+    ))
+}
+
+fn exact_ours(board: Board) -> Result<i32, String> {
+    let config = SearchConfig::standard();
+    let limits = SearchLimits::new(64, NO_DEADLINE, 0);
+    let mut table = Table::new(1 << 20);
+    let result = search_tt(board, limits, &config, &mut table);
+    Ok(result.score)
+}
+
+fn attribute(args: &Args) -> Result<(), String> {
+    let levels: Vec<u32> = args
+        .levels
+        .split(',')
+        .map(|text| text.trim().parse().map_err(|_| "invalid levels"))
+        .collect::<Result<_, _>>()?;
+    let mut total_lost = 0;
+    let mut total_before = 0;
+    let mut total_after = 0;
+    let mut checks = 0;
+    let mut checks_ok = 0;
+
+    for level in levels {
+        let path = level_path(args, level);
+        let text = fs::read_to_string(&path).map_err(|error| format!("{path}: {error}"))?;
+        let (mut lost, mut before, mut after) = (0, 0, 0);
+        for line in text.lines().skip(1) {
+            let Some((id, payload)) = line.split_once('\t') else {
+                continue;
+            };
+            let points: f64 = field(payload, "points")?
+                .parse()
+                .map_err(|_| "invalid points")?;
+            if points != 0.0 {
+                continue;
+            }
+            let engine_black = field(payload, "engine_black")? == "1";
+            let moves = parse_attr_moves(payload)?;
+            let positions = replay(&moves)?;
+            let Some((index, &(board, black))) = positions
+                .iter()
+                .enumerate()
+                .find(|(_, (board, _))| empty_count(*board) <= 24)
+            else {
+                return Err(format!("{level} {id}: no position at 24 empties"));
+            };
+            let value = exact_edax(args, board, black, &format!("{level}-{id}-24"))?;
+            let value = if engine_black == black { value } else { -value };
+            lost += 1;
+            if value < 0 {
+                before += 1;
+            } else {
+                after += 1;
+            }
+            println!(
+                "level {level} {id} engine_black {} exact24 {:+} {}",
+                u8::from(engine_black),
+                value,
+                if value < 0 { "before" } else { "after" }
+            );
+
+            if checks < 5 {
+                let later = positions
+                    .iter()
+                    .enumerate()
+                    .skip(index + 1)
+                    .find(|(_, (board, _))| empty_count(*board) <= 14);
+                if let Some((later_index, &(later_board, later_black))) = later {
+                    let edax = exact_edax(
+                        args,
+                        later_board,
+                        later_black,
+                        &format!("{level}-{id}-check-{later_index}"),
+                    )?;
+                    let ours = exact_ours(later_board)?;
+                    checks += 1;
+                    if edax == ours {
+                        checks_ok += 1;
+                    }
+                    println!(
+                        "check level {level} {id} empties {} engine_black {} edax {:+} ours {:+} {}",
+                        empty_count(later_board),
+                        u8::from(engine_black),
+                        edax,
+                        ours,
+                        if edax == ours { "agree" } else { "DIFFER" }
+                    );
+                }
+            }
+        }
+        println!("level {level} losses {lost} before {before} after {after}");
+        total_lost += lost;
+        total_before += before;
+        total_after += after;
+    }
+    println!(
+        "attribution losses {total_lost} before {total_before} after {total_after} spot_checks {checks_ok}/{checks}"
+    );
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = Args::parse(&args).and_then(|args| {
         if args.bridge {
             return bridge(&args);
+        }
+        if args.attribute {
+            return attribute(&args);
         }
         let openings = positions::load(&args.openings)?;
         if args.pairs > openings.len() {
