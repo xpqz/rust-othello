@@ -58,12 +58,26 @@ kill_run() {
         --openings bench/openings_tune.txt
 }
 
-kill_run >"$TMP/kill1.out" 2>"$TMP/kill1.err" &
+"$BIN" --level 1 --pairs 6 --time 150 --jobs 2 \
+    --out "$TMP/kill.journal" \
+    --edax "$KILL_EDAX" --cwd "$KILL_CWD" \
+    --openings bench/openings_tune.txt >"$TMP/kill1.out" 2>"$TMP/kill1.err" &
 kill_pid=$!
 sleep 10
 kill -9 "$kill_pid" 2>/dev/null || true
 wait "$kill_pid" 2>/dev/null || true
-sleep 1
+if ps -p "$kill_pid" >/dev/null 2>&1; then
+    echo "driver $kill_pid survived SIGKILL" >&2
+    exit 1
+fi
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    pgrep -f "$KILL_EDAX -gtp" >/dev/null || break
+    sleep 0.1
+done
+if pgrep -f "$KILL_EDAX -gtp" >/dev/null; then
+    echo "killed driver left an Edax process" >&2
+    exit 1
+fi
 kill_records=$(grep -vc '^header' "$TMP/kill.journal" || true)
 test $((kill_records % 2)) -eq 0 || {
     echo "partial pair in journal after kill: $kill_records records" >&2
@@ -88,8 +102,4 @@ grep -q '^level 1 pairs 6 ' "$TMP/kill2.out" || {
     cat "$TMP/kill2.out" >&2
     exit 1
 }
-if pgrep -f "$KILL_EDAX -gtp" >/dev/null; then
-    echo "killed driver left an Edax process" >&2
-    exit 1
-fi
 echo "kill/resume check passed: $kill_records records"

@@ -822,6 +822,7 @@ fn exact_edax(args: &Args, board: Board, black: bool, tag: &str) -> Result<i32, 
         if numbers.len() < 2 {
             continue;
         }
+        // Edax prints `problem|depth score ...`; the second number is the score.
         if let Ok(score) = numbers[1].parse::<i32>() {
             return Ok(score * 100);
         }
@@ -847,16 +848,18 @@ fn attribute(args: &Args) -> Result<(), String> {
         .split(',')
         .map(|text| text.trim().parse().map_err(|_| "invalid levels"))
         .collect::<Result<_, _>>()?;
-    let mut total_lost = 0;
-    let mut total_before = 0;
-    let mut total_after = 0;
+    let mut total = [[0usize; 3]; 3];
+    let mut flipped = [0usize; 3];
     let mut checks = 0;
     let mut checks_ok = 0;
 
     for level in levels {
         let path = level_path(args, level);
         let text = fs::read_to_string(&path).map_err(|error| format!("{path}: {error}"))?;
-        let (mut lost, mut before, mut after) = (0, 0, 0);
+        let mut matrix = [[0usize; 3]; 3];
+        let mut flips = [0usize; 3];
+        let (mut big, mut mid, mut drawn, mut won) = (0, 0, 0, 0);
+
         for line in text.lines().skip(1) {
             let Some((id, payload)) = line.split_once('\t') else {
                 continue;
@@ -864,9 +867,13 @@ fn attribute(args: &Args) -> Result<(), String> {
             let points: f64 = field(payload, "points")?
                 .parse()
                 .map_err(|_| "invalid points")?;
-            if points != 0.0 {
-                continue;
-            }
+            let actual = if points == 1.0 {
+                0
+            } else if points == 0.5 {
+                1
+            } else {
+                2
+            };
             let engine_black = field(payload, "engine_black")? == "1";
             let moves = parse_attr_moves(payload)?;
             let positions = replay(&moves)?;
@@ -879,17 +886,46 @@ fn attribute(args: &Args) -> Result<(), String> {
             };
             let value = exact_edax(args, board, black, &format!("{level}-{id}-24"))?;
             let value = if engine_black == black { value } else { -value };
-            lost += 1;
-            if value < 0 {
-                before += 1;
+            let state = if value > 0 {
+                0
+            } else if value == 0 {
+                1
             } else {
-                after += 1;
+                2
+            };
+            matrix[actual][state] += 1;
+            if actual != state {
+                flips[actual] += 1;
+            }
+            if actual == 2 {
+                if value <= -1000 {
+                    big += 1;
+                } else if value < 0 {
+                    mid += 1;
+                } else if value == 0 {
+                    drawn += 1;
+                } else {
+                    won += 1;
+                }
             }
             println!(
-                "level {level} {id} engine_black {} exact24 {:+} {}",
+                "level {level} {id} result {} engine_black {} exact24 {:+} state {}",
+                if actual == 0 {
+                    "win"
+                } else if actual == 1 {
+                    "draw"
+                } else {
+                    "loss"
+                },
                 u8::from(engine_black),
                 value,
-                if value < 0 { "before" } else { "after" }
+                if state == 0 {
+                    "won"
+                } else if state == 1 {
+                    "drawn"
+                } else {
+                    "lost"
+                }
             );
 
             if checks < 5 {
@@ -921,13 +957,52 @@ fn attribute(args: &Args) -> Result<(), String> {
                 }
             }
         }
-        println!("level {level} losses {lost} before {before} after {after}");
-        total_lost += lost;
-        total_before += before;
-        total_after += after;
+
+        println!(
+            "level {level} actual wins {} (won24 {}, drawn24 {}, lost24 {}); draws {} (won24 {}, drawn24 {}, lost24 {}); losses {} (won24 {}, drawn24 {}, lost24 {})",
+            matrix[0][0] + matrix[0][1] + matrix[0][2],
+            matrix[0][0],
+            matrix[0][1],
+            matrix[0][2],
+            matrix[1][0] + matrix[1][1] + matrix[1][2],
+            matrix[1][0],
+            matrix[1][1],
+            matrix[1][2],
+            matrix[2][0] + matrix[2][1] + matrix[2][2],
+            matrix[2][0],
+            matrix[2][1],
+            matrix[2][2]
+        );
+        println!(
+            "level {level} flipped_to_win {} flipped_to_draw {} flipped_to_loss {}",
+            flips[0], flips[1], flips[2]
+        );
+        println!("level {level} losses: by10plus {big}, by2to8 {mid}, drawn {drawn}, won {won}");
+        for actual in 0..3 {
+            for state in 0..3 {
+                total[actual][state] += matrix[actual][state];
+            }
+            flipped[actual] += flips[actual];
+        }
     }
     println!(
-        "attribution losses {total_lost} before {total_before} after {total_after} spot_checks {checks_ok}/{checks}"
+        "attribution total: wins {} (won24 {}, drawn24 {}, lost24 {}); draws {} (won24 {}, drawn24 {}, lost24 {}); losses {} (won24 {}, drawn24 {}, lost24 {})",
+        total[0][0] + total[0][1] + total[0][2],
+        total[0][0],
+        total[0][1],
+        total[0][2],
+        total[1][0] + total[1][1] + total[1][2],
+        total[1][0],
+        total[1][1],
+        total[1][2],
+        total[2][0] + total[2][1] + total[2][2],
+        total[2][0],
+        total[2][1],
+        total[2][2]
+    );
+    println!(
+        "attribution flips: to_win {}, to_draw {}, to_loss {}; spot_checks {checks_ok}/{checks}",
+        flipped[0], flipped[1], flipped[2]
     );
     Ok(())
 }
