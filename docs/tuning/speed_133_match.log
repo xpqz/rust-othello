@@ -1,0 +1,124 @@
+ab34c9618ff844e82009be6c961cf4b9e408a0b5
+Thu 12 Nov 2026 22:27:31 CET
+22:27  up 44 days,  8:19, 9 users, load averages: 2.75 2.83 2.66
+706a7cae8f2002850cdedf75aa599157b9819a7c452a7c448fea8acb8987c589  /Users/stefan/work/crust/othello/scratch/versions-133/worker-a
+da88a891c0d283332bdeef6af6908f4e7dcf768144cc9d2cc0493350e35da804  /Users/stefan/work/crust/othello/scratch/versions-133/worker-b
+progress 0/100 pairs valid, 0/100 played this pass, elapsed 60s eta unknown
+progress 0/100 pairs valid, 0/100 played this pass, elapsed 121s eta unknown
+progress 0/100 pairs valid, 0/100 played this pass, elapsed 181s eta unknown
+pair 0 void above load 6
+pair 1 void above load 6
+pair 3 void above load 6
+pair 2 void above load 6
+progress 0/100 pairs valid, 4/100 played this pass, elapsed 241s eta 5793s
+progress 0/100 pairs valid, 4/100 played this pass, elapsed 302s eta 7238s
+progress 0/100 pairs valid, 4/100 played this pass, elapsed 362s eta 8684s
+progress 0/100 pairs valid, 4/100 played this pass, elapsed 422s eta 10129s
+progress 4/100 pairs valid, 8/100 played this pass, elapsed 482s eta 5544s
+progress 4/100 pairs valid, 8/100 played this pass, elapsed 542s eta 6237s
+progress 4/100 pairs valid, 8/100 played this pass, elapsed 603s eta 6930s
+progress 4/100 pairs valid, 8/100 played this pass, elapsed 663s eta 7623s
+pair 8 void above load 6
+pair 11 void above load 6
+pair 9 void above load 6
+pair 10 void above load 6
+progress 4/100 pairs valid, 12/100 played this pass, elapsed 723s eta 5301s
+progress 4/100 pairs valid, 12/100 played this pass, elapsed 783s eta 5743s
+progress 4/100 pairs valid, 12/100 played this pass, elapsed 843s eta 6185s
+progress 4/100 pairs valid, 12/100 played this pass, elapsed 904s eta 6626s
+progress 8/100 pairs valid, 16/100 played this pass, elapsed 964s eta 5062s
+progress 8/100 pairs valid, 16/100 played this pass, elapsed 1024s eta 5378s
+progress 8/100 pairs valid, 16/100 played this pass, elapsed 1085s eta 5694s
+progress 12/100 pairs valid, 20/100 played this pass, elapsed 1145s eta 4581s
+progress 12/100 pairs valid, 20/100 played this pass, elapsed 1205s eta 4821s
+progress 12/100 pairs valid, 20/100 played this pass, elapsed 1266s eta 5062s
+progress 12/100 pairs valid, 20/100 played this pass, elapsed 1326s eta 5303s
+progress 16/100 pairs valid, 24/100 played this pass, elapsed 1386s eta 4389s
+progress 16/100 pairs valid, 24/100 played this pass, elapsed 1446s eta 4580s
+progress 16/100 pairs valid, 24/100 played this pass, elapsed 1507s eta 4771s
+progress 16/100 pairs valid, 24/100 played this pass, elapsed 1567s eta 4961s
+pair 25 void above load 6
+pair 24 void above load 6
+pair 26 void above load 6
+pair 27 void above load 6
+progress 16/100 pairs valid, 28/100 played this pass, elapsed 1627s eta 4185s
+progress 16/100 pairs valid, 28/100 played this pass, elapsed 1688s eta 4340s
+progress 16/100 pairs valid, 28/100 played this pass, elapsed 1748s eta 4495s
+progress 16/100 pairs valid, 28/100 played this pass, elapsed 1808s eta 4650s
+progress 20/100 pairs valid, 32/100 played this pass, elapsed 1868s eta 3970s
+progress 20/100 pairs valid, 32/100 played this pass, elapsed 1929s eta 4099s
+progress 20/100 pairs valid, 32/100 played this pass, elapsed 1989s eta 4227s
+progress 24/100 pairs valid, 36/100 played this pass, elapsed 2049s eta 3643s
+progress 24/100 pairs valid, 36/100 played this pass, elapsed 2109s eta 3750s
+progress 24/100 pairs valid, 36/100 played this pass, elapsed 2170s eta 3857s
+progress 24/100 pairs valid, 36/100 played this pass, elapsed 2230s eta 3965s
+progress 28/100 pairs valid, 40/100 played this pass, elapsed 2291s eta 3436s
+progress 28/100 pairs valid, 40/100 played this pass, elapsed 2351s eta 3527s
+progress 28/100 pairs valid, 40/100 played this pass, elapsed 2412s eta 3618s
+progress 28/100 pairs valid, 40/100 played this pass, elapsed 2472s eta 3709s
+progress 32/100 pairs valid, 44/100 played this pass, elapsed 2533s eta 3224s
+progress 32/100 pairs valid, 44/100 played this pass, elapsed 2594s eta 3301s
+progress 32/100 pairs valid, 44/100 played this pass, elapsed 2654s eta 3378s
+progress 32/100 pairs valid, 44/100 played this pass, elapsed 2715s eta 3455s
+progress 36/100 pairs valid, 48/100 played this pass, elapsed 2775s eta 3007s
+progress 36/100 pairs valid, 48/100 played this pass, elapsed 2836s eta 3072s
+progress 36/100 pairs valid, 48/100 played this pass, elapsed 2896s eta 3138s
+progress 39/100 pairs valid, 51/100 played this pass, elapsed 2957s eta 2841s
+progress 40/100 pairs valid, 52/100 played this pass, elapsed 3018s eta 2786s
+progress 40/100 pairs valid, 52/100 played this pass, elapsed 3078s eta 2841s
+progress 40/100 pairs valid, 52/100 played this pass, elapsed 3139s eta 2897s
+progress 44/100 pairs valid, 56/100 played this pass, elapsed 3199s eta 2514s
+progress 44/100 pairs valid, 56/100 played this pass, elapsed 3260s eta 2561s
+progress 44/100 pairs valid, 56/100 played this pass, elapsed 3320s eta 2609s
+progress 44/100 pairs valid, 56/100 played this pass, elapsed 3381s eta 2656s
+progress 48/100 pairs valid, 60/100 played this pass, elapsed 3442s eta 2295s
+progress 48/100 pairs valid, 60/100 played this pass, elapsed 3502s eta 2335s
+progress 48/100 pairs valid, 60/100 played this pass, elapsed 3563s eta 2375s
+progress 48/100 pairs valid, 60/100 played this pass, elapsed 3623s eta 2416s
+progress 52/100 pairs valid, 64/100 played this pass, elapsed 3684s eta 2072s
+progress 52/100 pairs valid, 64/100 played this pass, elapsed 3744s eta 2106s
+progress 52/100 pairs valid, 64/100 played this pass, elapsed 3805s eta 2140s
+progress 55/100 pairs valid, 67/100 played this pass, elapsed 3865s eta 1904s
+progress 56/100 pairs valid, 68/100 played this pass, elapsed 3926s eta 1847s
+progress 56/100 pairs valid, 68/100 played this pass, elapsed 3986s eta 1876s
+progress 56/100 pairs valid, 68/100 played this pass, elapsed 4047s eta 1904s
+progress 60/100 pairs valid, 72/100 played this pass, elapsed 4107s eta 1597s
+progress 60/100 pairs valid, 72/100 played this pass, elapsed 4168s eta 1621s
+progress 60/100 pairs valid, 72/100 played this pass, elapsed 4228s eta 1644s
+progress 60/100 pairs valid, 72/100 played this pass, elapsed 4289s eta 1668s
+progress 64/100 pairs valid, 76/100 played this pass, elapsed 4350s eta 1374s
+progress 64/100 pairs valid, 76/100 played this pass, elapsed 4410s eta 1393s
+progress 64/100 pairs valid, 76/100 played this pass, elapsed 4471s eta 1412s
+progress 64/100 pairs valid, 76/100 played this pass, elapsed 4531s eta 1431s
+progress 68/100 pairs valid, 80/100 played this pass, elapsed 4591s eta 1148s
+progress 68/100 pairs valid, 80/100 played this pass, elapsed 4652s eta 1163s
+progress 68/100 pairs valid, 80/100 played this pass, elapsed 4712s eta 1178s
+progress 72/100 pairs valid, 84/100 played this pass, elapsed 4773s eta 909s
+progress 72/100 pairs valid, 84/100 played this pass, elapsed 4833s eta 921s
+progress 72/100 pairs valid, 84/100 played this pass, elapsed 4894s eta 932s
+progress 72/100 pairs valid, 84/100 played this pass, elapsed 4954s eta 944s
+progress 76/100 pairs valid, 88/100 played this pass, elapsed 5015s eta 684s
+progress 76/100 pairs valid, 88/100 played this pass, elapsed 5075s eta 692s
+progress 76/100 pairs valid, 88/100 played this pass, elapsed 5136s eta 700s
+progress 76/100 pairs valid, 88/100 played this pass, elapsed 5196s eta 709s
+progress 80/100 pairs valid, 92/100 played this pass, elapsed 5257s eta 457s
+progress 80/100 pairs valid, 92/100 played this pass, elapsed 5318s eta 462s
+progress 80/100 pairs valid, 92/100 played this pass, elapsed 5378s eta 468s
+progress 80/100 pairs valid, 92/100 played this pass, elapsed 5439s eta 473s
+progress 84/100 pairs valid, 96/100 played this pass, elapsed 5499s eta 229s
+progress 84/100 pairs valid, 96/100 played this pass, elapsed 5560s eta 232s
+progress 84/100 pairs valid, 96/100 played this pass, elapsed 5620s eta 234s
+replaying missing pairs
+progress 88/100 pairs valid, 0/12 played this pass, elapsed 61s eta unknown
+progress 88/100 pairs valid, 0/12 played this pass, elapsed 121s eta unknown
+progress 88/100 pairs valid, 0/12 played this pass, elapsed 182s eta unknown
+progress 92/100 pairs valid, 4/12 played this pass, elapsed 242s eta 484s
+progress 92/100 pairs valid, 4/12 played this pass, elapsed 302s eta 605s
+progress 92/100 pairs valid, 4/12 played this pass, elapsed 363s eta 726s
+progress 92/100 pairs valid, 4/12 played this pass, elapsed 424s eta 847s
+progress 96/100 pairs valid, 8/12 played this pass, elapsed 484s eta 242s
+progress 96/100 pairs valid, 8/12 played this pass, elapsed 545s eta 272s
+progress 96/100 pairs valid, 8/12 played this pass, elapsed 605s eta 303s
+progress 96/100 pairs valid, 8/12 played this pass, elapsed 666s eta 333s
+a_vs_b pairs 100 games 200 W 103 D 10 L 87 mean 0.5400 [0.5025, 0.5775] informative true discs +3.96 pair_se 0.66 seed 133 resamples 10000
+exit 0
