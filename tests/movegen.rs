@@ -237,3 +237,31 @@ fn differential_10k() {
 fn differential_200k() {
     differential(200_000);
 }
+
+/// `legal_moves`, and `flips` on every empty square, against the mailbox
+/// reference on 100,000 boards with random disjoint occupancy.
+#[test]
+fn moves_wide() {
+    let mut state = 0x9e37_79b9_7f4a_7c15u64;
+    let mut next = || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state
+    };
+    for _ in 0..100_000 {
+        let (occupied, side) = (next() | (next() & next()), next());
+        let board = Board {
+            me: occupied & side,
+            opp: occupied & !side,
+        };
+        let naive = Naive::from_bits(board.me, board.opp);
+        let mut legal = 0;
+        for square in (0..64).filter(|square| occupied >> square & 1 == 0) {
+            let expected = naive.flips(square);
+            assert_eq!(flips(board, square), expected, "{board:?} square {square}");
+            legal |= u64::from(expected != 0) << square;
+        }
+        assert_eq!(legal_moves(board.me, board.opp), legal, "{board:?}");
+    }
+}
