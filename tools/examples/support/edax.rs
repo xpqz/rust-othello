@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use othello::board::{Board, pass, play};
 
@@ -71,6 +71,18 @@ pub fn parse_solve(stdout: &str) -> Option<Solve> {
     })
 }
 
+/// Runs the command in `$@`; a watcher reads the caller's pipe on fd 3 and
+/// kills the command at end of file. The watcher holds no output pipe.
+const SUPERVISE: &str = r#"exec 3<&0
+"$@" </dev/null &
+pid=$!
+(cat <&3 >/dev/null 2>&1; kill -9 "$pid" 2>/dev/null) >/dev/null 2>&1 &
+watcher=$!
+wait "$pid"
+status=$?
+kill "$watcher" 2>/dev/null
+exit "$status""#;
+
 /// Runs `edax -solve` on one position, single-threaded, book off.
 pub fn solve(
     edax: &Path,
@@ -94,13 +106,25 @@ pub fn solve(
     text.push_str(if black { " X;\n" } else { " O;\n" });
     let path = std::env::temp_dir().join(format!("othello-edax-{}-{tag}.obf", std::process::id()));
     fs::write(&path, text).map_err(|error| error.to_string())?;
-    let output = Command::new(edax)
+    // Edax runs under a shell that kills it when our end of the stdin pipe
+    // closes, so a killed caller (SIGKILL included) leaves no solver behind.
+    let mut child = Command::new("/bin/sh")
+        .args(["-c", SUPERVISE, "sh"])
+        .arg(edax)
         .current_dir(edax.parent().ok_or("edax path has no parent")?)
         .args(["-solve", path.to_str().ok_or("non-utf8 temp path")?])
         .args(["-level", &level.to_string(), "-verbose", "1", "-n", "1"])
         .args(["-book-usage", "off", "-eval-file", "data/eval.dat"])
-        .output()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
         .map_err(|error| format!("{}: {error}", edax.display()))?;
+    let lifeline = child.stdin.take();
+    let output = child
+        .wait_with_output()
+        .map_err(|error| error.to_string())?;
+    drop(lifeline);
     let _ = fs::remove_file(&path);
     let stdout = String::from_utf8_lossy(&output.stdout);
     if !output.status.success() {

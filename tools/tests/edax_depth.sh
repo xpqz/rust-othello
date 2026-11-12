@@ -2,9 +2,11 @@
 # Fixed-depth games against Edax are deterministic and the header says so.
 set -eu
 
-EDAX_BIN=${EDAX_BIN:-/var/folders/5f/46s87cp917n5dfqbcbf_6y540007dl/T/opencode/edax-reversi/bin/mEdax-native}
-test -x "$EDAX_BIN"
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
+# Edax lives in the main checkout's ignored scratch/ folder, shared by worktrees.
+MAIN=$(CDPATH= cd -- "$(git -C "$ROOT" rev-parse --git-common-dir)/.." && pwd)
+EDAX_BIN=${EDAX_BIN:-$MAIN/scratch/edax-reversi/bin/mEdax-native}
+test -x "$EDAX_BIN"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/othello-edax-depth.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 cd "$ROOT"
@@ -35,6 +37,11 @@ for flags in "--depth 4 --time 100" "--time 100 --depth 4"; do
     fi
     grep -q 'mutually exclusive' "$TMP/mixed.err"
 done
+if tools/target/release/examples/edax_ladder --level 4 --depth 64 --pairs 0 \
+    --out "$TMP/mixed.journal" --edax "$EDAX_BIN" >/dev/null 2>&1; then
+    echo "accepted --depth 64" >&2
+    exit 1
+fi
 test ! -e "$TMP/mixed.journal"
 if tools/target/release/examples/edax_ladder --level 4 --pairs 2 --jobs 2 \
     --max-load 1000 --out "$TMP/1.journal" --edax "$EDAX_BIN" \

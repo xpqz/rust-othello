@@ -90,7 +90,12 @@ impl Args {
                             a.time = value.parse().map_err(|_| "invalid time")?;
                             timed = true;
                         }
-                        "--depth" => a.depth = value.parse().map_err(|_| "invalid depth")?,
+                        "--depth" => {
+                            a.depth = value.parse().map_err(|_| "invalid depth")?;
+                            if !(1..=60).contains(&a.depth) {
+                                return Err("--depth takes 1 to 60".into());
+                            }
+                        }
                         "--levels" => a.levels = value.clone(),
                         _ => return Err(format!("unknown option: {flag}")),
                     }
@@ -114,8 +119,8 @@ impl Args {
             }
             a.time = NO_DEADLINE;
         }
-        if a.jobs == 0 || a.max_load <= 0.0 || a.depth == 0 || a.depth > 64 {
-            return Err("invalid jobs, max-load or depth".into());
+        if a.jobs == 0 || a.max_load <= 0.0 {
+            return Err("invalid jobs or max-load".into());
         }
         Ok(a)
     }

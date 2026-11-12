@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
 
-EDAX_BIN=${EDAX_BIN:-/var/folders/5f/46s87cp917n5dfqbcbf_6y540007dl/T/opencode/edax-reversi/bin/mEdax-native}
-test -x "$EDAX_BIN"
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
+# Edax lives in the main checkout's ignored scratch/ folder, shared by worktrees.
+MAIN=$(CDPATH= cd -- "$(git -C "$ROOT" rev-parse --git-common-dir)/.." && pwd)
+EDAX_BIN=${EDAX_BIN:-$MAIN/scratch/edax-reversi/bin/mEdax-native}
+test -x "$EDAX_BIN"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/othello-edax-resume.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 cd "$ROOT"
