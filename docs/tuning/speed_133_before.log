@@ -1,0 +1,51 @@
+d173987cbc6d4b7dec240da825ba160dc5eeddef
+Thu 12 Nov 2026 20:51:08 CET
+20:51  up 44 days,  6:42, 9 users, load averages: 2.52 2.03 2.07
+classic 0 nodes 6173442 depth 11 seconds 3.000 nps 2057696
+classic 1 nodes 3702261 depth 10 seconds 3.000 nps 1233971
+classic 2 nodes 6288507 depth 13 seconds 3.000 nps 2096060
+classic 3 nodes 9491937 depth 11 seconds 3.000 nps 3163859
+classic 4 nodes 7134661 depth 11 seconds 3.000 nps 2377934
+classic 5 nodes 7908960 depth 13 seconds 3.000 nps 2636212
+classic 6 nodes 5485432 depth 12 seconds 3.000 nps 1828467
+classic 7 nodes 3513588 depth 11 seconds 3.000 nps 1171145
+classic 8 nodes 8766307 depth 11 seconds 3.000 nps 2921985
+classic 9 nodes 9424691 depth 12 seconds 3.000 nps 3141527
+classic 10 nodes 4359133 depth 11 seconds 3.000 nps 1452987
+classic 11 nodes 4356536 depth 10 seconds 3.000 nps 1452127
+classic 12 nodes 34083 depth 0 seconds 0.006 nps 5327342
+classic 13 nodes 97256 depth 0 seconds 0.018 nps 5550917
+classic 14 nodes 5730 depth 0 seconds 0.001 nps 5071169
+classic 15 nodes 11180 depth 0 seconds 0.002 nps 4999441
+classic 16 nodes 1886 depth 0 seconds 0.000 nps 4616416
+classic 17 nodes 710 depth 0 seconds 0.000 nps 6048988
+classic 18 nodes 154 depth 0 seconds 0.000 nps 4474533
+classic 19 nodes 88 depth 0 seconds 0.000 nps 4843948
+classic 20 skip
+classic 21 skip
+classic 22 skip
+classic positions 20 median_nps 3141527 median_depth 11
+pattern 0 nodes 8185982 depth 11 seconds 3.000 nps 2728347
+pattern 1 nodes 4172537 depth 10 seconds 3.000 nps 1390738
+pattern 2 nodes 7471062 depth 13 seconds 3.000 nps 2490133
+pattern 3 nodes 3492450 depth 10 seconds 3.000 nps 1164086
+pattern 4 nodes 6405621 depth 10 seconds 3.000 nps 2135168
+pattern 5 nodes 4972627 depth 12 seconds 3.000 nps 1657398
+pattern 6 nodes 3100853 depth 10 seconds 3.000 nps 1033587
+pattern 7 nodes 8129038 depth 11 seconds 3.000 nps 2709457
+pattern 8 nodes 8614466 depth 10 seconds 3.000 nps 2871286
+pattern 9 nodes 4814937 depth 11 seconds 3.000 nps 1604968
+pattern 10 nodes 5059830 depth 11 seconds 3.000 nps 1686594
+pattern 11 nodes 2627789 depth 9 seconds 3.000 nps 875918
+pattern 12 nodes 34083 depth 0 seconds 0.006 nps 5497258
+pattern 13 nodes 97256 depth 0 seconds 0.017 nps 5561034
+pattern 14 nodes 5730 depth 0 seconds 0.001 nps 4935932
+pattern 15 nodes 11180 depth 0 seconds 0.002 nps 4934348
+pattern 16 nodes 1886 depth 0 seconds 0.000 nps 4800509
+pattern 17 nodes 710 depth 0 seconds 0.000 nps 6048988
+pattern 18 nodes 154 depth 0 seconds 0.000 nps 4458341
+pattern 19 nodes 88 depth 0 seconds 0.000 nps 502619
+pattern 20 skip
+pattern 21 skip
+pattern 22 skip
+pattern positions 20 median_nps 2709457 median_depth 10

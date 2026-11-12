@@ -119,11 +119,10 @@ fn index_convention() {
     assert_eq!(feature(board, 6), 4_432);
 }
 
-#[test]
-fn features_reference() {
-    for board in boards() {
-        let features = pattern::features(board);
-        for (instance, &index) in pattern::instances().iter().zip(&features) {
+fn reference_features(board: Board) -> Vec<u32> {
+    pattern::instances()
+        .iter()
+        .map(|instance| {
             let mut local = 0u32;
             let mut power = 1u32;
             for &square in &instance.squares {
@@ -137,13 +136,60 @@ fn features_reference() {
                 local += digit * power;
                 power *= 3;
             }
-            assert_eq!(
-                index,
-                instance.offset + local,
-                "{board:?} {:?}",
-                instance.squares
-            );
-        }
+            instance.offset + local
+        })
+        .collect()
+}
+
+#[test]
+fn features_reference() {
+    for board in boards() {
+        assert_eq!(
+            pattern::features(board).as_slice(),
+            reference_features(board),
+            "{board:?}"
+        );
+    }
+}
+
+/// Every corpus board, the empty and one-colour boards, and 100,000 boards
+/// with random disjoint occupancy from a fixed xorshift stream.
+#[test]
+fn features_wide() {
+    let text =
+        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/bench/corpus.txt")).unwrap();
+    let mut boards: Vec<Board> = text
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let me = u64::from_str_radix(parts.next()?, 16).ok()?;
+            let opp = u64::from_str_radix(parts.next()?, 16).ok()?;
+            Some(Board { me, opp })
+        })
+        .collect();
+    assert_eq!(boards.len(), 23);
+    boards.extend([(0, 0), (!0, 0), (0, !0)].map(|(me, opp)| Board { me, opp }));
+    let mut state = 0x9e37_79b9_7f4a_7c15u64;
+    let mut next = || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state
+    };
+    for _ in 0..100_000 {
+        let (occupied, side) = (next() | (next() & next()), next());
+        boards.push(Board {
+            me: occupied & side,
+            opp: occupied & !side,
+        });
+    }
+    for board in boards {
+        assert_eq!(
+            pattern::features(board).as_slice(),
+            reference_features(board),
+            "{board:?}"
+        );
     }
 }
 
