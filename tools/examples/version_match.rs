@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, mpsc};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
 use othello_tools::journal::Journal;
@@ -25,6 +25,7 @@ struct Args {
     jobs: usize,
     max_load: f64,
     seed: u64,
+    progress: u64,
     openings: String,
     out: String,
 }
@@ -38,6 +39,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         jobs: 4,
         max_load: 6.0,
         seed: 1,
+        progress: 60,
         openings: concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/openings_tune.txt").into(),
         out: String::new(),
     };
@@ -54,6 +56,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
             "--jobs" => a.jobs = value.parse().map_err(|_| bad())?,
             "--max-load" => a.max_load = value.parse().map_err(|_| bad())?,
             "--seed" => a.seed = value.parse().map_err(|_| bad())?,
+            "--progress" => a.progress = value.parse().map_err(|_| bad())?,
             "--openings" => a.openings = value.clone(),
             "--out" => a.out = value.clone(),
             _ => return Err(format!("unknown option: {flag}")),
@@ -62,7 +65,7 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     if a.a.as_os_str().is_empty() || a.b.as_os_str().is_empty() || a.out.is_empty() {
         return Err("usage: version_match --a WORKER --b WORKER --out JOURNAL [options]".into());
     }
-    if a.jobs == 0 || a.max_load <= 0.0 {
+    if a.jobs == 0 || a.max_load <= 0.0 || a.progress == 0 {
         return Err("invalid jobs or max-load".into());
     }
     Ok(a)
@@ -238,7 +241,8 @@ fn play_missing(args: &Args, openings: &[Opening], journal: &mut Journal) -> Res
                         let second = play_game(args, &openings[pair], false)?;
                         let load = load_average();
                         if load > args.max_load {
-                            return Ok(format!("pair {pair} void above load {}", args.max_load));
+                            eprintln!("pair {pair} void above load {}", args.max_load);
+                            return Ok(false);
                         }
                         let mut journal = journal.lock().unwrap();
                         for (game, (points, discs, moves)) in [first, second].iter().enumerate() {
@@ -250,7 +254,7 @@ fn play_missing(args: &Args, openings: &[Opening], journal: &mut Journal) -> Res
                                 ),
                             )?;
                         }
-                        Ok::<_, String>(format!("pair {pair} done"))
+                        Ok::<_, String>(true)
                     })();
                     if sender.send(result).is_err() {
                         break;
@@ -259,15 +263,37 @@ fn play_missing(args: &Args, openings: &[Opening], journal: &mut Journal) -> Res
             });
         }
         drop(sender);
-        for (done, result) in receiver.iter().enumerate() {
-            match result {
-                Ok(text) => eprintln!(
-                    "{text} ({}/{} at {:.0}s)",
-                    done + 1,
-                    queue.len(),
-                    start.elapsed().as_secs_f64()
-                ),
-                Err(error) => eprintln!("error: {error}"),
+        // Reported at least every `progress` seconds, whether or not a pair
+        // has finished: complete pairs (earlier runs included), elapsed, ETA.
+        let before = args.pairs - queue.len();
+        let (mut played, mut kept) = (0, 0);
+        let mut last = Instant::now();
+        loop {
+            match receiver.recv_timeout(Duration::from_secs(1)) {
+                Ok(Ok(valid)) => {
+                    played += 1;
+                    kept += usize::from(valid);
+                }
+                Ok(Err(error)) => eprintln!("error: {error}"),
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+            if last.elapsed() >= Duration::from_secs(args.progress) {
+                last = Instant::now();
+                let elapsed = start.elapsed().as_secs_f64();
+                let eta = match played {
+                    0 => "unknown".to_string(),
+                    _ => format!(
+                        "{:.0}s",
+                        elapsed / played as f64 * (queue.len() - played) as f64
+                    ),
+                };
+                eprintln!(
+                    "progress {}/{} pairs valid, {played}/{} played this pass, elapsed {elapsed:.0}s eta {eta}",
+                    before + kept,
+                    args.pairs,
+                    queue.len()
+                );
             }
         }
     });
@@ -281,13 +307,14 @@ fn run(args: &Args) -> Result<(), String> {
         return Err("pairs exceed openings".into());
     }
     let header = format!(
-        "header v1 versions a {} a_sha256 {} b {} b_sha256 {} time {} pairs {} openings {} hash {:016x} jobs {} max_load {:.1} driver {}",
+        "header v1 versions a {} a_sha256 {} b {} b_sha256 {} time {} pairs {} seed {} openings {} hash {:016x} jobs {} max_load {} driver {}",
         args.a.display(),
         sha256(&args.a)?,
         args.b.display(),
         sha256(&args.b)?,
         args.time,
         args.pairs,
+        args.seed,
         args.openings,
         file_hash(&args.openings)?,
         args.jobs,
