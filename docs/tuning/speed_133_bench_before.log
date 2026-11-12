@@ -1,0 +1,11 @@
+e0659a77c0fe16bb499821236258287b06465b4f
+Thu 12 Nov 2026 21:08:14 CET
+21:08  up 44 days,  6:59, 9 users, load averages: 3.56 3.33 2.98
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 30553931 ms 11715.5 exact nodes 7811100 ms 2360.1
+round 1 midgame nodes 30553931 ms 11602.0 exact nodes 7811100 ms 2351.7
+round 2 midgame nodes 30553931 ms 11619.6 exact nodes 7811100 ms 2357.6
+round 3 midgame nodes 30553931 ms 11470.5 exact nodes 7811100 ms 2320.4
+round 4 midgame nodes 30553931 ms 11412.1 exact nodes 7811100 ms 2321.0
+midgame nodes 30553931 min_ms 11412.1 median_ms 11602.0 max_ms 11715.5 spread 0.0266 nodes_per_s 2677336
+exact nodes 7811100 min_ms 2320.4 median_ms 2351.7 max_ms 2360.1 spread 0.0171 nodes_per_s 3366308

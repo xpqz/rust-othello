@@ -209,8 +209,8 @@ fn golden_v1() {
     }
 }
 
-/// The standard engine (pattern evaluation) at depth 8 on the corpus, as of
-/// issue 133. Speed work must leave move, score and node count unchanged.
+/// The standard engine (pattern evaluation) at depth 8 on the corpus. A change
+/// that is only meant to be faster leaves move, score and node count as here.
 const GOLDEN_V2: [Golden; 23] = [
     Golden {
         me: 0x2002242e10000000,
