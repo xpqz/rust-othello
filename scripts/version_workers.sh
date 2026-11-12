@@ -42,7 +42,7 @@ for side in a b; do
         for crate in othello othello_tools engine_worker; do
             flags=$(grep -- "--crate-name $crate " "$OUT/build-$side.log" | tr ' ' '\n' |
                 grep -A1 -- '^-C$' | grep -v -- '^-C$' | grep -v -- '^--$' |
-                grep -v '^metadata=\|^extra-filename=\|^incremental=\|^linker=\|^strip=' | sort | tr '\n' ' ')
+                grep -v '^metadata=\|^extra-filename=\|^incremental=\|^linker=\|^strip=' | sort | tr '\n' ' ' | sed 's/ $//')
             echo "$side rustc_flags $crate: $flags"
         done
     } >>"$OUT/provenance.txt"
