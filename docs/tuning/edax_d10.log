@@ -1,0 +1,12 @@
+db0f5ee92ff17bb27da20f548e70a234c0368c80
+Thu 12 Nov 2026 18:11:12 CET
+level 10 date 2026-11-12T17:11:13Z
+pairs 15/100 elapsed 60.1s
+pairs 29/100 elapsed 121.0s
+pairs 40/100 elapsed 181.0s
+pairs 55/100 elapsed 241.6s
+pairs 68/100 elapsed 302.1s
+pairs 79/100 elapsed 362.6s
+pairs 92/100 elapsed 423.1s
+level 10 pairs 100 games 200 W 74 D 7 L 119 mean 0.3875 [0.3475, 0.4250] disc_diff -6.97 edax_ms_per_move 66.54 seed 1 resamples 10000
+level 10 elapsed 456.6s

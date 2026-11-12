@@ -1,0 +1,15 @@
+# Supplementary, not pre-registered. Engine source at db0f5ee copied to a scratch folder;
+# features, evaluate, legal_moves, flips, ordered_moves, negamax, Table::probe/store marked #[inline(never)];
+# depth-9 search_tt on the ten corpus positions with 24 or more empties, repeated for 40 s; /usr/bin/sample for 25 s.
+positions 10 nodes 94571978 seconds 40.0 nps 2362555
+Sort by top of stack, same collapsed (when >= 5):
+        othello::7pattern8features        8858
+        othello::5board11legal_moves        4998
+        othello::5board5flips        2985
+        othello::6search13ordered_moves        1605
+        othello::7pattern8evaluate        1257
+        othello::6search7negamax        955
+        __bzero  (in libsystem_platform.dylib)        32
+        othello::2ttNtB4_5Table5probe        30
+        othello::2ttNtB4_5Table5store        8
+

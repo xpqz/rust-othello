@@ -1,0 +1,11 @@
+db0f5ee92ff17bb27da20f548e70a234c0368c80
+Thu 12 Nov 2026 18:18:49 CET
+phase seed 1 resamples 10000 header v1 phase source docs/tuning/edax_level10_d10.journal hash 055198ca828365b2 edax_sha256 b578cf0931784909f51666934463c4de2dde0218af2277e668bec06e4340cbcc eval_sha256 f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792 commit db0f5ee92ff17bb27da20f548e70a234c0368c80 checkpoints 24,20,14 solve_level 60
+final W 74 D 7 L 119 mean 0.3875 [0.3475, 0.4250]
+discs mean -6.97 pair_se 0.73 pairs 100
+exact24 W 87 D 7 L 106 mean 0.4525 [0.4175, 0.4875]
+exact20 W 86 D 6 L 108 mean 0.4450 [0.4100, 0.4750]
+exact14 W 74 D 7 L 119 mean 0.3875 [0.3475, 0.4250]
+change 24to20 for_engine 6 against_engine 7
+change 20to14 for_engine 0 against_engine 15
+change 14toend for_engine 0 against_engine 0
