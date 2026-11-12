@@ -1,0 +1,4 @@
+second run failed
+journal header mismatch:
+ expected header v1 level 1 engine standard time 10 edax /var/folders/5f/46s87cp917n5dfqbcbf_6y540007dl/T/opencode/edax-reversi/bin/mEdax-native edax_sha256 b578cf0931784909f51666934463c4de2dde0218af2277e668bec06e4340cbcc eval_sha256 f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792 commit cb1f5ce0aa90038569f59e2624b17d70288b36a8 date 2026-11-12T08:33:37Z openings bench/openings_tune.txt hash a623dd7697598d6e jobs 1 max_load 6.0
+ found header v1 level 1 engine standard time 10 edax /var/folders/5f/46s87cp917n5dfqbcbf_6y540007dl/T/opencode/edax-reversi/bin/mEdax-native edax_sha256 b578cf0931784909f51666934463c4de2dde0218af2277e668bec06e4340cbcc eval_sha256 f8b2299612d9fa4414157e70e932636e33111c2602d0c2fc382a7d90ef21b792 commit cb1f5ce0aa90038569f59e2624b17d70288b36a8 date 2026-11-12T08:33:35Z openings bench/openings_tune.txt hash a623dd7697598d6e jobs 1 max_load 6.0

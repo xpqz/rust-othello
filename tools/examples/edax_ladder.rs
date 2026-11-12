@@ -274,7 +274,7 @@ impl Drop for Edax {
 struct Game {
     points: f64,
     disc_diff: i32,
-    edax_ms: u64,
+    edax_us: u64,
     edax_moves: u32,
     passes: u32,
     black: u32,
@@ -309,7 +309,7 @@ fn play_game(
             SearchLimits::new(64, engine_time, 0),
         ))
     };
-    let mut edax_ms = 0;
+    let mut edax_us = 0;
     let mut edax_moves = 0;
     let mut passes = 0;
     loop {
@@ -343,7 +343,7 @@ fn play_game(
         } else {
             let start = Instant::now();
             let sq = edax.genmove(color)?.ok_or("edax passed with legal moves")?;
-            edax_ms += start.elapsed().as_millis() as u64;
+            edax_us += start.elapsed().as_micros() as u64;
             edax_moves += 1;
             if legal & (1u64 << sq) == 0 {
                 return Err(format!("illegal edax move {}", coord(sq)));
@@ -384,7 +384,7 @@ fn play_game(
     Ok(Game {
         points,
         disc_diff,
-        edax_ms,
+        edax_us,
         edax_moves,
         passes,
         black,
@@ -445,7 +445,7 @@ fn bridge(args: &Args) -> Result<(), String> {
                 result.disc_diff,
                 result.black,
                 result.white,
-                result.edax_ms,
+                result.edax_us / 1000,
                 result.passes
             );
         }
@@ -508,13 +508,12 @@ fn utc_date() -> String {
 
 fn header(args: &Args, level: u32) -> Result<String, String> {
     Ok(format!(
-        "header v1 level {level} engine standard time {} edax {} edax_sha256 {} eval_sha256 {} commit {} date {} openings {} hash {:016x} jobs {} max_load {:.1}",
+        "header v1 level {level} engine standard time {} edax {} edax_sha256 {} eval_sha256 {} commit {} openings {} hash {:016x} jobs {} max_load {:.1}",
         args.time,
         args.edax.display(),
         sha256(&args.edax)?,
         sha256(&args.cwd.join("data/eval.dat"))?,
         git_commit(),
-        utc_date(),
         args.openings,
         file_hash(&args.openings)?,
         args.jobs,
@@ -529,6 +528,7 @@ fn level_path(args: &Args, level: u32) -> String {
 }
 
 fn run_level_once(args: &Args, openings: &[Opening], level: u32) -> Result<(f64, usize), String> {
+    eprintln!("level {level} date {}", utc_date());
     let path = level_path(args, level);
     let (mut journal, _) = Journal::open(Path::new(&path), &header(args, level)?)?;
     let mut saved = BTreeMap::new();
@@ -594,11 +594,11 @@ fn run_level_once(args: &Args, openings: &[Opening], level: u32) -> Result<(f64,
                             .join(" ");
                         let engine_black = game == 1;
                         let payload = format!(
-                            "level {level} pair {pair} game {game} engine_black {} points {:.4} discs {:+} edax_ms {} edax_moves {} passes {} final {} {} void {} load {load:.3} moves {moves}",
+                            "level {level} pair {pair} game {game} engine_black {} points {:.4} discs {:+} edax_us {} edax_moves {} passes {} final {} {} void {} load {load:.3} moves {moves}",
                             u8::from(engine_black),
                             result.points,
                             result.disc_diff,
-                            result.edax_ms,
+                            result.edax_us,
                             result.edax_moves,
                             result.passes,
                             result.black,
@@ -625,10 +625,10 @@ fn run_level_once(args: &Args, openings: &[Opening], level: u32) -> Result<(f64,
         let mut done = 0;
         loop {
             match receiver.recv_timeout(Duration::from_secs(1)) {
-                Ok(Ok((_, void))) => {
+                Ok(Ok((pair, void))) => {
                     done += 1;
                     if void {
-                        eprintln!("pair {done} void above load {}", args.max_load);
+                        eprintln!("pair {pair} void above load {}", args.max_load);
                     }
                 }
                 Ok(Err(error)) => eprintln!("error: {error}"),
@@ -647,7 +647,7 @@ fn run_level_once(args: &Args, openings: &[Opening], level: u32) -> Result<(f64,
     });
     let (_, records) = othello_tools::journal::read(Path::new(&path))?;
     let mut per_pair: BTreeMap<usize, [Option<f64>; 2]> = BTreeMap::new();
-    let (mut edax_ms, mut edax_moves, mut disc_diff, mut games_seen) = (0u64, 0u64, 0i32, 0usize);
+    let (mut edax_us, mut edax_moves, mut disc_diff, mut games_seen) = (0u64, 0u64, 0i32, 0usize);
     for record in records {
         let (pair, game, value) = parse_saved(&record.id, &record.line)?;
         if value.void {
@@ -662,7 +662,7 @@ fn run_level_once(args: &Args, openings: &[Opening], level: u32) -> Result<(f64,
                 .nth(1)
                 .ok_or_else(|| format!("missing {key}"))
         };
-        edax_ms += field("edax_ms")?.parse::<u64>().map_err(|_| "edax_ms")?;
+        edax_us += field("edax_us")?.parse::<u64>().map_err(|_| "edax_us")?;
         edax_moves += field("edax_moves")?
             .parse::<u64>()
             .map_err(|_| "edax_moves")?;
@@ -688,7 +688,7 @@ fn run_level_once(args: &Args, openings: &[Opening], level: u32) -> Result<(f64,
         low,
         high,
         disc_diff as f64 / n,
-        edax_ms as f64 / edax_moves.max(1) as f64,
+        edax_us as f64 / edax_moves.max(1) as f64 / 1000.0,
         args.seed,
         RESAMPLES
     );
