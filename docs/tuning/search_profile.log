@@ -12,4 +12,3 @@ Sort by top of stack, same collapsed (when >= 5):
         __bzero  (in libsystem_platform.dylib)        32
         othello::2ttNtB4_5Table5probe        30
         othello::2ttNtB4_5Table5store        8
-

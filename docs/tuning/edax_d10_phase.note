@@ -1,0 +1,14 @@
+Annotation to edax_d10_phase.journal and edax_d10_phase.log (run of 12 Nov at db0f5ee).
+The raw journal and log are unchanged.
+
+Game 10:1 ended at 26 empties with the engine (black) wiped out, 0 discs to 38.
+It never reached 24, 20 or 14 empties, so neither solver was asked about it.
+Its record
+    10:1  points 0.0000 discs -38 v24 -38 v20 -38 v14 -38
+carries the analyser's early-terminal fallback: v24, v20 and v14 are the raw
+final disc margin (-38), not solver values. With empties given to the winner the
+exact margin is -64. Only the sign is used by the W/D/L counts, intervals and
+changes, so those are unaffected.
+
+The other 199 games have solver values at all three checkpoints, and at 14
+empties Edax's value and our own solver's agreed on all 199.
