@@ -26,4 +26,21 @@ cmp "$TMP/1.games" "$TMP/2.games" || {
     echo "fixed-depth games differ between runs" >&2
     exit 1
 }
+for flags in "--depth 4 --time 100" "--time 100 --depth 4"; do
+    # shellcheck disable=SC2086
+    if tools/target/release/examples/edax_ladder --level 4 $flags --pairs 0 \
+        --out "$TMP/mixed.journal" --edax "$EDAX_BIN" >/dev/null 2>"$TMP/mixed.err"; then
+        echo "accepted $flags" >&2
+        exit 1
+    fi
+    grep -q 'mutually exclusive' "$TMP/mixed.err"
+done
+test ! -e "$TMP/mixed.journal"
+if tools/target/release/examples/edax_ladder --level 4 --pairs 2 --jobs 2 \
+    --max-load 1000 --out "$TMP/1.journal" --edax "$EDAX_BIN" \
+    --openings bench/openings_tune.txt >/dev/null 2>"$TMP/timed.err"; then
+    echo "timed run resumed a fixed-depth journal" >&2
+    exit 1
+fi
+grep -q 'journal header mismatch' "$TMP/timed.err"
 echo "depth check passed: $(grep '^level 4 ' "$TMP/1.out" | cut -d' ' -f1-14)"

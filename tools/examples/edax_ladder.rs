@@ -56,6 +56,7 @@ impl Args {
             attribute: false,
             levels: "10,12".into(),
         };
+        let mut timed = false;
         let mut index = 0;
         while index < args.len() {
             match args[index].as_str() {
@@ -85,11 +86,11 @@ impl Args {
                         "--openings" => a.openings = value.clone(),
                         "--out" => a.out = Some(value.clone()),
                         "--seed" => a.seed = value.parse().map_err(|_| "invalid seed")?,
-                        "--time" => a.time = value.parse().map_err(|_| "invalid time")?,
-                        "--depth" => {
-                            a.depth = value.parse().map_err(|_| "invalid depth")?;
-                            a.time = NO_DEADLINE;
+                        "--time" => {
+                            a.time = value.parse().map_err(|_| "invalid time")?;
+                            timed = true;
                         }
+                        "--depth" => a.depth = value.parse().map_err(|_| "invalid depth")?,
                         "--levels" => a.levels = value.clone(),
                         _ => return Err(format!("unknown option: {flag}")),
                     }
@@ -106,6 +107,12 @@ impl Args {
                 .parent()
                 .ok_or("edax path has no parent")?
                 .to_path_buf();
+        }
+        if a.depth != 64 {
+            if timed {
+                return Err("--depth and --time are mutually exclusive".into());
+            }
+            a.time = NO_DEADLINE;
         }
         if a.jobs == 0 || a.max_load <= 0.0 || a.depth == 0 || a.depth > 64 {
             return Err("invalid jobs, max-load or depth".into());
