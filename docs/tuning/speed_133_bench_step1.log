@@ -1,0 +1,12 @@
+3440d28e3fcfc9a46eed15effc133243a80cb8ff
+working tree: src/pattern.rs row-table features (step 1)
+Thu 12 Nov 2026 21:21:14 CET
+21:21  up 44 days,  7:12, 9 users, load averages: 1.62 2.31 2.50
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 30553931 ms 7275.2 exact nodes 7811100 ms 2312.0
+round 1 midgame nodes 30553931 ms 7308.9 exact nodes 7811100 ms 2295.1
+round 2 midgame nodes 30553931 ms 7255.2 exact nodes 7811100 ms 2305.9
+round 3 midgame nodes 30553931 ms 7223.5 exact nodes 7811100 ms 2304.4
+round 4 midgame nodes 30553931 ms 7224.0 exact nodes 7811100 ms 2308.2
+midgame nodes 30553931 min_ms 7223.5 median_ms 7255.2 max_ms 7308.9 spread 0.0118 nodes_per_s 4229788
+exact nodes 7811100 min_ms 2295.1 median_ms 2305.9 max_ms 2312.0 spread 0.0073 nodes_per_s 3403343

@@ -33,24 +33,35 @@ pub fn instances() -> &'static [Instance] {
     INSTANCES.as_slice()
 }
 
-pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
-    let mut out = [0; INSTANCE_COUNT];
-    for (slot, instance) in out.iter_mut().zip(instances()) {
-        let mut index = 0;
+/// `ROWS[row * 256 + byte][instance]`: what the mover's discs `byte` on `row`
+/// add to that instance's base-3 index. The opponent's discs add twice.
+static ROWS: LazyLock<Vec<[u16; INSTANCE_COUNT]>> = LazyLock::new(|| {
+    let mut rows = vec![[0u16; INSTANCE_COUNT]; 8 * 256];
+    for (slot, instance) in instances().iter().enumerate() {
         let mut power = 1;
         for &square in &instance.squares {
-            let bit = 1u64 << square;
-            let digit = if board.me & bit != 0 {
-                1
-            } else if board.opp & bit != 0 {
-                2
-            } else {
-                0
-            };
-            index += digit * power;
+            let (row, file) = (usize::from(square / 8), square % 8);
+            for byte in (0..256).filter(|byte| byte >> file & 1 != 0) {
+                rows[row * 256 + byte][slot] += power;
+            }
             power *= 3;
         }
-        *slot = instance.offset + index;
+    }
+    rows
+});
+
+pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
+    let mut sums = [0u16; INSTANCE_COUNT];
+    for row in 0..8 {
+        let me = &ROWS[row * 256 + (board.me >> (row * 8) & 0xff) as usize];
+        let opp = &ROWS[row * 256 + (board.opp >> (row * 8) & 0xff) as usize];
+        for ((sum, &me), &opp) in sums.iter_mut().zip(me).zip(opp) {
+            *sum += me + 2 * opp;
+        }
+    }
+    let mut out = [0; INSTANCE_COUNT];
+    for ((out, sum), instance) in out.iter_mut().zip(sums).zip(instances()) {
+        *out = instance.offset + u32::from(sum);
     }
     out
 }
