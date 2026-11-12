@@ -30,6 +30,7 @@ struct Args {
     out: Option<String>,
     seed: u64,
     time: u64,
+    depth: u32,
     bridge: bool,
     ladder: bool,
     attribute: bool,
@@ -49,6 +50,7 @@ impl Args {
             out: None,
             seed: 1,
             time: 3000,
+            depth: 64,
             bridge: false,
             ladder: false,
             attribute: false,
@@ -84,6 +86,10 @@ impl Args {
                         "--out" => a.out = Some(value.clone()),
                         "--seed" => a.seed = value.parse().map_err(|_| "invalid seed")?,
                         "--time" => a.time = value.parse().map_err(|_| "invalid time")?,
+                        "--depth" => {
+                            a.depth = value.parse().map_err(|_| "invalid depth")?;
+                            a.time = NO_DEADLINE;
+                        }
                         "--levels" => a.levels = value.clone(),
                         _ => return Err(format!("unknown option: {flag}")),
                     }
@@ -101,8 +107,8 @@ impl Args {
                 .ok_or("edax path has no parent")?
                 .to_path_buf();
         }
-        if a.jobs == 0 || a.max_load <= 0.0 {
-            return Err("invalid jobs or max-load".into());
+        if a.jobs == 0 || a.max_load <= 0.0 || a.depth == 0 || a.depth > 64 {
+            return Err("invalid jobs, max-load or depth".into());
         }
         Ok(a)
     }
@@ -317,7 +323,7 @@ fn play_game(
     } else {
         Box::new(search_agent(
             SearchConfig::standard(),
-            SearchLimits::new(64, engine_time, 0),
+            SearchLimits::new(args.depth, engine_time, 0),
         ))
     };
     let mut edax_us = 0;
@@ -519,8 +525,12 @@ fn utc_date() -> String {
 
 fn header(args: &Args, level: u32) -> Result<String, String> {
     Ok(format!(
-        "header v1 level {level} engine standard time {} edax {} edax_sha256 {} eval_sha256 {} commit {} openings {} hash {:016x} jobs {} max_load {:.1}",
-        args.time,
+        "header v1 level {level} engine {} edax {} edax_sha256 {} eval_sha256 {} commit {} openings {} hash {:016x} jobs {} max_load {:.1}",
+        if args.depth == 64 {
+            format!("standard time {}", args.time)
+        } else {
+            format!("standard:d{} time none", args.depth)
+        },
         args.edax.display(),
         sha256(&args.edax)?,
         sha256(&args.cwd.join("data/eval.dat"))?,
