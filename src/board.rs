@@ -49,32 +49,48 @@ pub fn shift(bits: u64, Dir(step, mask): Dir) -> u64 {
     }
 }
 
-pub fn legal_moves(me: u64, opp: u64) -> u64 {
-    let empty = !(me | opp);
-    let mut moves = 0;
-    for dir in Dir::ALL {
-        let mut run = shift(me, dir) & opp;
-        let mut line = 0;
-        while run != 0 {
-            line |= run;
-            run = shift(run, dir) & opp;
-        }
-        moves |= shift(line, dir) & empty;
+const MID: u64 = 0x7e7e_7e7e_7e7e_7e7e;
+const STEPS: [u32; 4] = [1, 7, 9, 8];
+
+/// Runs of opponent discs reached from `from`, one lane per step, towards
+/// higher squares in `.0` and lower in `.1`. Always six discs deep, which
+/// spans the board. A line with a horizontal component cannot pass through
+/// an edge file; that is what stops it wrapping.
+fn runs(from: u64, opp: u64) -> ([u64; 4], [u64; 4]) {
+    let through = [opp & MID, opp & MID, opp & MID, opp];
+    let mut up = [0; 4];
+    let mut down = [0; 4];
+    for lane in 0..4 {
+        up[lane] = through[lane] & (from << STEPS[lane]);
+        down[lane] = through[lane] & (from >> STEPS[lane]);
     }
-    moves
+    for _ in 0..5 {
+        for lane in 0..4 {
+            up[lane] |= through[lane] & (up[lane] << STEPS[lane]);
+            down[lane] |= through[lane] & (down[lane] >> STEPS[lane]);
+        }
+    }
+    (up, down)
+}
+
+pub fn legal_moves(me: u64, opp: u64) -> u64 {
+    let (up, down) = runs(me, opp);
+    let mut moves = 0;
+    for lane in 0..4 {
+        moves |= (up[lane] << STEPS[lane]) | (down[lane] >> STEPS[lane]);
+    }
+    moves & !(me | opp)
 }
 
 pub fn flips(board: Board, sq: u8) -> u64 {
+    let (up, down) = runs(1u64 << sq, board.opp);
     let mut flipped = 0;
-    for dir in Dir::ALL {
-        let mut cursor = shift(1u64 << sq, dir);
-        let mut line = 0;
-        while cursor & board.opp != 0 {
-            line |= cursor;
-            cursor = shift(cursor, dir);
+    for lane in 0..4 {
+        if (up[lane] << STEPS[lane]) & board.me != 0 {
+            flipped |= up[lane];
         }
-        if cursor & board.me != 0 {
-            flipped |= line;
+        if (down[lane] >> STEPS[lane]) & board.me != 0 {
+            flipped |= down[lane];
         }
     }
     flipped

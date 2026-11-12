@@ -1,0 +1,12 @@
+d01207bcdfc05e0adcf0d57bef56912888449539
+working tree: src/board.rs fixed-step lane move generation and flips (step 2), run 3
+Thu 12 Nov 2026 21:42:12 CET
+21:42  up 44 days,  7:33, 9 users, load averages: 1.98 3.04 3.18
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 30553931 ms 4660.9 exact nodes 7811100 ms 1249.6
+round 1 midgame nodes 30553931 ms 4642.4 exact nodes 7811100 ms 1242.5
+round 2 midgame nodes 30553931 ms 4645.6 exact nodes 7811100 ms 1255.4
+round 3 midgame nodes 30553931 ms 4744.6 exact nodes 7811100 ms 1246.7
+round 4 midgame nodes 30553931 ms 4634.5 exact nodes 7811100 ms 1237.2
+midgame nodes 30553931 min_ms 4634.5 median_ms 4645.6 max_ms 4744.6 spread 0.0237 nodes_per_s 6592658
+exact nodes 7811100 min_ms 1237.2 median_ms 1246.7 max_ms 1255.4 spread 0.0147 nodes_per_s 6313526
