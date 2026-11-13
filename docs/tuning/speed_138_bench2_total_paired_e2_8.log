@@ -1,0 +1,13 @@
+ed2e85324af52966e36f0c93678b7b9e60124b7d
+accumulated comparison 8, bench v2: binary of step 2 (engine sources of 07157e7) sha256 cf884c8af9e12fd59d748fb58efb85f33e4352aa2ff9b6090a3d7a79a895429e
+Fri 13 Nov 2026 13:38:45 CET
+13:38  up 44 days, 23:30, 12 users, load averages: 1.64 2.20 2.03
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1020.3 exact nodes 7001000 ms 398.5 clear ms 5.9 357.3
+round 1 midgame nodes 8556688 ms 1080.0 exact nodes 7001000 ms 431.8 clear ms 5.9 383.9
+round 2 midgame nodes 8556688 ms 1048.2 exact nodes 7001000 ms 402.9 clear ms 5.4 359.4
+round 3 midgame nodes 8556688 ms 1052.2 exact nodes 7001000 ms 394.6 clear ms 5.5 358.8
+round 4 midgame nodes 8556688 ms 1045.0 exact nodes 7001000 ms 392.1 clear ms 5.6 372.4
+midgame nodes 8556688 min_ms 1020.3 median_ms 1048.2 max_ms 1080.0 spread 0.0585 nodes_per_s 8386608
+exact nodes 7001000 min_ms 392.1 median_ms 398.5 max_ms 431.8 spread 0.1013 nodes_per_s 17857163
+13:38  up 44 days, 23:30, 12 users, load averages: 1.70 2.20 2.03
