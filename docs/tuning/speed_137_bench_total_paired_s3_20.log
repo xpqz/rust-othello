@@ -1,0 +1,13 @@
+e976d3e1864f829a015893fe93d2cebc7a93f40d
+accumulated comparison 20: binary of step 3 (e976d3e sources)
+Fri 13 Nov 2026 12:14:09 CET
+12:14  up 44 days, 22:05, 12 users, load averages: 1.81 2.36 2.78
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1176.2 exact nodes 7001000 ms 742.4
+round 1 midgame nodes 8556688 ms 1183.2 exact nodes 7001000 ms 770.9
+round 2 midgame nodes 8556688 ms 1167.3 exact nodes 7001000 ms 748.5
+round 3 midgame nodes 8556688 ms 1189.2 exact nodes 7001000 ms 762.5
+round 4 midgame nodes 8556688 ms 1171.2 exact nodes 7001000 ms 737.8
+midgame nodes 8556688 min_ms 1167.3 median_ms 1176.2 max_ms 1189.2 spread 0.0187 nodes_per_s 7330126
+exact nodes 7001000 min_ms 737.8 median_ms 748.5 max_ms 770.9 spread 0.0448 nodes_per_s 9488467
+12:14  up 44 days, 22:05, 12 users, load averages: 1.85 2.35 2.77

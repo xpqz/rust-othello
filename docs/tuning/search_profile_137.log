@@ -1,0 +1,22 @@
+# Profile after step 3 of issue 137. Scratch copy of the engine with src/search.rs, src/tt.rs and src/pattern.rs from e976d3e (board.rs unchanged since 133);
+# features, evaluate, legal_moves, flips, runs, ordered_moves, negamax, scout, zobrist, Table::probe/store marked #[inline(never)];
+# depth-9 search_tt on the ten corpus positions with 24 or more empties, repeated for 40 s; /usr/bin/sample for 25 s
+# starting 5 s in. Same method as docs/tuning/search_profile.log. Load about 3 (machine in use).
+positions 10 nodes 231398220 seconds 40.0 nps 5782584
+Sort by top of stack, same collapsed (when >= 5):
+        othello7pattern8features        6261
+        othello7pattern8evaluate        3619
+        othello5board4runs        3335
+        othello6search13ordered_moves        2365
+        othello6search7negamax        1087
+        othello5board5flips        829
+        othello5board11legal_moves        707
+        othello6search5scout        240
+        __bzero  (in libsystem_platform.dylib)        222
+        othello2tt7zobrist        51
+        othello2ttNtB4_5Table5probe        46
+        othello2ttNtB4_5Table5store        30
+        mach_absolute_time  (in libsystem_kernel.dylib)        6
+#
+# Evaluation calls by caller, search_bench midgame workload, one round, counters added in a scratch copy of e976d3e:
+midgame nodes 8556688 leaf evaluations 5588763 ordering evaluations 1082817
