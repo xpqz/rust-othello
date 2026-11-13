@@ -212,14 +212,45 @@ fn last_square(board: Board) -> i32 {
     }
 }
 
+/// The final score for the mover of a board with two empty squares, or a
+/// fail-soft bound on it: each square the mover can play is tried and the
+/// other settled by `last_square`; if the mover can play neither, the same
+/// for the opponent. The window is in centidiscs.
+fn last_two(board: Board, alpha: i32, beta: i32) -> i32 {
+    let best = |board: Board, beta: i32| {
+        let mut best = None;
+        for square in squares(!(board.me | board.opp)) {
+            let flipped = flips(board, square);
+            if flipped != 0 {
+                let child = Board {
+                    me: board.opp & !flipped,
+                    opp: board.me | 1 << square | flipped,
+                };
+                let value = -last_square(child);
+                best = best.max(Some(value));
+                if terminal_score(value) >= beta {
+                    break;
+                }
+            }
+        }
+        best
+    };
+    match best(board, beta) {
+        Some(value) => value,
+        None => best(pass(board), -alpha).map_or(final_score(board), |value| -value),
+    }
+}
+
 pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.nodes += 1;
     if ctx.stop() {
         return None;
     }
     let exact = ctx.exact;
-    if exact && empty_count(board) == 1 {
-        return Some(terminal_score(last_square(board)));
+    match (exact, empty_count(board)) {
+        (true, 1) => return Some(terminal_score(last_square(board))),
+        (true, 2) => return Some(terminal_score(last_two(board, alpha, beta))),
+        _ => {}
     }
     let moves = legal_moves(board.me, board.opp);
     if moves == 0 {
