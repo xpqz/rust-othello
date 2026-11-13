@@ -207,6 +207,53 @@ fn window_equivalence() {
     }
 }
 
+/// A narrowed window returns a true bound, and a table filled by narrowed
+/// searches does not mislead a full-window search of the same position.
+#[test]
+fn window_bounds() {
+    let config = SearchConfig {
+        eval: noise,
+        endgame_threshold: 0,
+        ordering: true,
+    };
+    let mut rng = Rng::new(0xB0);
+    let (mut visited, mut count) = (0, 0);
+    while count < 200 {
+        playout(&mut rng, |board| {
+            visited += 1;
+            if visited % 7 != 0 || count >= 200 || legal_moves(board.me, board.opp) == 0 {
+                return;
+            }
+            let depth = count % 4 + 1;
+            let truth = minimax(board, depth, &config);
+            let mut table = Table::new(1 << 12);
+            let mut ctx = Ctx::new(&config);
+            ctx.set_table(&mut table);
+            for (alpha, beta) in [
+                (truth - 1, truth),
+                (truth, truth + 1),
+                (truth - 1, truth + 1),
+                (truth + 300, truth + 301),
+                (truth - 301, truth - 300),
+                (-INF, truth),
+                (truth, INF),
+            ] {
+                let value = negamax(board, depth, alpha, beta, &mut ctx).unwrap();
+                let label = format!("{board:?} depth {depth} window {alpha} {beta}");
+                if value <= alpha {
+                    assert!(truth <= value, "{label}: {value} is not an upper bound");
+                } else if value >= beta {
+                    assert!(truth >= value, "{label}: {value} is not a lower bound");
+                } else {
+                    assert_eq!(value, truth, "{label}");
+                }
+            }
+            assert_eq!(negamax(board, depth, -INF, INF, &mut ctx), Some(truth));
+            count += 1;
+        });
+    }
+}
+
 #[test]
 fn caller_roots() {
     let config = config();

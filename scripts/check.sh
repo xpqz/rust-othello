@@ -12,6 +12,7 @@ cargo clippy --manifest-path gui/Cargo.toml --all-targets -- -D warnings
 cargo build --manifest-path trainer/Cargo.toml
 cargo test
 cargo test --manifest-path tools/Cargo.toml
+cargo test --release --manifest-path tools/Cargo.toml --test golden
 cargo test --manifest-path trainer/Cargo.toml
 cargo test --manifest-path gui/Cargo.toml
 cargo test --test budget -- --nocapture

@@ -1,6 +1,9 @@
-use othello::board::{Board, final_score, is_terminal, legal_moves, pass};
-use othello::score::terminal_score;
-use othello::search::{SearchConfig, SearchLimits, search_limited};
+use othello::board::{
+    Board, empty_count, final_score, is_terminal, legal_moves, pass, play, squares,
+};
+use othello::score::{INF, terminal_score};
+use othello::search::{SearchConfig, SearchLimits, search, search_limited, search_tt};
+use othello::tt::Table;
 use othello_tools::baselines::classic_config;
 
 #[derive(Clone, Copy)]
@@ -192,6 +195,11 @@ fn fingerprint(board: Board, config: &SearchConfig) -> (u8, i32, u64) {
     }
 }
 
+/// `GOLDEN_V1` is the v1.0.0 fingerprint and is never edited. The shared search
+/// reproduced its node counts up to 039d59a; from issue 135 it searches fewer
+/// nodes, so only the moves and scores are compared (a different move must be
+/// worth the same). v1.0.0's own node counts are checked against a v1.0.0
+/// build, not against the current search.
 #[test]
 fn golden_v1() {
     let config = config();
@@ -200,12 +208,17 @@ fn golden_v1() {
             me: golden.me,
             opp: golden.opp,
         };
-        let actual = fingerprint(board, &config);
-        assert_eq!(
-            actual,
-            (golden.best, golden.score, golden.nodes),
-            "{board:?}"
-        );
+        let (best, score, _) = fingerprint(board, &config);
+        match mover(board) {
+            Some(root) if root == board => agrees(
+                board,
+                8,
+                &config,
+                (best, score),
+                (golden.best, golden.score),
+            ),
+            _ => assert_eq!((best, score), (golden.best, golden.score), "{board:?}"),
+        }
     }
 }
 
@@ -409,4 +422,223 @@ fn fewer_nodes() {
         })
         .sum();
     assert!(nodes * 10 <= FULL_WINDOW_NODES * 8, "{nodes} nodes");
+}
+
+/// Best move and score of the standard engine at depths 1 to 8 on the corpus
+/// (`search_limited`, engine 039d59a, full-window search; a root with no move
+/// is searched after the pass). Fixed: later search changes must reproduce
+/// every score.
+const DEPTH_SCORES: [[(u8, i32); 8]; 23] = [
+    [
+        (26, 694),
+        (26, 439),
+        (26, 583),
+        (20, -309),
+        (21, 352),
+        (26, -285),
+        (26, 467),
+        (26, -360),
+    ],
+    [
+        (40, 4576),
+        (0, 4007),
+        (40, 4928),
+        (40, 3652),
+        (40, 4245),
+        (40, 3538),
+        (32, 4114),
+        (40, 3657),
+    ],
+    [
+        (38, -3892),
+        (39, -5634),
+        (39, -3885),
+        (39, -4779),
+        (39, -2775),
+        (39, -3997),
+        (39, -3344),
+        (39, -3603),
+    ],
+    [
+        (61, 3533),
+        (61, 2040),
+        (61, 3246),
+        (61, 2519),
+        (17, 3171),
+        (56, 2440),
+        (56, 2883),
+        (0, 2527),
+    ],
+    [
+        (12, -1261),
+        (12, -1681),
+        (12, -916),
+        (12, -977),
+        (12, -937),
+        (12, -1359),
+        (29, -1179),
+        (24, -1878),
+    ],
+    [
+        (7, 462),
+        (7, -852),
+        (7, 240),
+        (7, -1081),
+        (7, -2),
+        (7, -1173),
+        (7, -60),
+        (7, -518),
+    ],
+    [
+        (7, 614),
+        (7, 678),
+        (7, 946),
+        (7, 808),
+        (7, -384),
+        (7, -601),
+        (60, -329),
+        (7, -326),
+    ],
+    [
+        (5, 2113),
+        (5, 3148),
+        (5, 2439),
+        (5, 1931),
+        (5, 2512),
+        (5, 2120),
+        (5, 2349),
+        (5, 1783),
+    ],
+    [
+        (12, 2072),
+        (12, 1144),
+        (26, 1618),
+        (22, 521),
+        (12, 1320),
+        (22, 795),
+        (46, 1425),
+        (46, 857),
+    ],
+    [
+        (24, 4751),
+        (24, 4304),
+        (16, 4611),
+        (23, 3969),
+        (23, 4358),
+        (23, 3251),
+        (31, 4061),
+        (23, 3234),
+    ],
+    [
+        (2, -4242),
+        (46, -4234),
+        (60, -3737),
+        (60, -4092),
+        (62, -3674),
+        (62, -4042),
+        (59, -3082),
+        (49, -3500),
+    ],
+    [
+        (22, -1214),
+        (43, -2304),
+        (43, -1078),
+        (32, -2030),
+        (43, -1130),
+        (43, -1871),
+        (43, -897),
+        (43, -1303),
+    ],
+    [(3, -2200); 8],
+    [(0, 1800); 8],
+    [(42, 3800); 8],
+    [(6, -600); 8],
+    [(31, -1600); 8],
+    [(55, 2400); 8],
+    [(3, 800); 8],
+    [(31, 200); 8],
+    [(16, 6400); 8],
+    [(255, 0); 8],
+    [(255, 0); 8],
+];
+
+/// Fail-soft alpha-beta in square order with no table: the independent value.
+fn reference(board: Board, depth: u32, mut alpha: i32, beta: i32, eval: fn(Board) -> i32) -> i32 {
+    let moves = legal_moves(board.me, board.opp);
+    if moves == 0 {
+        if is_terminal(board) {
+            return terminal_score(final_score(board));
+        }
+        return -reference(pass(board), depth, -beta, -alpha, eval);
+    }
+    if depth == 0 {
+        return eval(board);
+    }
+    let mut best = -INF;
+    for square in squares(moves) {
+        best = best.max(-reference(
+            play(board, square),
+            depth - 1,
+            -beta,
+            -alpha,
+            eval,
+        ));
+        alpha = alpha.max(best);
+        if alpha >= beta {
+            break;
+        }
+    }
+    best
+}
+
+/// A result agrees with the record if the score is the same and the move is
+/// the recorded one or is worth the same. The child is valued in the root's
+/// domain: to the end for a solved root, else at one ply less.
+fn agrees(board: Board, depth: u32, config: &SearchConfig, result: (u8, i32), expected: (u8, i32)) {
+    assert_eq!(result.1, expected.1, "{board:?} depth {depth}");
+    if result.0 != expected.0 {
+        assert_ne!(legal_moves(board.me, board.opp) & (1 << result.0), 0);
+        let solved = empty_count(board) <= config.endgame_threshold;
+        let below = if solved { 64 } else { depth - 1 };
+        let value = -reference(play(board, result.0), below, -INF, INF, config.eval);
+        assert_eq!(
+            value, expected.1,
+            "{board:?} depth {depth} move {}",
+            result.0
+        );
+    }
+}
+
+fn mover(board: Board) -> Option<Board> {
+    match (is_terminal(board), legal_moves(board.me, board.opp)) {
+        (true, _) => None,
+        (false, 0) => Some(pass(board)),
+        _ => Some(board),
+    }
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
+fn corpus_depths() {
+    let config = SearchConfig::standard();
+    let mut table = Table::new(1 << 20);
+    for (golden, row) in GOLDEN_V2.iter().zip(DEPTH_SCORES) {
+        let Some(board) = mover(Board {
+            me: golden.me,
+            opp: golden.opp,
+        }) else {
+            continue;
+        };
+        for (depth, expected) in (1..).zip(row) {
+            let limits = SearchLimits::depth(depth);
+            table.clear();
+            for result in [
+                search(board, depth, &config),
+                search_limited(board, limits, &config),
+                search_tt(board, limits, &config, &mut table),
+            ] {
+                agrees(board, depth, &config, (result.best, result.score), expected);
+            }
+        }
+    }
 }
