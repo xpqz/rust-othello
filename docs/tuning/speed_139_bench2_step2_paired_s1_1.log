@@ -1,0 +1,13 @@
+d05a6205cc748bd4b4f19a211b967077a5c16d86
+paired comparison 1, bench v2: binary of step 1 (engine sources of d05a620) sha256 69aad5eb68d74bd1852a83bc253df5763d11a1c331bfaf08549ddab4c1566d28
+Fri 13 Nov 2026 14:46:49 CET
+14:46  up 45 days, 38 mins, 10 users, load averages: 2.72 2.64 2.76
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 886.9 exact nodes 7001000 ms 392.6 clear ms 5.6 351.8
+round 1 midgame nodes 9724172 ms 870.6 exact nodes 7001000 ms 391.7 clear ms 5.3 353.2
+round 2 midgame nodes 9724172 ms 864.7 exact nodes 7001000 ms 392.4 clear ms 5.2 352.5
+round 3 midgame nodes 9724172 ms 860.0 exact nodes 7001000 ms 392.9 clear ms 5.1 359.8
+round 4 midgame nodes 9724172 ms 876.8 exact nodes 7001000 ms 391.3 clear ms 5.4 349.7
+midgame nodes 9724172 min_ms 860.0 median_ms 870.6 max_ms 886.9 spread 0.0312 nodes_per_s 11306792
+exact nodes 7001000 min_ms 391.3 median_ms 392.4 max_ms 392.9 spread 0.0040 nodes_per_s 17890196
+14:46  up 45 days, 38 mins, 10 users, load averages: 2.82 2.67 2.76

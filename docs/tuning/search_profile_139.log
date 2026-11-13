@@ -1,0 +1,22 @@
+# Profile after step 1 of issue 139. Scratch copy of the engine with src/search.rs, src/tt.rs and src/pattern.rs from d05a620 (board.rs unchanged since 133);
+# features, evaluate, legal_moves, flips, runs, ordered_moves, negamax, scout, zobrist, Table::probe/store marked #[inline(never)];
+# depth-9 search_tt on the ten corpus positions with 24 or more empties, repeated for 40 s; /usr/bin/sample for 25 s
+# starting 5 s in. Same method as docs/tuning/search_profile.log. Load about 3.
+positions 10 nodes 406366103 seconds 40.0 nps 10149343
+Sort by top of stack, same collapsed (when >= 5):
+        othello7pattern8features        5508
+        othello7pattern8evaluate        4132
+        othello5board4runs        2426
+        othello6search13ordered_moves        2402
+        othello6search7negamax        1667
+        othello5board5flips        1052
+        othello5board11legal_moves        434
+        othello6search5scout        380
+        __bzero  (in libsystem_platform.dylib)        279
+        othello2ttNtB4_5Table5probe        101
+        othello2tt7zobrist        69
+        othello2ttNtB4_5Table5store        34
+        mach_absolute_time  (in libsystem_kernel.dylib)        7
+#
+# Calls by caller, search_bench midgame workload, one round, counters added in a scratch copy of d05a620:
+midgame: negamax entries 9724172 leaves 6471142 no-move nodes 432 ordering by evaluation moves 1103229 ordering by replies moves 1116 children played in negamax 9718551

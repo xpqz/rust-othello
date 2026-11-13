@@ -1,0 +1,51 @@
+diff --git a/src/search.rs b/tmp/claude-7603/-Users-stefan-work-crust-othello/55ef37e4-a2ae-4762-b7c2-474daeff3454/scratchpad/hot/src/search.rs
+index 4156062..ba80160 100644
+--- a/src/search.rs
++++ b/tmp/claude-7603/-Users-stefan-work-crust-othello/55ef37e4-a2ae-4762-b7c2-474daeff3454/scratchpad/hot/src/search.rs
+@@ -233,22 +233,31 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
+     // order, which weighs replies itself.
+     let count_replies = exact && empty_count(board) >= PLAIN_ORDER_EMPTIES;
+     let order_depth = if count_replies { EXACT_ORDER_DEPTH } else { 0 };
+-    let (order, len) = if ctx.config.ordering {
+-        let eval = (!exact && depth >= EVAL_ORDER_DEPTH).then_some(ctx.config.eval);
+-        ordered_moves(board, moves, order_depth, hint, eval)
+-    } else {
+-        natural(moves)
+-    };
+     let next = if exact { depth } else { depth - 1 };
+-    for &square in &order[..len] {
+-        let value = scout(play(board, square), next, alpha, beta, best == -INF, ctx)?;
+-        if value > best {
+-            best = value;
+-            chosen = square;
+-        }
+-        alpha = alpha.max(value);
+-        if alpha >= beta {
+-            break;
++    let lazy = ctx.config.ordering && !exact && depth < EVAL_ORDER_DEPTH;
++    let first = hint.filter(|&square| lazy && moves >> square & 1 != 0);
++    if let Some(square) = first {
++        best = scout(play(board, square), next, alpha, beta, true, ctx)?;
++        chosen = square;
++        alpha = alpha.max(best);
++    }
++    if alpha < beta {
++        let (order, len) = if ctx.config.ordering {
++            let eval = (!exact && depth >= EVAL_ORDER_DEPTH).then_some(ctx.config.eval);
++            ordered_moves(board, moves, order_depth, hint, eval)
++        } else {
++            natural(moves)
++        };
++        for &square in order[..len].iter().filter(|&&square| Some(square) != first) {
++            let value = scout(play(board, square), next, alpha, beta, best == -INF, ctx)?;
++            if value > best {
++                best = value;
++                chosen = square;
++            }
++            alpha = alpha.max(value);
++            if alpha >= beta {
++                break;
++            }
+         }
+     }
+     if let (Some(table), Some(key)) = (ctx.table.as_mut(), key) {
