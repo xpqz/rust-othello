@@ -1,0 +1,48 @@
+# Profile of the exact solver before issue 141. Scratch copy of the engine at da1dc33 (root crate, root release profile);
+# runs, legal_moves, flips, final_score, ordered_moves, negamax, scout, root, zobrist, Table::probe/store marked #[inline(never)];
+# workload: the first 16-empties position with a legal move from each of the 200 games in docs/tuning/speed_135_match.journal,
+# solved through search_tt with endgame_threshold 16, cleared table each, looped for 40 s; /usr/bin/sample for 25 s starting 5 s in.
+loop empties 16 positions 200 solves 400 nodes 441807728 seconds 41.5
+Sort by top of stack, same collapsed (when >= 5):
+        othello5board4runs        6573
+        othello6search13ordered_moves        4550
+        othello6search7negamax        4496
+        othello5board11final_score        1450
+        othello5board11legal_moves        1179
+        othello5board5flips        975
+        othello6search5scout        412
+        othello2tt7zobrist        232
+        othello2ttNtB4_5Table5probe        229
+        othello2ttNtB4_5Table5store        93
+        __bzero  (in libsystem_platform.dylib)        91
+        mach_absolute_time  (in libsystem_kernel.dylib)        9
+#
+# Counters by empties at the node, same 200 positions solved once each, scratch copy with counters in negamax:
+# nodes = negamax entries; no_move = nodes with no legal move for the mover; terminal = neither side can move;
+# tt_hit/tt_cutoff = table entry found / cutoff taken; interior = nodes reaching the move loop;
+# reply_counted_moves = moves played and their replies generated for ordering; children = children searched.
+empties nodes no_move terminal tt_hit tt_cutoff interior reply_counted_moves children
+ 0    41964521  41964521  41964521          0          0          0           0           0
+ 1    57490669   9726661    245896    6350863    5799487   41964521           0    41964521
+ 2    45598244   3287970      6674    5289875    4799088   37511186           0    48005456
+ 3    30407817    841971       841    3497536    3067188   26498658           0    42311301
+ 4    20222147    442547       195    2464859    2091961   17687639           0    29561409
+ 5    11783155    118109        81    1573309    1251049   10413997    36362211    19775136
+ 6     6740272     43951        30     999437     742717    5953604    23649590    11661105
+ 7     3488315     12178        12     587731     389780    3086357    14178583     6692518
+ 8     1748805      4582         0     341882     206735    1537488     7627773     3473125
+ 9      831353      1366         0     182534      94769     735218     4123022     1741623
+10      367290       448         0      94139      43410     323432     1890349      827970
+11      162980       122         0      44987      17459     145399      947976      365379
+12       62477        59         0      20272       6844      55574      366823      161794
+13       25330        13         0       8332       2167      23150      169458       61664
+14        7764         4         0       3084        682       7078       51400       24815
+15        2725         0         0       1108        229       2496       20045        7468
+16           0         0         0          0          0          0           0           0
+#
+# Mean solve time by empties (same journal, one position per game; 18 empties on the first 40 only), native scratch build:
+empties 10 mean_nodes 4150 mean_ms 0.41 worst_ms 6.8
+empties 12 mean_nodes 24397 mean_ms 1.88 worst_ms 8.8
+empties 14 mean_nodes 157096 mean_ms 12.85 worst_ms 63.9
+empties 16 mean_nodes 1104519 mean_ms 94.39 worst_ms 776.7
+empties 18 mean_nodes 8502386 mean_ms 722.88 worst_ms 2691.4
