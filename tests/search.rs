@@ -148,6 +148,65 @@ fn minimax_equivalence() {
     assert_eq!(count, 100);
 }
 
+fn noise(board: Board) -> i32 {
+    ((zobrist(board) >> 20) % 4001) as i32 - 2000
+}
+
+/// Ordering, narrowed windows and the table must not change the value:
+/// every search entry point equals plain minimax.
+#[test]
+fn window_equivalence() {
+    let config = SearchConfig {
+        eval: noise,
+        endgame_threshold: 8,
+        ordering: true,
+    };
+    let mut rng = Rng::new(0x135);
+    let mut table = Table::new(1 << 16);
+    let (mut visited, mut heuristic, mut exact) = (0, 0, 0);
+    while heuristic < 1000 || exact < 200 {
+        playout(&mut rng, |board| {
+            visited += 1;
+            if visited % 7 != 0 || legal_moves(board.me, board.opp) == 0 {
+                return;
+            }
+            let solved = board.me.count_ones() + board.opp.count_ones() >= 56;
+            let depth = match (solved, heuristic % 50) {
+                (true, _) => 64,
+                (false, 49) => 5,
+                _ => heuristic % 4 + 1,
+            };
+            if (solved && exact >= 200) || (!solved && heuristic >= 1000) {
+                return;
+            }
+            let expected = minimax(board, depth, &config);
+            let label = format!("{board:?} depth {depth}");
+            if !solved {
+                let mut ctx = Ctx::new(&config);
+                let value = negamax(board, depth, -INF, INF, &mut ctx);
+                assert_eq!(value, Some(expected), "{label}");
+                assert_eq!(search(board, depth, &config).score, expected, "{label}");
+            }
+            let limits = SearchLimits::depth(depth);
+            assert_eq!(
+                search_limited(board, limits, &config).score,
+                expected,
+                "{label}"
+            );
+            table.clear();
+            let warm = search_tt(board, limits, &config, &mut table);
+            assert_eq!(warm.score, expected, "{label}");
+            let value = -minimax(
+                play(board, warm.best),
+                depth.saturating_sub(1).min(63),
+                &config,
+            );
+            assert_eq!(value, expected, "best move {label}");
+            if solved { exact += 1 } else { heuristic += 1 }
+        });
+    }
+}
+
 #[test]
 fn caller_roots() {
     let config = config();

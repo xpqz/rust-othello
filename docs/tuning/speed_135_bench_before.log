@@ -1,0 +1,12 @@
+039d59a8f005ac179438aa46a0b7f613d3fe20bf
+working tree: RED tests only, engine unchanged from 039d59a
+Fri 13 Nov 2026 07:23:04 CET
+ 7:23  up 44 days, 17:14, 9 users, load averages: 1.26 1.14 1.11
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 30553931 ms 4297.4 exact nodes 7811100 ms 1205.9
+round 1 midgame nodes 30553931 ms 4286.4 exact nodes 7811100 ms 1210.8
+round 2 midgame nodes 30553931 ms 4278.0 exact nodes 7811100 ms 1205.6
+round 3 midgame nodes 30553931 ms 4274.4 exact nodes 7811100 ms 1204.0
+round 4 midgame nodes 30553931 ms 4280.3 exact nodes 7811100 ms 1207.3
+midgame nodes 30553931 min_ms 4274.4 median_ms 4280.3 max_ms 4297.4 spread 0.0054 nodes_per_s 7148115
+exact nodes 7811100 min_ms 1204.0 median_ms 1205.9 max_ms 1210.8 spread 0.0056 nodes_per_s 6487578

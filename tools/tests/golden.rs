@@ -391,3 +391,22 @@ fn golden_v2() {
         );
     }
 }
+
+/// Depth-8 nodes over the corpus before null-window search (engine 039d59a).
+const FULL_WINDOW_NODES: u64 = 3_791_452;
+
+#[test]
+fn fewer_nodes() {
+    let config = SearchConfig::standard();
+    let nodes: u64 = GOLDEN_V2
+        .iter()
+        .map(|golden| {
+            let board = Board {
+                me: golden.me,
+                opp: golden.opp,
+            };
+            fingerprint(board, &config).2
+        })
+        .sum();
+    assert!(nodes * 10 <= FULL_WINDOW_NODES * 8, "{nodes} nodes");
+}
