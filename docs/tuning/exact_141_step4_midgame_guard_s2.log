@@ -1,0 +1,13 @@
+e49d64b5ca425525cec6955355599542df988131
+midgame guard, search_bench bench v2, tools release profile: binary of step 2 (engine sources of 62084ef) sha256 812a55e48c30920d1113a828f2b575441598a0a534c45f9d69c6bde9eafdc9ef
+Sat 14 Nov 2026 00:21:59 CET
+ 0:21  up 45 days, 10:13, 9 users, load averages: 1.22 1.74 2.50
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 795.4 exact nodes 3640400 ms 286.2 clear ms 8.2 531.8
+round 1 midgame nodes 9724172 ms 794.2 exact nodes 3640400 ms 284.8 clear ms 5.2 662.6
+round 2 midgame nodes 9724172 ms 787.7 exact nodes 3640400 ms 286.6 clear ms 5.8 572.7
+round 3 midgame nodes 9724172 ms 787.2 exact nodes 3640400 ms 286.0 clear ms 5.3 781.5
+round 4 midgame nodes 9724172 ms 789.1 exact nodes 3640400 ms 285.3 clear ms 5.0 562.2
+midgame nodes 9724172 min_ms 787.2 median_ms 789.1 max_ms 795.4 spread 0.0104 nodes_per_s 12352963
+exact nodes 3640400 min_ms 284.8 median_ms 286.0 max_ms 286.6 spread 0.0063 nodes_per_s 12782878
+ 0:22  up 45 days, 10:13, 9 users, load averages: 1.34 1.74 2.50
