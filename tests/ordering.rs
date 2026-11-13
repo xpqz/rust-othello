@@ -129,3 +129,43 @@ fn evaluation_boundary() {
     });
     assert_eq!(solved, 0);
 }
+
+const CORNERS: u64 = 0x8100_0000_0000_0081;
+const XC: u64 = 0x42c3_0000_0000_c342;
+
+/// Without an evaluation and under depth 2 the order is preferred move,
+/// corners, other squares, X and C squares, each by square.
+#[test]
+fn class_order() {
+    let mut rng = Rng::new(0xC1);
+    let (mut visited, mut count) = (0, 0);
+    while count < 1000 {
+        playout(&mut rng, |board| {
+            visited += 1;
+            let moves = legal_moves(board.me, board.opp);
+            if visited % 3 != 0 || count >= 1000 || moves == 0 {
+                return;
+            }
+            for preferred in squares(moves).map(Some).chain([None]) {
+                let mut expected: Vec<(u32, u8)> = squares(moves)
+                    .map(|square| {
+                        let class = match (CORNERS >> square & 1, XC >> square & 1) {
+                            _ if Some(square) == preferred => 0,
+                            (1, _) => 1,
+                            (0, 1) => 3,
+                            _ => 2,
+                        };
+                        (class, square)
+                    })
+                    .collect();
+                expected.sort();
+                let expected: Vec<u8> = expected.iter().map(|&(_, square)| square).collect();
+                for depth in [0, 1] {
+                    let (order, len) = ordered_moves(board, moves, depth, preferred, None);
+                    assert_eq!(&order[..len], &expected[..], "{board:?} {preferred:?}");
+                }
+            }
+            count += 1;
+        });
+    }
+}
