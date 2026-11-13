@@ -1,0 +1,13 @@
+a5d558dcef3992197ad1cb1b0d1d0433903a8995
+paired comparison 36: binary of the start of the issue (55716d8 sources)
+Fri 13 Nov 2026 12:41:57 CET
+12:41  up 44 days, 22:33, 12 users, load averages: 1.78 2.05 2.17
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1131.3 exact nodes 7001000 ms 733.5
+round 1 midgame nodes 8556688 ms 1130.2 exact nodes 7001000 ms 744.4
+round 2 midgame nodes 8556688 ms 1133.7 exact nodes 7001000 ms 737.2
+round 3 midgame nodes 8556688 ms 1129.0 exact nodes 7001000 ms 720.6
+round 4 midgame nodes 8556688 ms 1121.7 exact nodes 7001000 ms 723.3
+midgame nodes 8556688 min_ms 1121.7 median_ms 1130.2 max_ms 1133.7 spread 0.0107 nodes_per_s 7628425
+exact nodes 7001000 min_ms 720.6 median_ms 733.5 max_ms 744.4 spread 0.0331 nodes_per_s 9716154
+12:42  up 44 days, 22:33, 12 users, load averages: 2.50 2.19 2.22

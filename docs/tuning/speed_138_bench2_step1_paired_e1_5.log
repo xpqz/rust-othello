@@ -1,0 +1,13 @@
+a5d558dcef3992197ad1cb1b0d1d0433903a8995
+paired comparison 5, bench v2: binary of step 1 (decoded weight table, uncommitted on a5d558d)
+Fri 13 Nov 2026 12:46:27 CET
+12:46  up 44 days, 22:38, 12 users, load averages: 1.83 1.96 2.10
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1058.5 exact nodes 7001000 ms 385.3 clear ms 5.4 351.0
+round 1 midgame nodes 8556688 ms 1066.5 exact nodes 7001000 ms 387.7 clear ms 5.3 360.9
+round 2 midgame nodes 8556688 ms 1061.8 exact nodes 7001000 ms 386.0 clear ms 5.3 370.3
+round 3 midgame nodes 8556688 ms 1051.7 exact nodes 7001000 ms 392.4 clear ms 5.4 359.4
+round 4 midgame nodes 8556688 ms 1057.2 exact nodes 7001000 ms 391.5 clear ms 5.2 365.2
+midgame nodes 8556688 min_ms 1051.7 median_ms 1058.5 max_ms 1066.5 spread 0.0141 nodes_per_s 8135838
+exact nodes 7001000 min_ms 385.3 median_ms 387.7 max_ms 392.4 spread 0.0184 nodes_per_s 18168673
+12:46  up 44 days, 22:38, 12 users, load averages: 1.85 1.96 2.10

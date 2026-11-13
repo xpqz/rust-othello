@@ -72,12 +72,18 @@ static OFFSETS: LazyLock<[u32; INSTANCE_COUNT]> =
 
 static WEIGHTS: &[u8; 4_014_360] = include_bytes!("../assets/eval.bin");
 
+/// The file's little-endian weights decoded once: `TABLE[stage * TABLE_SLOTS + slot]`.
+static TABLE: LazyLock<Vec<i16>> = LazyLock::new(|| {
+    let (pairs, _) = WEIGHTS.as_chunks::<2>();
+    pairs.iter().map(|&pair| i16::from_le_bytes(pair)).collect()
+});
+
 pub fn evaluate(board: Board) -> i32 {
     let stage = stage(empty_count(board));
     let mut value = 0;
+    let table = &TABLE[stage * TABLE_SLOTS..][..TABLE_SLOTS];
     for feature in features(board) {
-        let offset = (stage * TABLE_SLOTS + feature as usize) * 2;
-        value += i16::from_le_bytes([WEIGHTS[offset], WEIGHTS[offset + 1]]) as i32;
+        value += i32::from(table[feature as usize]);
     }
     value.clamp(-EVAL_BOUND, EVAL_BOUND)
 }
