@@ -195,11 +195,9 @@ fn fingerprint(board: Board, config: &SearchConfig) -> (u8, i32, u64) {
     }
 }
 
-/// `GOLDEN_V1` is the v1.0.0 fingerprint and is never edited. The shared search
-/// reproduced its node counts up to 039d59a; from issue 135 it searches fewer
-/// nodes, so only the moves and scores are compared (a different move must be
-/// worth the same). v1.0.0's own node counts are checked against a v1.0.0
-/// build, not against the current search.
+/// `GOLDEN_V1` is the v1.0.0 fingerprint and is never edited. The current
+/// search is held to its moves and scores only (a different move must be worth
+/// the same); the node counts belong to the v1.0.0 search.
 #[test]
 fn golden_v1() {
     let config = config();
@@ -597,7 +595,9 @@ fn reference(board: Board, depth: u32, mut alpha: i32, beta: i32, eval: fn(Board
 fn agrees(board: Board, depth: u32, config: &SearchConfig, result: (u8, i32), expected: (u8, i32)) {
     assert_eq!(result.1, expected.1, "{board:?} depth {depth}");
     if result.0 != expected.0 {
-        assert_ne!(legal_moves(board.me, board.opp) & (1 << result.0), 0);
+        assert!(result.0 < 64, "{board:?} depth {depth}: no move");
+        let legal = legal_moves(board.me, board.opp) & (1 << result.0) != 0;
+        assert!(legal, "{board:?} depth {depth}: illegal move {}", result.0);
         let solved = empty_count(board) <= config.endgame_threshold;
         let below = if solved { 64 } else { depth - 1 };
         let value = -reference(play(board, result.0), below, -INF, INF, config.eval);
@@ -615,6 +615,26 @@ fn mover(board: Board) -> Option<Board> {
         (false, 0) => Some(pass(board)),
         _ => Some(board),
     }
+}
+
+/// The no-move sentinel must not pass as square 0, which is the recorded move
+/// here; a wrapped shift in a release build would let it.
+#[test]
+#[should_panic(expected = "no move")]
+fn rejects_no_move() {
+    let board = Board {
+        me: GOLDEN_V2[3].me,
+        opp: GOLDEN_V2[3].opp,
+    };
+    let (best, score) = DEPTH_SCORES[3][7];
+    assert_eq!((best, legal_moves(board.me, board.opp) & 1), (0, 1));
+    agrees(
+        board,
+        8,
+        &SearchConfig::standard(),
+        (64, score),
+        (best, score),
+    );
 }
 
 #[test]
