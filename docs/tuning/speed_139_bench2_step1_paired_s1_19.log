@@ -1,0 +1,13 @@
+8d4cc43c87ef70ccddc530f13d52ba8116aa210c
+paired comparison 19, bench v2: binary of step 1 (no reply count in midgame ordering, uncommitted on 8d4cc43) sha256 69aad5eb68d74bd1852a83bc253df5763d11a1c331bfaf08549ddab4c1566d28
+Fri 13 Nov 2026 14:12:28 CET
+14:12  up 45 days, 4 mins, 12 users, load averages: 2.69 3.15 2.95
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 991.2 exact nodes 7001000 ms 422.4 clear ms 6.0 390.4
+round 1 midgame nodes 9724172 ms 961.9 exact nodes 7001000 ms 426.1 clear ms 6.0 389.6
+round 2 midgame nodes 9724172 ms 977.0 exact nodes 7001000 ms 408.3 clear ms 5.8 386.2
+round 3 midgame nodes 9724172 ms 976.2 exact nodes 7001000 ms 410.8 clear ms 5.8 380.0
+round 4 midgame nodes 9724172 ms 1035.9 exact nodes 7001000 ms 417.4 clear ms 5.8 386.3
+midgame nodes 9724172 min_ms 961.9 median_ms 977.0 max_ms 1035.9 spread 0.0769 nodes_per_s 10109499
+exact nodes 7001000 min_ms 408.3 median_ms 417.4 max_ms 426.1 spread 0.0437 nodes_per_s 17148744
+14:12  up 45 days, 4 mins, 12 users, load averages: 2.89 3.18 2.97

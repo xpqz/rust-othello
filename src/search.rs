@@ -228,11 +228,10 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         .flatten();
     let mut best = -INF;
     let mut chosen = NO_MOVE;
-    let order_depth = match exact {
-        true if empty_count(board) < PLAIN_ORDER_EMPTIES => 0,
-        true => EXACT_ORDER_DEPTH,
-        false => depth,
-    };
+    // Replies are counted only in exact search with enough empties; midgame
+    // nodes use the class order, or the evaluation order from its depth up.
+    let count_replies = exact && empty_count(board) >= PLAIN_ORDER_EMPTIES;
+    let order_depth = if count_replies { EXACT_ORDER_DEPTH } else { 0 };
     let (order, len) = if ctx.config.ordering {
         let eval = (!exact && depth >= EVAL_ORDER_DEPTH).then_some(ctx.config.eval);
         ordered_moves(board, moves, order_depth, hint, eval)
