@@ -408,6 +408,9 @@ const FULL_WINDOW_NODES: u64 = 3_791_452;
 /// The same with a cleared table per search (`search_tt`), with null-window
 /// search and before shallower table moves were used for ordering.
 const TABLE_NODES: u64 = 1_888_096;
+/// The same once any heuristic entry's move is tried first, before ordering
+/// by evaluation.
+const HINT_NODES: u64 = 1_406_429;
 
 #[test]
 fn fewer_nodes() {
@@ -440,6 +443,7 @@ fn fewer_table_nodes() {
         }
     }
     assert!(nodes * 100 <= TABLE_NODES * 85, "{nodes} nodes");
+    assert!(nodes * 100 <= HINT_NODES * 90, "{nodes} nodes");
 }
 
 /// Best move and score of the standard engine at depths 1 to 8 on the corpus

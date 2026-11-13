@@ -1,0 +1,36 @@
+# Issue 135 step 3 design evidence. Scratch copy of the step 1 tree with switches added to src/search.rs
+# (evaluation ordering from a minimum remaining depth, weight per opponent reply, table move of any depth,
+# and how the table move combines). Not the committed engine; node counts only, which load does not affect.
+# Positions: every eighth line of bench/openings_tune.txt (sample A: lines with index % 8 == 3; sample B: % 8 == 6),
+# played out by the standard engine at depth 4 to 30 + (n % 11) empties. search_tt, cold table per position.
+# "work" = nodes + ordering evaluations. Scores identical across all variants of a sample (checksum).
+#
+# sample A, 64 positions, depth 10                                   nodes   order evals        work
+step 1 (null window)                                              83800994            0    83800994
+table move of any depth first (step 2)                            54202036            0    54202036
+step 2 + eval+300/reply from depth 4, table move always first     49158046      6336245    55494291
+step 2 + the same, only at nodes with no table move, depth 2      48274810     15423966    63698776
+step 2 + the same, only at nodes with no table move, depth 3      50387396      4601461    54988857
+step 2 + the same, only at nodes with no table move, depth 4      51721544      1125047    52846591
+step 2 + the same, only at nodes with no table move, depth 5      52121124       288303    52409427
+table move as bonus 150, weight 300, depth 4                      41311218      6148057    47459275
+table move as bonus 300, weight 300, depth 4                      40521070      6051107    46572177
+table move as bonus 500, weight 300, depth 4                      39368400      5879273    45247673
+table move as bonus 800, weight 300, depth 4                      38776392      5755081    44531473
+table move as bonus 1500, weight 300, depth 4                     41130307      5850630    46980937
+table move as bonus 500, weight 200, depth 4                      39445375      5842092    45287467
+table move as bonus 500, weight 450, depth 4                      40225319      5994015    46219334
+table move as bonus 1000, weight 300, depth 3                     36997557     18393264    55390821
+table move as bonus 500, weight 300, depth 5                      42760753      2159674    44920427
+table move as bonus 500, weight 300, depth 6                      44676863       600006    45276869
+#
+# sample B, 63 positions, depth 10 (settings chosen on A, run once on B)
+table move of any depth first (step 2)                            56578623            0    56578623
+step 2 + eval+300/reply from depth 4, table move always first     48190767      6170059    54360826
+table move as bonus 500, weight 300, depth 4                      39777320      5799489    45576809
+table move as bonus 800, weight 300, depth 4                      39646027      5722247    45368274
+table move as bonus 500, weight 300, depth 5                      42816037      2105292    44921329
+#
+# depth 8, bonus 800, weight 300, depth 4 against step 2
+sample A: 6096386 -> 4939529 nodes + 553039 evals (work 0.901)
+sample B: 6234184 -> 4974815 nodes + 552244 evals (work 0.887)
