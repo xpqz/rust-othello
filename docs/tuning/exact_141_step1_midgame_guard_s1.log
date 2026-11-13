@@ -1,0 +1,13 @@
+d3ce464f01f1d2961b0685dc163db08dbf6cac01
+midgame guard (replacement run; the first guard run's output was not kept), search_bench bench v2, tools release profile (lto fat, codegen-units 1): binary of step 1 (engine sources of d3ce464) sha256 b61e2c38e4835794c0b6f2fc1c4e9aca034c08769045ac497655bb051ae217d2
+Fri 13 Nov 2026 22:56:03 CET
+22:56  up 45 days,  8:47, 10 users, load averages: 1.78 2.13 1.90
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 810.8 exact nodes 5335800 ms 310.7 clear ms 9.5 387.5
+round 1 midgame nodes 9724172 ms 813.3 exact nodes 5335800 ms 311.1 clear ms 5.3 393.9
+round 2 midgame nodes 9724172 ms 802.5 exact nodes 5335800 ms 311.2 clear ms 5.3 370.3
+round 3 midgame nodes 9724172 ms 807.8 exact nodes 5335800 ms 309.9 clear ms 5.3 419.9
+round 4 midgame nodes 9724172 ms 808.7 exact nodes 5335800 ms 310.3 clear ms 5.2 469.2
+midgame nodes 9724172 min_ms 802.5 median_ms 808.7 max_ms 813.3 spread 0.0135 nodes_per_s 12117000
+exact nodes 5335800 min_ms 309.9 median_ms 310.7 max_ms 311.2 spread 0.0044 nodes_per_s 17219612
+22:56  up 45 days,  8:47, 10 users, load averages: 1.71 2.12 1.89

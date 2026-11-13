@@ -1,0 +1,13 @@
+d3ce464f01f1d2961b0685dc163db08dbf6cac01
+midgame guard (replacement run; the first guard run's output was not kept), search_bench bench v2, tools release profile (lto fat, codegen-units 1): binary of the start of the issue (engine sources of da1dc33) sha256 ac254018751ed07a59f2e198ada990ed73adefcb932d012576661a1874b7d230
+Fri 13 Nov 2026 22:55:55 CET
+22:55  up 45 days,  8:47, 10 users, load averages: 1.92 2.17 1.91
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 812.0 exact nodes 7001000 ms 380.6 clear ms 9.1 364.7
+round 1 midgame nodes 9724172 ms 793.1 exact nodes 7001000 ms 376.3 clear ms 5.2 349.4
+round 2 midgame nodes 9724172 ms 805.5 exact nodes 7001000 ms 378.7 clear ms 5.3 355.1
+round 3 midgame nodes 9724172 ms 805.7 exact nodes 7001000 ms 376.0 clear ms 5.3 345.0
+round 4 midgame nodes 9724172 ms 810.6 exact nodes 7001000 ms 375.8 clear ms 5.2 346.3
+midgame nodes 9724172 min_ms 793.1 median_ms 805.7 max_ms 812.0 spread 0.0238 nodes_per_s 12260822
+exact nodes 7001000 min_ms 375.8 median_ms 376.3 max_ms 380.6 spread 0.0128 nodes_per_s 18628994
+22:56  up 45 days,  8:47, 10 users, load averages: 1.78 2.13 1.90
