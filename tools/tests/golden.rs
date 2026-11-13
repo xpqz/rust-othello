@@ -403,8 +403,10 @@ fn golden_v2() {
     }
 }
 
-/// Depth-8 nodes over the corpus before null-window search (engine 039d59a).
+/// Depth-8 nodes over the corpus before null-window search (engine 039d59a)
+/// and with it, before shallower table moves were used for ordering.
 const FULL_WINDOW_NODES: u64 = 3_791_452;
+const NULL_WINDOW_NODES: u64 = 2_970_325;
 
 #[test]
 fn fewer_nodes() {
@@ -420,6 +422,7 @@ fn fewer_nodes() {
         })
         .sum();
     assert!(nodes * 10 <= FULL_WINDOW_NODES * 8, "{nodes} nodes");
+    assert!(nodes * 100 <= NULL_WINDOW_NODES * 85, "{nodes} nodes");
 }
 
 /// Best move and score of the standard engine at depths 1 to 8 on the corpus

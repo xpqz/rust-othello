@@ -80,7 +80,9 @@ fn order_hints() {
     let mut deep = entry(1, 0, 4, Bound::Exact, Domain::Heuristic);
     deep.mv = 7;
     assert_eq!(deep.move_hint(3), Some(7));
-    assert_eq!(deep.move_hint(5), None);
+    assert_eq!(deep.move_hint(5), Some(7));
+    deep.mv = NO_MOVE;
+    assert_eq!(deep.move_hint(3), None);
     let endgame = entry(2, 0, 0, Bound::Exact, Domain::Endgame);
     assert_eq!(endgame.move_hint(0), None);
 }
