@@ -60,11 +60,15 @@ pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
         }
     }
     let mut out = [0; INSTANCE_COUNT];
-    for ((out, sum), instance) in out.iter_mut().zip(sums).zip(instances()) {
-        *out = instance.offset + u32::from(sum);
+    for ((out, sum), offset) in out.iter_mut().zip(sums).zip(*OFFSETS) {
+        *out = offset + u32::from(sum);
     }
     out
 }
+
+/// Each instance's table offset, in instance order.
+static OFFSETS: LazyLock<[u32; INSTANCE_COUNT]> =
+    LazyLock::new(|| std::array::from_fn(|slot| instances()[slot].offset));
 
 static WEIGHTS: &[u8; 4_014_360] = include_bytes!("../assets/eval.bin");
 

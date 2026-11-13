@@ -1,0 +1,13 @@
+d0c869f7f9d7234fe1588dde82a830f8ee52b3dd
+paired comparison 10: binary of step 2 (flat pattern offsets, uncommitted on d0c869f)
+Fri 13 Nov 2026 11:32:23 CET
+11:32  up 44 days, 21:24, 12 users, load averages: 3.30 3.03 2.81
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8614615 ms 1359.2 exact nodes 7000900 ms 1049.3
+round 1 midgame nodes 8614615 ms 1447.8 exact nodes 7000900 ms 1029.9
+round 2 midgame nodes 8614615 ms 1363.2 exact nodes 7000900 ms 1087.5
+round 3 midgame nodes 8614615 ms 1320.3 exact nodes 7000900 ms 1073.1
+round 4 midgame nodes 8614615 ms 1369.9 exact nodes 7000900 ms 1070.2
+midgame nodes 8614615 min_ms 1320.3 median_ms 1363.2 max_ms 1447.8 spread 0.0966 nodes_per_s 6524641
+exact nodes 7000900 min_ms 1029.9 median_ms 1070.2 max_ms 1087.5 spread 0.0559 nodes_per_s 6797552
+11:32  up 44 days, 21:24, 12 users, load averages: 4.26 3.25 2.89
