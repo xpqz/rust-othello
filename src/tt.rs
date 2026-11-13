@@ -62,9 +62,9 @@ impl Entry {
         self.window(alpha, beta, Domain::Endgame)
     }
 
-    pub fn move_hint(&self, depth: u32) -> Option<u8> {
-        (self.domain == Domain::Heuristic && self.depth as u32 >= depth && self.mv != NO_MOVE)
-            .then_some(self.mv)
+    /// A heuristic entry's move is worth trying first whatever its depth.
+    pub fn move_hint(&self) -> Option<u8> {
+        (self.domain == Domain::Heuristic && self.mv != NO_MOVE).then_some(self.mv)
     }
 }
 

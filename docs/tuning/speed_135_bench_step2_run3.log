@@ -1,0 +1,13 @@
+192e36043ea57b17876d5268544e263449695e53
+working tree: step 2 (table move of any depth) uncommitted on 192e360, run 3
+Fri 13 Nov 2026 09:07:15 CET
+ 9:07  up 44 days, 18:58, 11 users, load averages: 1.36 1.98 2.31
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 11111144 ms 1687.9 exact nodes 6583100 ms 1106.0
+round 1 midgame nodes 11111144 ms 1688.1 exact nodes 6583100 ms 1105.2
+round 2 midgame nodes 11111144 ms 1706.0 exact nodes 6583100 ms 1100.7
+round 3 midgame nodes 11111144 ms 1684.8 exact nodes 6583100 ms 1099.3
+round 4 midgame nodes 11111144 ms 1680.8 exact nodes 6583100 ms 1104.7
+midgame nodes 11111144 min_ms 1680.8 median_ms 1687.9 max_ms 1706.0 spread 0.0150 nodes_per_s 6610522
+exact nodes 6583100 min_ms 1099.3 median_ms 1104.7 max_ms 1106.0 spread 0.0061 nodes_per_s 5988494
+ 9:07  up 44 days, 18:59, 11 users, load averages: 1.42 1.96 2.30

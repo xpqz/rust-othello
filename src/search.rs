@@ -203,7 +203,7 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
     }
     let alpha_orig = alpha;
     let hint = (!exact)
-        .then(|| entry.and_then(|entry| entry.move_hint(depth)))
+        .then(|| entry.and_then(|entry| entry.move_hint()))
         .flatten();
     let mut best = -INF;
     let mut chosen = NO_MOVE;
