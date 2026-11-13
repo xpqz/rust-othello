@@ -1,0 +1,13 @@
+5341564260a18f55f579578f42fc1e48b46b1fbd
+working tree: step 3 (evaluation ordering from depth 4, reply weight 300, table-move bonus 800) uncommitted on 5341564, run 1
+Fri 13 Nov 2026 09:39:04 CET
+ 9:39  up 44 days, 19:30, 11 users, load averages: 1.37 2.48 2.47
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8614615 ms 1407.4 exact nodes 6583100 ms 1092.0
+round 1 midgame nodes 8614615 ms 1411.6 exact nodes 6583100 ms 1104.4
+round 2 midgame nodes 8614615 ms 1382.0 exact nodes 6583100 ms 1107.9
+round 3 midgame nodes 8614615 ms 1381.9 exact nodes 6583100 ms 1099.0
+round 4 midgame nodes 8614615 ms 1386.7 exact nodes 6583100 ms 1096.1
+midgame nodes 8614615 min_ms 1381.9 median_ms 1386.7 max_ms 1411.6 spread 0.0215 nodes_per_s 6233779
+exact nodes 6583100 min_ms 1092.0 median_ms 1099.0 max_ms 1107.9 spread 0.0146 nodes_per_s 6028218
+ 9:39  up 44 days, 19:30, 11 users, load averages: 1.37 2.42 2.45

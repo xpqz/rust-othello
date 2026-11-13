@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant};
 
 use crate::board::{Board, empty_count, final_score, legal_moves, pass, play, squares};
-use crate::score::{INF, terminal_score};
+use crate::score::{EVAL_BOUND, INF, terminal_score};
 use crate::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
 #[derive(Clone, Copy, Debug)]
@@ -25,6 +25,9 @@ impl SearchConfig {
 
 pub const NO_DEADLINE: u64 = u64::MAX;
 const EXACT_ORDER_DEPTH: u32 = 2;
+const EVAL_ORDER_DEPTH: u32 = 4;
+const REPLY_WEIGHT: i32 = 300;
+const HINT_BONUS: i32 = 800;
 
 #[derive(Clone, Copy, Debug)]
 pub struct SearchLimits {
@@ -125,33 +128,38 @@ impl<'a> Ctx<'a> {
 const CORNERS: u64 = 0x8100_0000_0000_0081;
 const XC: u64 = 0x42c3_0000_0000_c342;
 
+/// Without an evaluation: preferred move, corners, others, X and C squares,
+/// then fewest opponent replies from depth 2. With one: the child's value to
+/// the opponent plus a charge per reply, the preferred move at a discount.
 pub fn ordered_moves(
     board: Board,
     moves: u64,
     depth: u32,
     preferred: Option<u8>,
+    eval: Option<fn(Board) -> i32>,
 ) -> ([u8; 64], usize) {
     let mut order = [0u8; 64];
     let mut keys = [0u32; 64];
     let mut len = 0;
+    let replies = |child: Board| legal_moves(child.me, child.opp).count_ones();
     for square in squares(moves) {
-        let rank = match (
-            Some(square) == preferred,
-            CORNERS & (1 << square) != 0,
-            XC & (1 << square) != 0,
-        ) {
+        let hinted = Some(square) == preferred;
+        let rank = match (hinted, CORNERS >> square & 1, XC >> square & 1) {
             (true, ..) => 0,
-            (false, true, _) => 1,
-            (false, false, true) => 3,
+            (false, 1, _) => 1,
+            (false, 0, 1) => 3,
             _ => 2,
         };
-        let count = if depth >= 2 {
-            let child = play(board, square);
-            legal_moves(child.me, child.opp).count_ones()
-        } else {
-            0
+        let key = match eval {
+            Some(eval) => {
+                let child = play(board, square);
+                let value = eval(child) + REPLY_WEIGHT * replies(child) as i32;
+                ((value + EVAL_BOUND + HINT_BONUS * i32::from(!hinted)) as u32) << 6
+            }
+            None if depth >= 2 => (rank << 16) | (replies(play(board, square)) << 8),
+            None => rank << 16,
         };
-        keys[len] = (rank << 16) | (count << 8) | square as u32;
+        keys[len] = key | square as u32;
         order[len] = square;
         len += 1;
     }
@@ -209,7 +217,8 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
     let mut chosen = NO_MOVE;
     let order_depth = if exact { EXACT_ORDER_DEPTH } else { depth };
     let (order, len) = if ctx.config.ordering {
-        ordered_moves(board, moves, order_depth, hint)
+        let eval = (!exact && depth >= EVAL_ORDER_DEPTH).then_some(ctx.config.eval);
+        ordered_moves(board, moves, order_depth, hint, eval)
     } else {
         natural(moves)
     };
@@ -429,7 +438,7 @@ fn root(
     let mut chosen = best;
     let mut score = -INF;
     let (order, len) = if ctx.config.ordering {
-        ordered_moves(board, moves, depth, Some(best))
+        ordered_moves(board, moves, depth, Some(best), None)
     } else {
         natural(moves)
     };

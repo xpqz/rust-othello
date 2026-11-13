@@ -519,10 +519,10 @@ fn ordering_priorities() {
         opp: at(1, 0) | at(1, 2) | at(5, 3),
     };
     let moves = legal_moves(board.me, board.opp);
-    let (order, len) = ordered_moves(board, moves, 1, None);
+    let (order, len) = ordered_moves(board, moves, 1, None, None);
     assert_eq!(&order[..len], &[sq(0, 0), sq(6, 3), sq(1, 1)]);
 
-    let (order, len) = ordered_moves(board, moves, 1, Some(sq(1, 1)));
+    let (order, len) = ordered_moves(board, moves, 1, Some(sq(1, 1)), None);
     assert_eq!(order[0], sq(1, 1));
     assert_eq!(len, 3);
 }
@@ -531,7 +531,7 @@ fn ordering_priorities() {
 fn ordering_start_ties() {
     let board = Board::START;
     let moves = legal_moves(board.me, board.opp);
-    let (order, len) = ordered_moves(board, moves, 1, Some(sq(5, 4)));
+    let (order, len) = ordered_moves(board, moves, 1, Some(sq(5, 4)), None);
     assert_eq!(&order[..len], &[sq(5, 4), sq(3, 2), sq(2, 3), sq(4, 5)]);
 }
 
@@ -544,7 +544,7 @@ fn ordering_replies() {
     let moves = legal_moves(board.me, board.opp);
     let b6 = sq(1, 5);
     let c6 = sq(2, 5);
-    let (order, len) = ordered_moves(board, moves, 1, None);
+    let (order, len) = ordered_moves(board, moves, 1, None, None);
     let position = |order: &[u8], len: usize, square: u8| {
         order[..len]
             .iter()
@@ -552,7 +552,7 @@ fn ordering_replies() {
             .unwrap()
     };
     assert!(position(&order, len, b6) < position(&order, len, c6));
-    let (order, len) = ordered_moves(board, moves, 2, None);
+    let (order, len) = ordered_moves(board, moves, 2, None, None);
     assert!(position(&order, len, c6) < position(&order, len, b6));
 }
 
@@ -563,7 +563,7 @@ fn ordering_xc_last() {
         opp: at(2, 1) | at(2, 2) | at(2, 3) | at(4, 3) | at(2, 4) | at(3, 4) | at(2, 5),
     };
     let moves = legal_moves(board.me, board.opp);
-    let (order, len) = ordered_moves(board, moves, 1, None);
+    let (order, len) = ordered_moves(board, moves, 1, None, None);
     assert_eq!(len, 7);
     assert_eq!(order[len - 1], sq(1, 1));
 }
@@ -598,7 +598,7 @@ fn ordering_c_last() {
             | at(2, 6),
     };
     let moves = legal_moves(board.me, board.opp);
-    let (order, len) = ordered_moves(board, moves, 1, None);
+    let (order, len) = ordered_moves(board, moves, 1, None, None);
     let position = |square: u8| {
         order[..len]
             .iter()

@@ -1,9 +1,12 @@
 mod common;
 
 use common::playout;
-use othello::board::{Board, legal_moves, play, squares};
+use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+
+use othello::board::{Board, empty_count, legal_moves, play, squares};
 use othello::rng::Rng;
-use othello::search::ordered_moves;
+use othello::score::INF;
+use othello::search::{Ctx, SearchConfig, negamax, ordered_moves, search, solve};
 use othello::tt::zobrist;
 
 fn noise(board: Board) -> i32 {
@@ -48,4 +51,81 @@ fn evaluation_order() {
         });
     }
     assert!(led > 100 && trailed > 100, "{led} led, {trailed} trailed");
+}
+
+fn flat(_: Board) -> i32 {
+    0
+}
+
+/// Equal keys fall back to square order; the discount breaks the tie.
+#[test]
+fn evaluation_ties() {
+    let board = Board::START;
+    let moves = legal_moves(board.me, board.opp);
+    let (order, len) = ordered_moves(board, moves, 4, None, Some(flat));
+    assert_eq!(&order[..len], &[19, 26, 37, 44]);
+    let (order, len) = ordered_moves(board, moves, 4, Some(37), Some(flat));
+    assert_eq!(&order[..len], &[37, 19, 26, 44]);
+}
+
+static EMPTIES: AtomicU64 = AtomicU64::new(0);
+
+fn recording(board: Board) -> i32 {
+    EMPTIES.fetch_or(1 << empty_count(board), Relaxed);
+    noise(board)
+}
+
+fn evaluated(run: impl FnOnce(&SearchConfig)) -> u64 {
+    let config = SearchConfig {
+        eval: recording,
+        endgame_threshold: 0,
+        ordering: true,
+    };
+    EMPTIES.store(0, Relaxed);
+    run(&config);
+    EMPTIES.load(Relaxed)
+}
+
+/// Which positions get evaluated shows where ordering by evaluation is on:
+/// interior midgame nodes with four or more plies left, and nowhere else.
+#[test]
+fn evaluation_boundary() {
+    let board = Board {
+        me: 0x2002_242e_1000_0000,
+        opp: 0x023c_1810_2840_0000,
+    };
+    let empties = empty_count(board);
+    let at = |plies: &[u32]| {
+        plies
+            .iter()
+            .fold(0u64, |set, ply| set | 1 << (empties - ply))
+    };
+    let deep = |depth| {
+        evaluated(|config| {
+            negamax(board, depth, -INF, INF, &mut Ctx::new(config)).unwrap();
+        })
+    };
+    assert_eq!(deep(3), at(&[3]));
+    assert_eq!(deep(4), at(&[1, 4]));
+    assert_eq!(deep(6), at(&[1, 2, 3, 6]));
+    let rooted = evaluated(|config| {
+        search(board, 4, config);
+    });
+    assert_eq!(rooted, at(&[0, 4]));
+    let unordered = evaluated(|config| {
+        let config = SearchConfig {
+            ordering: false,
+            ..*config
+        };
+        negamax(board, 5, -INF, INF, &mut Ctx::new(&config)).unwrap();
+    });
+    assert_eq!(unordered, at(&[5]));
+    let late = Board {
+        me: 0x00c8_dc1c_1c0e_44bc,
+        opp: 0x3f37_2343_8371_bb01,
+    };
+    let solved = evaluated(|config| {
+        solve(late, -INF, INF, &mut Ctx::new(config)).unwrap();
+    });
+    assert_eq!(solved, 0);
 }
