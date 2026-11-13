@@ -1,6 +1,8 @@
-//! Elapsed time for a fixed, fully completed search workload on the corpus:
-//! midgame positions to a fixed depth and exact solves, cold table each
-//! search, several rounds. Node totals are printed so runs can be compared.
+//! Search time for a fixed, fully completed workload on the corpus: midgame
+//! positions to a fixed depth and exact solves, cold table each search,
+//! several rounds. Clearing the table is timed apart and not counted: on the
+//! exact workload it is about half the wall time and is memory traffic, not
+//! search. Node totals are printed so runs can be compared.
 
 use std::time::Instant;
 
@@ -17,20 +19,23 @@ fn workload(
     limits: SearchLimits,
     repeats: usize,
     table: &mut Table,
-) -> (u64, f64) {
+) -> (u64, f64, f64) {
     let config = SearchConfig::standard();
-    let start = Instant::now();
-    let mut nodes = 0;
+    let (mut nodes, mut search, mut clear) = (0, 0.0, 0.0);
     for _ in 0..repeats {
         for &board in boards {
+            let start = Instant::now();
             table.clear();
+            let cleared = Instant::now();
             nodes += search_tt(board, limits, &config, table).nodes;
+            clear += (cleared - start).as_secs_f64() * 1000.0;
+            search += cleared.elapsed().as_secs_f64() * 1000.0;
         }
     }
-    (nodes, start.elapsed().as_secs_f64() * 1000.0)
+    (nodes, search, clear)
 }
 
-fn summary(label: &str, rounds: &[(u64, f64)]) {
+fn summary(label: &str, rounds: &[(u64, f64, f64)]) {
     let mut times: Vec<f64> = rounds.iter().map(|round| round.1).collect();
     times.sort_by(|a, b| a.total_cmp(b));
     let (min, max) = (times[0], times[times.len() - 1]);
@@ -66,7 +71,7 @@ fn main() {
         .iter()
         .partition(|board| empty_count(**board) <= threshold);
     println!(
-        "bench midgame positions {} depth {MIDGAME_DEPTH} exact positions {} repeats {SOLVE_REPEATS} rounds {ROUNDS}",
+        "bench v2 (search time; table clearing apart) midgame positions {} depth {MIDGAME_DEPTH} exact positions {} repeats {SOLVE_REPEATS} rounds {ROUNDS}",
         midgames.len(),
         solves.len()
     );
@@ -76,8 +81,8 @@ fn main() {
         let m = workload(&midgames, SearchLimits::depth(MIDGAME_DEPTH), 1, &mut table);
         let e = workload(&solves, SearchLimits::depth(64), SOLVE_REPEATS, &mut table);
         println!(
-            "round {round} midgame nodes {} ms {:.1} exact nodes {} ms {:.1}",
-            m.0, m.1, e.0, e.1
+            "round {round} midgame nodes {} ms {:.1} exact nodes {} ms {:.1} clear ms {:.1} {:.1}",
+            m.0, m.1, e.0, e.1, m.2, e.2
         );
         midgame.push(m);
         exact.push(e);
