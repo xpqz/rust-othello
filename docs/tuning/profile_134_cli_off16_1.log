@@ -1,0 +1,15 @@
+othello bench --depth 11 --board <each of the 12 corpus midgame positions>, engine binary built from c73af9f sources, lto off, codegen-units 16 sha256 0dba5df346119655d955529e9dee3bc2666e67bc4d92f36d857f5c4845af1b55 size 4561072
+Fri 13 Nov 2026 16:41:12 CET
+16:41  up 45 days,  2:32, 10 users, load averages: 1.35 1.53 2.48
+depth 11 score 287 nodes 3034130 nps 10516329 elapsed 288.52ms solved 0 status Complete
+depth 11 score 4016 nodes 5557474 nps 11468739 elapsed 484.58ms solved 0 status Complete
+depth 11 score -3230 nodes 341520 nps 8792676 elapsed 38.84ms solved 0 status Complete
+depth 11 score 3612 nodes 957708 nps 10183819 elapsed 94.04ms solved 0 status Complete
+depth 11 score -2095 nodes 3035736 nps 10898562 elapsed 278.54ms solved 0 status Complete
+depth 11 score 124 nodes 346435 nps 9373939 elapsed 36.96ms solved 0 status Complete
+depth 11 score -391 nodes 111246 nps 7009002 elapsed 15.87ms solved 0 status Complete
+depth 11 score 2361 nodes 1787630 nps 11043718 elapsed 161.87ms solved 0 status Complete
+depth 11 score 2251 nodes 3296452 nps 11889459 elapsed 277.26ms solved 0 status Complete
+depth 11 score 3895 nodes 1677301 nps 11134265 elapsed 150.64ms solved 0 status Complete
+depth 11 score -3210 nodes 1556249 nps 10876664 elapsed 143.08ms solved 0 status Complete
+depth 11 score -915 nodes 4748588 nps 11742351 elapsed 404.40ms solved 0 status Complete

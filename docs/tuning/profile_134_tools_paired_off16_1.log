@@ -1,0 +1,13 @@
+edfb56cce09843c4ced7964a89c36989f3daf6aa
+paired comparison 1, bench v2: tools build as before this issue (no profile: lto off, codegen-units 16), scratch build of c73af9f sources sha256 8b075f93ca9383d09d3b8ce8467ef920da196a33e4473198da420e2f4833d783 size 4541296
+Fri 13 Nov 2026 16:42:21 CET
+16:42  up 45 days,  2:33, 10 users, load averages: 1.35 1.50 2.39
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 811.6 exact nodes 7001000 ms 377.1 clear ms 5.1 346.0
+round 1 midgame nodes 9724172 ms 806.9 exact nodes 7001000 ms 375.5 clear ms 5.0 336.3
+round 2 midgame nodes 9724172 ms 803.9 exact nodes 7001000 ms 375.6 clear ms 5.0 368.9
+round 3 midgame nodes 9724172 ms 809.9 exact nodes 7001000 ms 375.6 clear ms 5.3 330.3
+round 4 midgame nodes 9724172 ms 806.3 exact nodes 7001000 ms 376.5 clear ms 5.0 339.4
+midgame nodes 9724172 min_ms 803.9 median_ms 806.9 max_ms 811.6 spread 0.0096 nodes_per_s 12096248
+exact nodes 7001000 min_ms 375.5 median_ms 375.6 max_ms 377.1 spread 0.0042 nodes_per_s 18645619
+16:42  up 45 days,  2:34, 10 users, load averages: 1.38 1.50 2.38

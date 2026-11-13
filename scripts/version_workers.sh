@@ -26,13 +26,14 @@ for side in a b; do
         tar -x -C "$src"
     mkdir -p "$src/tools/examples"
     cp "$WORKER" "$src/tools/examples/"
-    # The tools crate is its own Cargo root, so the engine manifest's release
-    # profile does not apply here. The profile is stated on the command line
-    # and the flags rustc was actually given are recorded.
+    # The tools crate is its own Cargo root. Older commits have no release
+    # profile in tools/Cargo.toml, so the shared profile (docs/PLAN.md, Build
+    # profile) is stated on the command line for both versions, and the flags
+    # rustc was actually given are recorded.
     cargo build --release --locked --verbose --manifest-path "$src/tools/Cargo.toml" \
         --example engine_worker \
-        --config 'profile.release.opt-level=3' --config 'profile.release.lto=false' \
-        --config 'profile.release.codegen-units=16' --config 'profile.release.debug=false' \
+        --config 'profile.release.opt-level=3' --config 'profile.release.lto="fat"' \
+        --config 'profile.release.codegen-units=1' --config 'profile.release.debug=false' \
         2>"$OUT/build-$side.log"
     cp "$src/tools/target/release/examples/engine_worker" "$OUT/worker-$side"
     {

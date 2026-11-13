@@ -1,0 +1,13 @@
+engine and tools sources of c73af9f (main before 136's notes), built from git archive in scratch with cargo build --release --locked --example search_bench
+setting native16 sha256 65b3f1cb5f8a7154550636946e2a669b53f20051c48313bd877f326b24a94bbb size 4541296
+Fri 13 Nov 2026 16:39:16 CET
+16:39  up 45 days,  2:30, 10 users, load averages: 1.29 1.62 2.65
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 805.2 exact nodes 7001000 ms 376.2 clear ms 5.1 342.4
+round 1 midgame nodes 9724172 ms 804.5 exact nodes 7001000 ms 376.5 clear ms 5.1 338.9
+round 2 midgame nodes 9724172 ms 819.8 exact nodes 7001000 ms 378.4 clear ms 5.0 351.7
+round 3 midgame nodes 9724172 ms 803.0 exact nodes 7001000 ms 375.1 clear ms 5.0 346.0
+round 4 midgame nodes 9724172 ms 814.0 exact nodes 7001000 ms 376.5 clear ms 5.0 337.6
+midgame nodes 9724172 min_ms 803.0 median_ms 805.2 max_ms 819.8 spread 0.0209 nodes_per_s 12109968
+exact nodes 7001000 min_ms 375.1 median_ms 376.5 max_ms 378.4 spread 0.0089 nodes_per_s 18666257
+16:39  up 45 days,  2:31, 10 users, load averages: 1.27 1.61 2.64

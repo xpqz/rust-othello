@@ -6,3 +6,9 @@ license = "Apache-2.0"
 
 [dependencies]
 othello = { path = ".." }
+
+# The same release profile as the engine's own manifest, so that benchmarks
+# and matches measure the build that ships. See docs/PLAN.md, Build profile.
+[profile.release]
+lto = "fat"
+codegen-units = 1

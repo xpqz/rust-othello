@@ -1,0 +1,13 @@
+edfb56cce09843c4ced7964a89c36989f3daf6aa
+paired comparison 1, bench v2: tools build with the new profile in tools/Cargo.toml (lto fat, codegen-units 1), built in this tree sha256 ac254018751ed07a59f2e198ada990ed73adefcb932d012576661a1874b7d230 size 4478512
+Fri 13 Nov 2026 16:42:29 CET
+16:42  up 45 days,  2:34, 10 users, load averages: 1.38 1.50 2.38
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 810.6 exact nodes 7001000 ms 375.7 clear ms 14.1 358.4
+round 1 midgame nodes 9724172 ms 773.7 exact nodes 7001000 ms 374.7 clear ms 5.3 338.6
+round 2 midgame nodes 9724172 ms 778.6 exact nodes 7001000 ms 374.0 clear ms 5.1 336.9
+round 3 midgame nodes 9724172 ms 778.9 exact nodes 7001000 ms 382.5 clear ms 5.0 355.4
+round 4 midgame nodes 9724172 ms 780.6 exact nodes 7001000 ms 374.9 clear ms 5.1 338.2
+midgame nodes 9724172 min_ms 773.7 median_ms 778.9 max_ms 810.6 spread 0.0477 nodes_per_s 12568449
+exact nodes 7001000 min_ms 374.0 median_ms 374.9 max_ms 382.5 spread 0.0228 nodes_per_s 18720370
+16:42  up 45 days,  2:34, 10 users, load averages: 1.32 1.48 2.37

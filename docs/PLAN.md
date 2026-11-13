@@ -1111,6 +1111,23 @@ acceptance rules fixed before any games are run. Each feature lands behind a
 strength gate passes. Suggested order: Multi-ProbCut, the learned evaluation,
 endgame and search speed, then parallel search; the opening book is optional.
 
+### Build profile
+
+The engine's manifest and the tools manifest carry the same release
+profile, `lto = "fat"` and `codegen-units = 1`, so that benchmarks,
+matches and gates measure the build that ships. The tools crate is its
+own Cargo root and does not inherit the engine's profile; the two are
+kept equal by hand, and `scripts/version_workers.sh` states the profile
+on its command line because older commits lack it. The setting was
+chosen by measurement in issue 134 (`docs/prs/134.md`): on the engine
+of that date fat link-time optimisation was about 4% faster on the
+midgame workload than no link-time optimisation, and the same on exact
+search; `codegen-units`, thin link-time optimisation and a native CPU
+target made no measurable difference. Timings taken before issue 134
+used the tools default (no link-time optimisation, 16 codegen units)
+and are not comparable with later ones without re-measuring both sides.
+Re-measure before changing the profile.
+
 ### Interruptible long-running jobs
 
 The machine that runs training, calibration and matches can be reclaimed at
