@@ -51,8 +51,8 @@ fn sample_keys() -> Vec<u64> {
 }
 
 /// Slots of the full-size table used by `keys`, and the most keys in one.
-fn occupancy(keys: &[u64]) -> (usize, u8) {
-    let mut slots = vec![0u8; MAX_ENTRIES];
+fn occupancy(keys: &[u64]) -> (usize, u32) {
+    let mut slots = vec![0u32; MAX_ENTRIES];
     for &key in keys {
         slots[key as usize % MAX_ENTRIES] += 1;
     }
@@ -61,7 +61,8 @@ fn occupancy(keys: &[u64]) -> (usize, u8) {
 }
 
 /// With n keys thrown evenly into m slots, about n - n^2 / 2m slots are used
-/// (97.6% of n here) and seven keys in one slot has probability under 1e-12.
+/// (97.6% of n here), and the chance that some slot holds seven or more is
+/// about m (n/m)^7 / 7!, under 1e-6.
 fn spread(keys: &[u64]) -> bool {
     let (used, most) = occupancy(keys);
     used * 100 >= keys.len() * 97 && most <= 6
@@ -101,6 +102,16 @@ fn clustered_keys_rejected() {
         .map(|key| key & !0x3f_fc00)
         .collect();
     assert!(!spread(&stuck), "{:?}", occupancy(&stuck));
+}
+
+/// 256 keys in one slot must be seen as 256, not wrapped away.
+#[test]
+fn crowded_slot_rejected() {
+    let crowded = (1..=256u64).map(|high| high << 22);
+    let apart = 1..=199_744u64;
+    let keys: Vec<u64> = crowded.chain(apart).collect();
+    assert_eq!(occupancy(&keys), (199_745, 256));
+    assert!(!spread(&keys));
 }
 
 #[test]
