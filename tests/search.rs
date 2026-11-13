@@ -966,6 +966,66 @@ fn sample_positions(min_empty: u32, max_empty: u32, count: usize) -> Vec<Board> 
     positions
 }
 
+/// Positions with one empty square: from random games, and the same boards
+/// with the discs recoloured evenly, mostly for the mover and mostly against,
+/// so that the mover playing, the mover passing, and nobody being able to
+/// play all occur often.
+fn one_empty() -> Vec<Board> {
+    let mut rng = Rng::new(0x1E);
+    let mut boards = Vec::new();
+    while boards.len() < 10_000 {
+        let mut found = None;
+        playout(&mut rng, |board| {
+            if othello::board::empty_count(board) == 1 {
+                found = Some(board);
+            }
+        });
+        let Some(board) = found else { continue };
+        let discs = board.me | board.opp;
+        let (a, b, c) = (rng.next_u64(), rng.next_u64(), rng.next_u64());
+        boards.push(board);
+        for mine in [a, a & b & c, a | b | c] {
+            boards.push(Board {
+                me: discs & mine,
+                opp: discs & !mine,
+            });
+        }
+    }
+    boards
+}
+
+/// The last empty square is settled in the node that meets it, to the exact
+/// value whatever window is asked, with no further node.
+#[test]
+fn last_square() {
+    let config = config();
+    let mut cases = [0; 3];
+    for board in one_empty() {
+        let truth = exact(board, -INF, INF);
+        let mover = legal_moves(board.me, board.opp) != 0;
+        let other = legal_moves(board.opp, board.me) != 0;
+        cases[if mover {
+            0
+        } else if other {
+            1
+        } else {
+            2
+        }] += 1;
+        for (alpha, beta) in [
+            (-INF, INF),
+            (truth - 1, truth),
+            (truth, truth + 1),
+            (-100, 100),
+        ] {
+            let mut ctx = Ctx::new(&config);
+            let value = solve(board, alpha, beta, &mut ctx);
+            assert_eq!(value, Some(truth), "{board:?} window {alpha} {beta}");
+            assert_eq!(ctx.nodes, 1, "{board:?} window {alpha} {beta}");
+        }
+    }
+    assert!(cases.iter().all(|&count| count > 300), "{cases:?}");
+}
+
 #[test]
 fn solve_sample() {
     let config = config();
