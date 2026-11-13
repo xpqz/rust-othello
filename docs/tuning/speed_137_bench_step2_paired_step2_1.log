@@ -1,0 +1,13 @@
+e59588d3d85e42abb37e7b0d6351644c40916866
+paired comparison 1: binary of step 2 (flat pattern offsets, uncommitted on e59588d)
+Fri 13 Nov 2026 11:22:56 CET
+11:22  up 44 days, 21:14, 12 users, load averages: 2.23 2.44 2.60
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8614615 ms 1270.8 exact nodes 7000900 ms 971.2
+round 1 midgame nodes 8614615 ms 1234.9 exact nodes 7000900 ms 968.4
+round 2 midgame nodes 8614615 ms 1251.2 exact nodes 7000900 ms 981.8
+round 3 midgame nodes 8614615 ms 1225.8 exact nodes 7000900 ms 969.8
+round 4 midgame nodes 8614615 ms 1227.0 exact nodes 7000900 ms 969.5
+midgame nodes 8614615 min_ms 1225.8 median_ms 1234.9 max_ms 1270.8 spread 0.0367 nodes_per_s 7027581
+exact nodes 7000900 min_ms 968.4 median_ms 969.8 max_ms 981.8 spread 0.0139 nodes_per_s 7229621
+11:23  up 44 days, 21:14, 12 users, load averages: 2.19 2.43 2.59

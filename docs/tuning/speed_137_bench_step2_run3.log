@@ -1,0 +1,13 @@
+e59588d3d85e42abb37e7b0d6351644c40916866
+working tree: step 2 (flat pattern offsets) uncommitted on e59588d, run 3
+Fri 13 Nov 2026 11:21:51 CET
+11:21  up 44 days, 21:13, 12 users, load averages: 2.34 2.56 2.66
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8614615 ms 1252.3 exact nodes 7000900 ms 985.1
+round 1 midgame nodes 8614615 ms 1257.3 exact nodes 7000900 ms 1000.6
+round 2 midgame nodes 8614615 ms 1281.7 exact nodes 7000900 ms 992.9
+round 3 midgame nodes 8614615 ms 1246.1 exact nodes 7000900 ms 991.5
+round 4 midgame nodes 8614615 ms 1282.9 exact nodes 7000900 ms 990.4
+midgame nodes 8614615 min_ms 1246.1 median_ms 1257.3 max_ms 1282.9 spread 0.0295 nodes_per_s 6913278
+exact nodes 7000900 min_ms 985.1 median_ms 991.5 max_ms 1000.6 spread 0.0158 nodes_per_s 7106862
+11:22  up 44 days, 21:13, 12 users, load averages: 2.21 2.53 2.64
