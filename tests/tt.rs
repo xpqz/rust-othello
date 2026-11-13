@@ -33,10 +33,7 @@ fn zobrist_keys() {
     assert_eq!(key, 0x33e1_ce12_151b_5cfc);
 }
 
-/// Keys of distinct positions differ, and both ends of the key are spread
-/// evenly enough to index a table.
-#[test]
-fn key_spread() {
+fn sample_keys() -> Vec<u64> {
     let mut rng = Rng::new(0x4B);
     let mut boards = HashSet::new();
     while boards.len() < 200_000 {
@@ -45,22 +42,65 @@ fn key_spread() {
             boards.insert((board.opp, board.me));
         });
     }
-    let mut keys = HashSet::new();
+    let mut keys: Vec<u64> = boards
+        .iter()
+        .map(|&(me, opp)| zobrist(Board { me, opp }))
+        .collect();
+    keys.sort_unstable();
+    keys
+}
+
+/// Slots of the full-size table used by `keys`, and the most keys in one.
+fn occupancy(keys: &[u64]) -> (usize, u8) {
+    let mut slots = vec![0u8; MAX_ENTRIES];
+    for &key in keys {
+        slots[key as usize % MAX_ENTRIES] += 1;
+    }
+    let used = slots.iter().filter(|&&count| count != 0).count();
+    (used, slots.into_iter().max().unwrap())
+}
+
+/// With n keys thrown evenly into m slots, about n - n^2 / 2m slots are used
+/// (97.6% of n here) and seven keys in one slot has probability under 1e-12.
+fn spread(keys: &[u64]) -> bool {
+    let (used, most) = occupancy(keys);
+    used * 100 >= keys.len() * 97 && most <= 6
+}
+
+/// Keys of distinct positions differ and are non-zero, they spread over the
+/// full-size table's slots, and both ends of the key are evenly filled.
+#[test]
+fn key_spread() {
+    let keys = sample_keys();
+    assert!(keys.len() >= 200_000 && keys[0] != 0);
+    assert!(
+        keys.windows(2).all(|pair| pair[0] != pair[1]),
+        "repeated key"
+    );
+    assert!(spread(&keys), "{:?}", occupancy(&keys));
     let (mut low, mut high) = ([0u32; 1024], [0u32; 1024]);
-    for &(me, opp) in &boards {
-        let key = zobrist(Board { me, opp });
-        assert_ne!(key, 0);
-        assert!(keys.insert(key), "repeated key {key:#x}");
+    for &key in &keys {
         low[key as usize % 1024] += 1;
         high[(key >> 54) as usize] += 1;
     }
-    let share = boards.len() as u32 / 1024;
+    let share = keys.len() as u32 / 1024;
     for count in low.into_iter().chain(high) {
         assert!(
             (share * 3 / 4..=share * 5 / 4).contains(&count),
             "{count} of {share}"
         );
     }
+}
+
+/// The slot criterion rejects keys whose index bits 10 to 21 are stuck,
+/// which the two ten-bit histograms alone would pass.
+#[test]
+fn clustered_keys_rejected() {
+    let stuck: Vec<u64> = sample_keys()
+        .into_iter()
+        .map(|key| key & !0x3f_fc00)
+        .collect();
+    assert!(!spread(&stuck), "{:?}", occupancy(&stuck));
 }
 
 #[test]
