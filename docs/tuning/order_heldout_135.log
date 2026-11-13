@@ -34,3 +34,30 @@ table move as bonus 500, weight 300, depth 5                      42816037      
 # depth 8, bonus 800, weight 300, depth 4 against step 2
 sample A: 6096386 -> 4939529 nodes + 553039 evals (work 0.901)
 sample B: 6234184 -> 4974815 nodes + 552244 evals (work 0.887)
+#
+# Step 4 design evidence (exact search). Scratch copy of the step 3 tree (bb3d4b0) with two switches:
+# "hint" = try the stored move of the position's table entry first in exact search;
+# "plain below N" = under N empties, order without counting opponent replies.
+# Times are minimum of 3 passes, machine in use (load 2 to 3): indicative only.
+#
+# benchmark exact workload (8 corpus positions x 100, search_bench)        nodes   min ms
+as step 3                                                                6583100   1121.9
+hint                                                                     5904500   1058.6
+plain below 3                                                            6576200   1040.0
+plain below 4                                                            6661800   1008.3
+plain below 5                                                            7000900    984.4
+plain below 6                                                            7287500   1028.1
+plain below 7                                                            7869800   1024.2
+hint, plain below 4                                                      5958200    953.2
+hint, plain below 5                                                      6261500    923.6
+hint, plain below 6                                                      6557600    928.6
+#
+# held-out: 64 positions from tune openings (index % 8 == 3) played out at depth 4 to 11..14 empties, x 10
+as step 3                                                               38735330     6196
+hint                                                                    38172310     5944
+plain below 5                                                           40622750     5119
+hint, plain below 3                                                     38196510     5455
+hint, plain below 4                                                     38771980     5286
+hint, plain below 5                                                     40149870     5047
+hint, plain below 6                                                     42175260     5263
+hint, plain below 7                                                     44684870     5560
