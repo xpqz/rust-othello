@@ -1,0 +1,13 @@
+d7e2115a1e62d21ae20382b717f6f3490a126cf9
+working tree: step 4 (exact search under 5 empties orders without the reply count; no exact table move) uncommitted on d7e2115, run 4
+Fri 13 Nov 2026 10:14:59 CET
+10:14  up 44 days, 20:06, 11 users, load averages: 1.47 2.17 2.46
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8614615 ms 1394.1 exact nodes 7000900 ms 972.5
+round 1 midgame nodes 8614615 ms 1426.2 exact nodes 7000900 ms 970.0
+round 2 midgame nodes 8614615 ms 1379.3 exact nodes 7000900 ms 966.9
+round 3 midgame nodes 8614615 ms 1401.9 exact nodes 7000900 ms 965.6
+round 4 midgame nodes 8614615 ms 1437.1 exact nodes 7000900 ms 974.0
+midgame nodes 8614615 min_ms 1379.3 median_ms 1401.9 max_ms 1437.1 spread 0.0419 nodes_per_s 6245830
+exact nodes 7000900 min_ms 965.6 median_ms 970.0 max_ms 974.0 spread 0.0087 nodes_per_s 7250662
+10:15  up 44 days, 20:06, 11 users, load averages: 1.44 2.13 2.44

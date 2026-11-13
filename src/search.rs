@@ -25,6 +25,8 @@ impl SearchConfig {
 
 pub const NO_DEADLINE: u64 = u64::MAX;
 const EXACT_ORDER_DEPTH: u32 = 2;
+/// Exact search with fewer empties orders moves without counting replies.
+const PLAIN_ORDER_EMPTIES: u32 = 5;
 const EVAL_ORDER_DEPTH: u32 = 4;
 const REPLY_WEIGHT: i32 = 300;
 const HINT_BONUS: i32 = 800;
@@ -215,7 +217,11 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         .flatten();
     let mut best = -INF;
     let mut chosen = NO_MOVE;
-    let order_depth = if exact { EXACT_ORDER_DEPTH } else { depth };
+    let order_depth = match exact {
+        true if empty_count(board) < PLAIN_ORDER_EMPTIES => 0,
+        true => EXACT_ORDER_DEPTH,
+        false => depth,
+    };
     let (order, len) = if ctx.config.ordering {
         let eval = (!exact && depth >= EVAL_ORDER_DEPTH).then_some(ctx.config.eval);
         ordered_moves(board, moves, order_depth, hint, eval)

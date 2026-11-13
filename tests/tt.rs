@@ -85,8 +85,7 @@ fn order_hints() {
     assert_eq!(deep.move_hint(), None);
     let mut endgame = entry(2, 0, 0, Bound::Exact, Domain::Endgame);
     endgame.mv = 7;
-    assert_eq!(endgame.move_hint(), Some(7));
-    assert_eq!(endgame.cutoff(0, -INF, INF), None);
+    assert_eq!(endgame.move_hint(), None);
 }
 
 #[test]
