@@ -2,7 +2,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::board::{Board, empty_count, final_score, legal_moves, pass, play, squares};
+use crate::board::{Board, empty_count, final_score, flips, legal_moves, pass, play, squares};
 use crate::score::{EVAL_BOUND, INF, terminal_score};
 use crate::tt::{Bound, Domain, Entry, NO_MOVE, Table, zobrist};
 
@@ -194,12 +194,33 @@ fn natural(moves: u64) -> ([u8; 64], usize) {
     (order, len)
 }
 
+/// The final score for the mover of a board with one empty square: the mover
+/// plays it if that flips a disc, otherwise the opponent does, otherwise the
+/// game is already over.
+fn last_square(board: Board) -> i32 {
+    let square = (!(board.me | board.opp)).trailing_zeros() as u8;
+    let filled = |board: Board, flipped: u64| {
+        final_score(Board {
+            me: board.me | 1 << square | flipped,
+            opp: board.opp & !flipped,
+        })
+    };
+    match (flips(board, square), flips(pass(board), square)) {
+        (0, 0) => final_score(board),
+        (0, theirs) => -filled(pass(board), theirs),
+        (mine, _) => filled(board, mine),
+    }
+}
+
 pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
     ctx.nodes += 1;
     if ctx.stop() {
         return None;
     }
     let exact = ctx.exact;
+    if exact && empty_count(board) == 1 {
+        return Some(terminal_score(last_square(board)));
+    }
     let moves = legal_moves(board.me, board.opp);
     if moves == 0 {
         if legal_moves(board.opp, board.me) == 0 {

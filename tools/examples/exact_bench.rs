@@ -1,5 +1,5 @@
 //! Search time for exact solves of positions from real games: from each game
-//! of the issue 136 match, the first position with exactly N empties and a
+//! of a recorded match, the first position with exactly N empties and a
 //! legal move, solved with the threshold set to N: all 200 games for N = 14,
 //! every second game for N = 16. Cold table each solve, clearing not timed,
 //! one untimed warm-up pass, then several rounds. Node totals and every
