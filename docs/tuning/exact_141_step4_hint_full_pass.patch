@@ -1,0 +1,80 @@
+--- base/search.rs	2026-11-14 00:30:07
++++ src/search.rs	2026-11-14 00:30:24
+@@ -94,6 +94,9 @@
+     deadline: Option<Instant>,
+     table: Option<&'a mut Table>,
+     exact: bool,
++    /// Set while the win/draw/loss pass runs; its entries are marked so that
++    /// only the full-score pass's moves are used as ordering hints.
++    wdl: bool,
+ }
+ 
+ impl<'a> Ctx<'a> {
+@@ -105,6 +108,7 @@
+             deadline: None,
+             table: None,
+             exact: false,
++            wdl: false,
+         }
+     }
+ 
+@@ -275,9 +279,11 @@
+         return cutoff;
+     }
+     let alpha_orig = alpha;
+-    let hint = (!exact)
+-        .then(|| entry.and_then(|entry| entry.move_hint()))
+-        .flatten();
++    let hint = entry.and_then(|entry| match exact {
++        false => entry.move_hint(),
++        true => (entry.domain == Domain::Endgame && entry.depth == 1 && entry.mv != NO_MOVE)
++            .then_some(entry.mv),
++    });
+     let mut best = -INF;
+     let mut chosen = NO_MOVE;
+     // Ordering by reply count alone is for exact search with enough empties.
+@@ -313,7 +319,7 @@
+             Entry {
+                 key,
+                 value: best,
+-                depth: 0,
++                depth: u8::from(!ctx.wdl),
+                 flag,
+                 domain: Domain::Endgame,
+                 mv: chosen,
+@@ -361,8 +367,10 @@
+ 
+ fn wdl_root(board: Board, moves: u64, best: u8, ctx: &mut Ctx) -> Option<(u8, i32)> {
+     ctx.exact = true;
++    ctx.wdl = true;
+     let found = root(board, moves, EXACT_ORDER_DEPTH, best, -1, 1, ctx);
+     ctx.exact = false;
++    ctx.wdl = false;
+     let (square, value) = found?;
+     let wdl = value.signum();
+     let flag = match wdl {
+@@ -431,6 +439,7 @@
+             deadline,
+             table: None,
+             exact: true,
++            wdl: false,
+         };
+         if let Some(table) = table.as_deref_mut() {
+             ctx.set_table(table);
+@@ -470,6 +479,7 @@
+             deadline,
+             table: table.as_deref_mut(),
+             exact: false,
++            wdl: false,
+         };
+         if ctx.stop_iteration() {
+             break;
+@@ -529,7 +539,7 @@
+         table.store(Entry {
+             key: zobrist(board),
+             value: score,
+-            depth: 0,
++            depth: u8::from(!ctx.wdl),
+             flag: Bound::Exact,
+             domain: Domain::Endgame,
+             mv: chosen,
