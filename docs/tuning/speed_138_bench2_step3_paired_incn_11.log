@@ -1,0 +1,13 @@
+506196a90d8947d43f51053fadd7d80478d506bc
+paired comparison 11, bench v2, no inlining attributes in either: binary of the incremental prototype (5929756 sources + docs/tuning/incremental_138_timed.patch) sha256 5026a7dede540d70a4640788fc9a656621e9e25da4382889ac9ba09e31a3e8f8
+Fri 13 Nov 2026 13:31:04 CET
+13:31  up 44 days, 23:22, 12 users, load averages: 2.56 1.90 1.77
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1310.0 exact nodes 7001000 ms 394.0 clear ms 5.6 358.1
+round 1 midgame nodes 8556688 ms 1317.2 exact nodes 7001000 ms 397.4 clear ms 5.9 377.4
+round 2 midgame nodes 8556688 ms 1310.1 exact nodes 7001000 ms 402.2 clear ms 5.9 387.5
+round 3 midgame nodes 8556688 ms 1292.9 exact nodes 7001000 ms 404.3 clear ms 5.6 376.6
+round 4 midgame nodes 8556688 ms 1309.3 exact nodes 7001000 ms 396.6 clear ms 5.7 362.0
+midgame nodes 8556688 min_ms 1292.9 median_ms 1310.0 max_ms 1317.2 spread 0.0188 nodes_per_s 6618167
+exact nodes 7001000 min_ms 394.0 median_ms 397.4 max_ms 404.3 spread 0.0261 nodes_per_s 17769638
+13:31  up 44 days, 23:22, 12 users, load averages: 2.32 1.87 1.76

@@ -1,0 +1,12 @@
+# /usr/bin/sample, 5 s from 1 s into search_bench (bench v2) of the incremental prototype WITH docs/tuning/incremental_138_sampled_extra.patch
+# (#[inline(never)] on features, evaluate, sums, evaluate_child, ordered_moves, negamax). Not the timed build.
+# The window covers the first midgame round and part of the first exact round; __bzero is exact-round table clearing.
+Sort by top of stack, same collapsed (when >= 5):
+        7pattern14evaluate_child        816
+        5board4runs        779
+        __bzero  (in libsystem_platform.dylib)        698
+        6search7negamax        592
+        6search13ordered_moves        547
+        7pattern4sums        425
+        7pattern8features        71
+        7pattern8evaluate        52

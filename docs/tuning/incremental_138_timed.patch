@@ -1,0 +1,132 @@
+diff --git a/src/pattern.rs b/tmp/claude-7603/-Users-stefan-work-crust-othello/55ef37e4-a2ae-4762-b7c2-474daeff3454/scratchpad/incr/src/pattern.rs
+index efc99f5..6a379e5 100644
+--- a/src/pattern.rs
++++ b/tmp/claude-7603/-Users-stefan-work-crust-othello/55ef37e4-a2ae-4762-b7c2-474daeff3454/scratchpad/incr/src/pattern.rs
+@@ -133,3 +133,63 @@ fn transform(square: u8, kind: usize) -> u8 {
+     };
+     rank * 8 + file
+ }
++
++/// Per-square contribution to each instance's index when the mover owns it.
++static SQUARES: LazyLock<Vec<[u16; LANES]>> = LazyLock::new(|| {
++    let mut table = vec![[0u16; LANES]; 64];
++    for (slot, instance) in instances().iter().enumerate() {
++        let mut power = 1;
++        for &square in &instance.squares {
++            table[usize::from(square)][slot] += power;
++            power *= 3;
++        }
++    }
++    table
++});
++
++pub type Sums = ([u16; LANES], [u16; LANES]);
++
++/// Index sums of the mover's and of the opponent's discs, apart.
++pub fn sums(board: Board) -> Sums {
++    let (mut me, mut opp) = ([0u16; LANES], [0u16; LANES]);
++    for row in 0..8 {
++        let a = &ROWS[row * 256 + (board.me >> (row * 8) & 0xff) as usize];
++        let b = &ROWS[row * 256 + (board.opp >> (row * 8) & 0xff) as usize];
++        for (((me, opp), &a), &b) in me.iter_mut().zip(opp.iter_mut()).zip(a).zip(b) {
++            *me += a;
++            *opp += b;
++        }
++    }
++    (me, opp)
++}
++
++/// The evaluation of `child`, reached from `parent` by one move, from the parent's sums.
++pub fn evaluate_child(parent: Board, sums: &Sums, child: Board) -> i32 {
++    let flipped = parent.opp & !child.me;
++    let placed = child.opp & !parent.me & !flipped;
++    // child's mover is the parent's opponent
++    let (mut me, mut opp) = (sums.1, sums.0);
++    let add = &SQUARES[placed.trailing_zeros() as usize];
++    for lane in 0..LANES {
++        opp[lane] += add[lane];
++    }
++    let mut rest = flipped;
++    while rest != 0 {
++        let row = &SQUARES[rest.trailing_zeros() as usize];
++        for lane in 0..LANES {
++            me[lane] -= row[lane];
++            opp[lane] += row[lane];
++        }
++        rest &= rest - 1;
++    }
++    let mut index = [0u16; LANES];
++    for lane in 0..LANES {
++        index[lane] = me[lane] + 2 * opp[lane];
++    }
++    let table = &TABLE[stage(empty_count(child)) * TABLE_SLOTS..][..TABLE_SLOTS];
++    let mut value = 0;
++    for (index, offset) in index.into_iter().zip(*OFFSETS) {
++        value += i32::from(table[(offset + u32::from(index)) as usize]);
++    }
++    value.clamp(-EVAL_BOUND, EVAL_BOUND)
++}
+diff --git a/src/search.rs b/tmp/claude-7603/-Users-stefan-work-crust-othello/55ef37e4-a2ae-4762-b7c2-474daeff3454/scratchpad/incr/src/search.rs
+index 65c7620..a9ecedb 100644
+--- a/src/search.rs
++++ b/tmp/claude-7603/-Users-stefan-work-crust-othello/55ef37e4-a2ae-4762-b7c2-474daeff3454/scratchpad/incr/src/search.rs
+@@ -94,6 +94,8 @@ pub struct Ctx<'a> {
+     deadline: Option<Instant>,
+     table: Option<&'a mut Table>,
+     exact: bool,
++    parent: Option<(Board, crate::pattern::Sums)>,
++    incremental: bool,
+ }
+ 
+ impl<'a> Ctx<'a> {
+@@ -105,6 +107,8 @@ impl<'a> Ctx<'a> {
+             deadline: None,
+             table: None,
+             exact: false,
++            parent: None,
++            incremental: std::ptr::fn_addr_eq(config.eval, crate::pattern::evaluate as fn(Board) -> i32),
+         }
+     }
+ 
+@@ -208,6 +212,13 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
+         return negamax(pass(board), depth, -beta, -alpha, ctx).map(|value| -value);
+     }
+     if !exact && depth == 0 {
++        if let Some((parent, sums)) = &ctx.parent
++            && (parent.me | parent.opp).count_ones() + 1 == (board.me | board.opp).count_ones()
++            && board.me & !parent.opp == 0
++            && parent.me & !board.opp == 0
++        {
++            return Some(crate::pattern::evaluate_child(*parent, sums, board));
++        }
+         return Some((ctx.config.eval)(board));
+     }
+     let key = ctx.table.as_ref().map(|_| zobrist(board));
+@@ -223,6 +234,9 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
+         return cutoff;
+     }
+     let alpha_orig = alpha;
++    if !exact && depth == 1 && ctx.incremental {
++        ctx.parent = Some((board, crate::pattern::sums(board)));
++    }
+     let hint = (!exact)
+         .then(|| entry.and_then(|entry| entry.move_hint()))
+         .flatten();
+@@ -379,6 +393,8 @@ fn search_inner(
+             deadline,
+             table: None,
+             exact: true,
++            parent: None,
++            incremental: std::ptr::fn_addr_eq(config.eval, crate::pattern::evaluate as fn(Board) -> i32),
+         };
+         if let Some(table) = table.as_deref_mut() {
+             ctx.set_table(table);
+@@ -418,6 +434,8 @@ fn search_inner(
+             deadline,
+             table: table.as_deref_mut(),
+             exact: false,
++            parent: None,
++            incremental: std::ptr::fn_addr_eq(config.eval, crate::pattern::evaluate as fn(Board) -> i32),
+         };
+         if ctx.stop_iteration() {
+             break;

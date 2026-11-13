@@ -1,0 +1,13 @@
+506196a90d8947d43f51053fadd7d80478d506bc
+paired comparison 2, bench v2, no inlining attributes in either: binary of step 2 (5929756 sources) sha256 cf884c8af9e12fd59d748fb58efb85f33e4352aa2ff9b6090a3d7a79a895429e
+Fri 13 Nov 2026 13:28:00 CET
+13:28  up 44 days, 23:19, 12 users, load averages: 2.05 1.55 1.66
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1023.3 exact nodes 7001000 ms 384.8 clear ms 5.6 387.3
+round 1 midgame nodes 8556688 ms 1019.6 exact nodes 7001000 ms 383.8 clear ms 5.5 361.8
+round 2 midgame nodes 8556688 ms 1009.9 exact nodes 7001000 ms 382.8 clear ms 5.6 356.6
+round 3 midgame nodes 8556688 ms 1041.7 exact nodes 7001000 ms 384.3 clear ms 5.4 358.9
+round 4 midgame nodes 8556688 ms 1061.3 exact nodes 7001000 ms 387.6 clear ms 5.7 384.9
+midgame nodes 8556688 min_ms 1009.9 median_ms 1023.3 max_ms 1061.3 spread 0.0509 nodes_per_s 8472555
+exact nodes 7001000 min_ms 382.8 median_ms 384.3 max_ms 387.6 spread 0.0126 nodes_per_s 18290307
+13:28  up 44 days, 23:19, 12 users, load averages: 1.97 1.54 1.66
