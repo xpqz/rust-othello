@@ -143,6 +143,17 @@ pub fn ordered_moves(
     let mut order = [0u8; 64];
     let mut keys = [0u32; 64];
     let mut len = 0;
+    if eval.is_none() && depth < 2 {
+        let hint = preferred.map_or(0, |square| 1 << square) & moves;
+        let rest = moves & !hint;
+        for class in [hint, rest & CORNERS, rest & !(CORNERS | XC), rest & XC] {
+            for square in squares(class) {
+                order[len] = square;
+                len += 1;
+            }
+        }
+        return (order, len);
+    }
     let replies = |child: Board| legal_moves(child.me, child.opp).count_ones();
     for square in squares(moves) {
         let hinted = Some(square) == preferred;
@@ -158,8 +169,7 @@ pub fn ordered_moves(
                 let value = eval(child) + REPLY_WEIGHT * replies(child) as i32;
                 ((value + EVAL_BOUND + HINT_BONUS * i32::from(!hinted)) as u32) << 6
             }
-            None if depth >= 2 => (rank << 16) | (replies(play(board, square)) << 8),
-            None => rank << 16,
+            None => (rank << 16) | (replies(play(board, square)) << 8),
         };
         keys[len] = key | square as u32;
         order[len] = square;

@@ -1,0 +1,13 @@
+6f292c76900ab0bd5c8bd988f8f06379ebf9a876
+working tree: step 1 (class order without sorting) uncommitted on 6f292c7, run 2
+Fri 13 Nov 2026 11:08:17 CET
+11:08  up 44 days, 20:59, 11 users, load averages: 2.80 3.32 2.89
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8614615 ms 1317.5 exact nodes 7000900 ms 967.1
+round 1 midgame nodes 8614615 ms 1290.6 exact nodes 7000900 ms 969.6
+round 2 midgame nodes 8614615 ms 1300.0 exact nodes 7000900 ms 974.0
+round 3 midgame nodes 8614615 ms 1298.4 exact nodes 7000900 ms 969.8
+round 4 midgame nodes 8614615 ms 1290.4 exact nodes 7000900 ms 971.3
+midgame nodes 8614615 min_ms 1290.4 median_ms 1298.4 max_ms 1317.5 spread 0.0210 nodes_per_s 6675712
+exact nodes 7000900 min_ms 967.1 median_ms 969.8 max_ms 974.0 spread 0.0071 nodes_per_s 7239127
+11:08  up 44 days, 21 hrs, 11 users, load averages: 2.60 3.26 2.88

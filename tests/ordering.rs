@@ -169,3 +169,16 @@ fn class_order() {
         });
     }
 }
+
+/// No moves give an empty order, and a preferred square that is not among the
+/// moves is not added.
+#[test]
+fn class_edges() {
+    let board = Board::START;
+    let moves = legal_moves(board.me, board.opp);
+    for depth in [0, 1] {
+        assert_eq!(ordered_moves(board, 0, depth, Some(19), None).1, 0);
+        let (order, len) = ordered_moves(board, moves, depth, Some(0), None);
+        assert_eq!(&order[..len], &[19, 26, 37, 44]);
+    }
+}
