@@ -1,6 +1,11 @@
+mod common;
+
+use std::collections::HashSet;
 use std::mem::size_of;
 
+use common::playout;
 use othello::board::Board;
+use othello::rng::Rng;
 use othello::score::INF;
 use othello::tt::{Bound, Domain, Entry, MAX_ENTRIES, NO_MOVE, Table, zobrist};
 
@@ -25,7 +30,37 @@ fn zobrist_keys() {
         opp: Board::START.me,
     });
     assert_ne!(key, swapped);
-    assert_eq!(key, 0xe63a_89a2_65d0_0287);
+    assert_eq!(key, 0x33e1_ce12_151b_5cfc);
+}
+
+/// Keys of distinct positions differ, and both ends of the key are spread
+/// evenly enough to index a table.
+#[test]
+fn key_spread() {
+    let mut rng = Rng::new(0x4B);
+    let mut boards = HashSet::new();
+    while boards.len() < 200_000 {
+        playout(&mut rng, |board| {
+            boards.insert((board.me, board.opp));
+            boards.insert((board.opp, board.me));
+        });
+    }
+    let mut keys = HashSet::new();
+    let (mut low, mut high) = ([0u32; 1024], [0u32; 1024]);
+    for &(me, opp) in &boards {
+        let key = zobrist(Board { me, opp });
+        assert_ne!(key, 0);
+        assert!(keys.insert(key), "repeated key {key:#x}");
+        low[key as usize % 1024] += 1;
+        high[(key >> 54) as usize] += 1;
+    }
+    let share = boards.len() as u32 / 1024;
+    for count in low.into_iter().chain(high) {
+        assert!(
+            (share * 3 / 4..=share * 5 / 4).contains(&count),
+            "{count} of {share}"
+        );
+    }
 }
 
 #[test]
