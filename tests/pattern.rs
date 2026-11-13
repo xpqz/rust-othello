@@ -2,9 +2,10 @@ mod common;
 
 use std::collections::BTreeSet;
 
-use common::{Sym, transform};
+use common::{Sym, playout, transform};
 use othello::board::{Board, empty_count};
 use othello::pattern;
+use othello::rng::Rng;
 use othello::score::EVAL_BOUND;
 
 const HAND_ME: u64 = 0x0209;
@@ -295,6 +296,28 @@ fn evaluate_reference() {
             "{board:?}"
         );
     }
+}
+
+/// The evaluation equals the sum read straight from the file's bytes, on
+/// positions from every stage of random games.
+#[test]
+fn evaluate_wide() {
+    let asset = asset();
+    let mut rng = Rng::new(0xE7A1);
+    let mut stages = [0u32; pattern::STAGES];
+    let mut count = 0;
+    while count < 100_000 {
+        playout(&mut rng, |board| {
+            assert_eq!(
+                pattern::evaluate(board),
+                reference(board, &asset),
+                "{board:?}"
+            );
+            stages[pattern::stage(empty_count(board))] += 1;
+            count += 1;
+        });
+    }
+    assert!(stages.iter().all(|&seen| seen > 1000), "{stages:?}");
 }
 
 #[test]
