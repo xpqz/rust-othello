@@ -6,6 +6,8 @@ use crate::score::EVAL_BOUND;
 pub const INSTANCE_COUNT: usize = 46;
 pub const TABLE_SLOTS: usize = 167_265;
 pub const STAGES: usize = 12;
+/// `INSTANCE_COUNT` rounded up to whole vector steps; the spare lanes stay zero.
+const LANES: usize = 48;
 
 pub const FAMILIES: [&[u8]; 11] = [
     &[0, 1, 2, 3, 4, 5, 6, 7, 9, 14],
@@ -35,8 +37,8 @@ pub fn instances() -> &'static [Instance] {
 
 /// `ROWS[row * 256 + byte][instance]`: what the mover's discs `byte` on `row`
 /// add to that instance's base-3 index. The opponent's discs add twice.
-static ROWS: LazyLock<Vec<[u16; INSTANCE_COUNT]>> = LazyLock::new(|| {
-    let mut rows = vec![[0u16; INSTANCE_COUNT]; 8 * 256];
+static ROWS: LazyLock<Vec<[u16; LANES]>> = LazyLock::new(|| {
+    let mut rows = vec![[0u16; LANES]; 8 * 256];
     for (slot, instance) in instances().iter().enumerate() {
         let mut power = 1;
         for &square in &instance.squares {
@@ -51,7 +53,7 @@ static ROWS: LazyLock<Vec<[u16; INSTANCE_COUNT]>> = LazyLock::new(|| {
 });
 
 pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
-    let mut sums = [0u16; INSTANCE_COUNT];
+    let mut sums = [0u16; LANES];
     for row in 0..8 {
         let me = &ROWS[row * 256 + (board.me >> (row * 8) & 0xff) as usize];
         let opp = &ROWS[row * 256 + (board.opp >> (row * 8) & 0xff) as usize];

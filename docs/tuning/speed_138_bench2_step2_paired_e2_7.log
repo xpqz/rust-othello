@@ -1,0 +1,13 @@
+4879f1a936dede0cd3fdf0dc825276144a13c82b
+paired comparison 7, bench v2: binary of step 2 (48-lane sums, uncommitted)
+Fri 13 Nov 2026 12:54:30 CET
+12:54  up 44 days, 22:46, 12 users, load averages: 2.40 2.27 2.18
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1033.2 exact nodes 7001000 ms 408.4 clear ms 5.4 373.2
+round 1 midgame nodes 8556688 ms 1017.0 exact nodes 7001000 ms 393.3 clear ms 5.2 385.9
+round 2 midgame nodes 8556688 ms 1002.4 exact nodes 7001000 ms 397.0 clear ms 5.2 367.9
+round 3 midgame nodes 8556688 ms 1034.2 exact nodes 7001000 ms 400.6 clear ms 5.2 371.2
+round 4 midgame nodes 8556688 ms 1014.3 exact nodes 7001000 ms 393.9 clear ms 5.1 344.2
+midgame nodes 8556688 min_ms 1002.4 median_ms 1017.0 max_ms 1034.2 spread 0.0318 nodes_per_s 8536167
+exact nodes 7001000 min_ms 393.3 median_ms 397.0 max_ms 408.4 spread 0.0384 nodes_per_s 17801186
+12:54  up 44 days, 22:46, 12 users, load averages: 2.18 2.23 2.17
