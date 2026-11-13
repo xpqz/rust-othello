@@ -1,0 +1,13 @@
+772b55ae8c8cd9fd8d82eb1f798cde4243cd2d2a
+paired comparison 58, bench v2: binary of the start of the issue (engine sources of bfaf599) sha256 4e9654a3294f40a3c08cc1f94cb005e925901661b084b6e6d20c547bf127358b
+Fri 13 Nov 2026 14:32:33 CET
+14:32  up 45 days, 24 mins, 12 users, load averages: 3.15 3.42 3.26
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1173.3 exact nodes 7001000 ms 429.6 clear ms 6.2 391.3
+round 1 midgame nodes 8556688 ms 1131.2 exact nodes 7001000 ms 431.2 clear ms 5.9 391.2
+round 2 midgame nodes 8556688 ms 1139.7 exact nodes 7001000 ms 436.5 clear ms 5.7 384.0
+round 3 midgame nodes 8556688 ms 1139.9 exact nodes 7001000 ms 414.2 clear ms 5.9 375.9
+round 4 midgame nodes 8556688 ms 1246.5 exact nodes 7001000 ms 408.3 clear ms 6.0 371.0
+midgame nodes 8556688 min_ms 1131.2 median_ms 1139.9 max_ms 1246.5 spread 0.1019 nodes_per_s 7564420
+exact nodes 7001000 min_ms 408.3 median_ms 429.6 max_ms 436.5 spread 0.0691 nodes_per_s 17147061
+14:32  up 45 days, 24 mins, 12 users, load averages: 3.93 3.58 3.31

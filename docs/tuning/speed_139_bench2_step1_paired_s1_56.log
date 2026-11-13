@@ -1,0 +1,13 @@
+772b55ae8c8cd9fd8d82eb1f798cde4243cd2d2a
+paired comparison 56, bench v2: binary of step 1 (engine sources of 8d4b76f) sha256 69aad5eb68d74bd1852a83bc253df5763d11a1c331bfaf08549ddab4c1566d28
+Fri 13 Nov 2026 14:32:05 CET
+14:32  up 45 days, 23 mins, 12 users, load averages: 3.17 3.45 3.26
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 1023.3 exact nodes 7001000 ms 395.9 clear ms 6.2 367.4
+round 1 midgame nodes 9724172 ms 981.4 exact nodes 7001000 ms 395.7 clear ms 5.7 366.4
+round 2 midgame nodes 9724172 ms 995.9 exact nodes 7001000 ms 399.5 clear ms 6.0 364.1
+round 3 midgame nodes 9724172 ms 999.4 exact nodes 7001000 ms 399.9 clear ms 5.9 365.4
+round 4 midgame nodes 9724172 ms 978.3 exact nodes 7001000 ms 402.9 clear ms 5.9 377.0
+midgame nodes 9724172 min_ms 978.3 median_ms 995.9 max_ms 1023.3 spread 0.0460 nodes_per_s 9939956
+exact nodes 7001000 min_ms 395.7 median_ms 399.5 max_ms 402.9 spread 0.0182 nodes_per_s 17690905
+14:32  up 45 days, 23 mins, 12 users, load averages: 3.14 3.44 3.26
