@@ -1,0 +1,17 @@
+# Profile after step 4 of issue 135. Scratch copy of the engine with src/search.rs and src/tt.rs from 0b5698a (board.rs, pattern.rs unchanged since 133);
+# features, evaluate, legal_moves, flips, runs, ordered_moves, negamax, scout, Table::probe/store marked #[inline(never)];
+# depth-9 search_tt on the ten corpus positions with 24 or more empties, repeated for 40 s; /usr/bin/sample for 25 s
+# starting 5 s in. Same method as docs/tuning/search_profile.log. Load about 3 (machine in use).
+positions 10 nodes 203876886 seconds 40.0 nps 5095998
+Sort by top of stack, same collapsed (when >= 5):
+        othello7pattern8features        6017
+        othello6search13ordered_moves        4214
+        othello7pattern8evaluate        3129
+        othello5board4runs        3009
+        othello6search7negamax        2214
+        othello5board5flips        770
+        othello5board11legal_moves        548
+        othello6search5scout        232
+        __bzero  (in libsystem_platform.dylib)        201
+        othello2ttNtB4_5Table5probe        48
+        othello2ttNtB4_5Table5store        23

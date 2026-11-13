@@ -1,0 +1,15 @@
+driver_commit 0b5698a3f41f083614d7fd24f758ac6dd03ffe72
+worker_source_sha256 37b852ba2143966545c7c216d3772c08a04dd6e12dfcce6f029da965a0380b0a
+rustc rustc 1.99.1 (58cf8f9c3 2026-10-13)
+a commit 0b5698a3f41f083614d7fd24f758ac6dd03ffe72
+a worker_sha256 aab0061902b08aac74a9444405f56af627a81e422f98b88deefc3fba96d64961
+a eval_sha256 676987110ca656677d18ef1bf54810ed559d417fde7cd0e88c87ba61ff5ea8cb
+a rustc_flags othello: codegen-units=16 embed-bitcode=no opt-level=3
+a rustc_flags othello_tools: codegen-units=16 embed-bitcode=no opt-level=3
+a rustc_flags engine_worker: codegen-units=16 embed-bitcode=no opt-level=3
+b commit 039d59a8f005ac179438aa46a0b7f613d3fe20bf
+b worker_sha256 bedb1b0fd8dab50e42e72ce213a170ab675a03cde075979e9e43ecc69953e8c0
+b eval_sha256 676987110ca656677d18ef1bf54810ed559d417fde7cd0e88c87ba61ff5ea8cb
+b rustc_flags othello: codegen-units=16 embed-bitcode=no opt-level=3
+b rustc_flags othello_tools: codegen-units=16 embed-bitcode=no opt-level=3
+b rustc_flags engine_worker: codegen-units=16 embed-bitcode=no opt-level=3
