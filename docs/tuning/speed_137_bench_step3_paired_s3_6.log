@@ -1,0 +1,13 @@
+23f3f0c66bfae2bdecb6b6201a511f8cba645f90
+paired comparison 6: binary of step 3 (constant-time key, uncommitted on 23f3f0c)
+Fri 13 Nov 2026 11:59:21 CET
+11:59  up 44 days, 21:50, 12 users, load averages: 3.42 3.52 3.27
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 8556688 ms 1325.2 exact nodes 7001000 ms 768.7
+round 1 midgame nodes 8556688 ms 1283.4 exact nodes 7001000 ms 788.5
+round 2 midgame nodes 8556688 ms 1292.7 exact nodes 7001000 ms 780.3
+round 3 midgame nodes 8556688 ms 1282.5 exact nodes 7001000 ms 772.1
+round 4 midgame nodes 8556688 ms 1290.4 exact nodes 7001000 ms 786.9
+midgame nodes 8556688 min_ms 1282.5 median_ms 1290.4 max_ms 1325.2 spread 0.0333 nodes_per_s 6671945
+exact nodes 7001000 min_ms 768.7 median_ms 780.3 max_ms 788.5 spread 0.0258 nodes_per_s 9107894
+11:59  up 44 days, 21:51, 12 users, load averages: 3.27 3.49 3.26

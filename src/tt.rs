@@ -107,28 +107,8 @@ const fn splitmix64(mut value: u64) -> u64 {
     value ^ (value >> 31)
 }
 
-const fn tables() -> [[u64; 64]; 2] {
-    let mut tables = [[0u64; 64]; 2];
-    let mut index = 0;
-    while index < 64 {
-        tables[0][index] = splitmix64(index as u64);
-        tables[1][index] = splitmix64(128 + index as u64);
-        index += 1;
-    }
-    tables
-}
-
-const ZOBRIST: [[u64; 64]; 2] = tables();
-
-fn mix(mut bits: u64, colour: usize) -> u64 {
-    let mut key = 0;
-    while bits != 0 {
-        key ^= ZOBRIST[colour][bits.trailing_zeros() as usize];
-        bits &= bits - 1;
-    }
-    key
-}
-
+/// The position's table key: a mix of both bitboards, not symmetric in them.
+/// Zero is reserved for empty slots.
 pub fn zobrist(board: Board) -> u64 {
-    mix(board.me, 0) ^ mix(board.opp, 1)
+    splitmix64(board.me ^ splitmix64(board.opp))
 }

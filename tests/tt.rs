@@ -84,12 +84,15 @@ fn key_spread() {
         low[key as usize % 1024] += 1;
         high[(key >> 54) as usize] += 1;
     }
-    let share = keys.len() as u32 / 1024;
-    for count in low.into_iter().chain(high) {
-        assert!(
-            (share * 3 / 4..=share * 5 / 4).contains(&count),
-            "{count} of {share}"
-        );
+    // Chi-squared over 1,024 buckets has mean 1,023 and standard deviation
+    // about 45 for an even spread; the limit is five deviations above.
+    let share = keys.len() as f64 / 1024.0;
+    for buckets in [low, high] {
+        let chi: f64 = buckets
+            .iter()
+            .map(|&count| (f64::from(count) - share).powi(2) / share)
+            .sum();
+        assert!(chi < 1250.0, "chi-squared {chi:.0}");
     }
 }
 
