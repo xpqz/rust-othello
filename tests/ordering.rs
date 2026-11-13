@@ -182,3 +182,23 @@ fn class_edges() {
         assert_eq!(&order[..len], &[19, 26, 37, 44]);
     }
 }
+
+/// Midgame nodes below the evaluation-order depth order by class alone. The
+/// search is still exact for its depth, so the scores are those of the plain
+/// order; the node counts are what this order gives on one fixed position.
+#[test]
+fn midgame_class_order() {
+    let board = Board {
+        me: 0x2002_242e_1000_0000,
+        opp: 0x023c_1810_2840_0000,
+    };
+    let expected = [(3, 26, 583, 462), (4, 20, -309, 2987), (5, 21, 352, 8113)];
+    for (depth, best, score, nodes) in expected {
+        let result = search(board, depth, &SearchConfig::standard());
+        assert_eq!(
+            (result.best, result.score, result.nodes),
+            (best, score, nodes),
+            "depth {depth}"
+        );
+    }
+}
