@@ -133,6 +133,7 @@ const XC: u64 = 0x42c3_0000_0000_c342;
 /// Without an evaluation: preferred move, corners, others, X and C squares,
 /// then fewest opponent replies from depth 2. With one: the child's value to
 /// the opponent plus a charge per reply, the preferred move at a discount.
+/// `preferred` must be a square (below 64).
 pub fn ordered_moves(
     board: Board,
     moves: u64,
