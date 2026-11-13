@@ -966,25 +966,32 @@ fn sample_positions(min_empty: u32, max_empty: u32, count: usize) -> Vec<Board> 
     positions
 }
 
-/// Positions with one empty square: from random games, and the same boards
-/// with the discs recoloured evenly, mostly for the mover and mostly against,
-/// so that the mover playing, the mover passing, and nobody being able to
-/// play all occur often.
-fn one_empty() -> Vec<Board> {
+/// Positions with `empties` empty squares: from random games, and the same boards
+/// with the discs recoloured evenly and at four lopsided ratios, so that the
+/// mover playing, the mover passing, and nobody being able to play all occur
+/// often.
+fn nearly_full(empties: u32) -> Vec<Board> {
     let mut rng = Rng::new(0x1E);
     let mut boards = Vec::new();
     while boards.len() < 10_000 {
         let mut found = None;
         playout(&mut rng, |board| {
-            if othello::board::empty_count(board) == 1 {
+            if othello::board::empty_count(board) == empties {
                 found = Some(board);
             }
         });
         let Some(board) = found else { continue };
         let discs = board.me | board.opp;
         let (a, b, c) = (rng.next_u64(), rng.next_u64(), rng.next_u64());
+        let (few, most) = (a & b & c & rng.next_u64() & rng.next_u64(), a | b | c);
         boards.push(board);
-        for mine in [a, a & b & c, a | b | c] {
+        for mine in [
+            a,
+            a & b & c,
+            most,
+            few,
+            most | rng.next_u64() | rng.next_u64(),
+        ] {
             boards.push(Board {
                 me: discs & mine,
                 opp: discs & !mine,
@@ -1000,7 +1007,7 @@ fn one_empty() -> Vec<Board> {
 fn last_square() {
     let config = config();
     let mut cases = [0; 3];
-    for board in one_empty() {
+    for board in nearly_full(1) {
         let truth = exact(board, -INF, INF);
         let mover = legal_moves(board.me, board.opp) != 0;
         let other = legal_moves(board.opp, board.me) != 0;
@@ -1021,6 +1028,46 @@ fn last_square() {
             let value = solve(board, alpha, beta, &mut ctx);
             assert_eq!(value, Some(truth), "{board:?} window {alpha} {beta}");
             assert_eq!(ctx.nodes, 1, "{board:?} window {alpha} {beta}");
+        }
+    }
+    assert!(cases.iter().all(|&count| count > 300), "{cases:?}");
+}
+
+/// The last two empty squares are settled in the node that meets them: the
+/// exact value for the full window, a true bound outside a narrower one, and
+/// no further node.
+#[test]
+fn last_two_squares() {
+    let config = config();
+    let mut cases = [0; 3];
+    for board in nearly_full(2) {
+        let truth = exact(board, -INF, INF);
+        let mover = legal_moves(board.me, board.opp) != 0;
+        let other = legal_moves(board.opp, board.me) != 0;
+        cases[if mover {
+            0
+        } else if other {
+            1
+        } else {
+            2
+        }] += 1;
+        for (alpha, beta) in [
+            (-INF, INF),
+            (truth - 1, truth),
+            (truth, truth + 1),
+            (-100, 100),
+        ] {
+            let mut ctx = Ctx::new(&config);
+            let value = solve(board, alpha, beta, &mut ctx).unwrap();
+            let label = format!("{board:?} window {alpha} {beta}");
+            if value <= alpha {
+                assert!(truth <= value, "{label}: {value} is not an upper bound");
+            } else if value >= beta {
+                assert!(truth >= value, "{label}: {value} is not a lower bound");
+            } else {
+                assert_eq!(value, truth, "{label}");
+            }
+            assert_eq!(ctx.nodes, 1, "{label}");
         }
     }
     assert!(cases.iter().all(|&count| count > 300), "{cases:?}");
