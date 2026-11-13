@@ -1,0 +1,25 @@
+# Move-ordering statistics, issue 135, before. Scratch copy of the tree at 530807a with src/search.rs from 039d59a;
+# counters added to negamax's move loop (root nodes not counted); search_bench workload, one round, exact positions once.
+# cutoff = share of interior nodes ending in a beta cutoff; first-move share = of those, the share cut by the first move tried.
+midgame depth  1 interior   5716773 moves/node 10.80 searched/node 3.80 cutoff 0.771 first-move share of cutoffs 0.691
+midgame depth  2 interior   1584399 moves/node 10.71 searched/node 4.00 cutoff 0.716 first-move share of cutoffs 0.683
+midgame depth  3 interior    506879 moves/node 10.74 searched/node 3.46 cutoff 0.771 first-move share of cutoffs 0.777
+midgame depth  4 interior    132763 moves/node 10.72 searched/node 4.21 cutoff 0.701 first-move share of cutoffs 0.690
+midgame depth  5 interior     41124 moves/node 10.78 searched/node 3.51 cutoff 0.775 first-move share of cutoffs 0.776
+midgame depth  6 interior      9506 moves/node 10.75 searched/node 4.65 cutoff 0.670 first-move share of cutoffs 0.668
+midgame depth  7 interior      2767 moves/node 10.91 searched/node 3.56 cutoff 0.780 first-move share of cutoffs 0.765
+midgame depth  8 interior       485 moves/node 10.74 searched/node 5.65 cutoff 0.555 first-move share of cutoffs 0.602
+midgame depth  9 interior       124 moves/node 11.42 searched/node 2.91 cutoff 0.863 first-move share of cutoffs 0.720
+exact empties  1 interior     15158 moves/node  1.00 searched/node 1.00 cutoff 0.401 first-move share of cutoffs 1.000
+exact empties  2 interior     15111 moves/node  1.57 searched/node 1.16 cutoff 0.757 first-move share of cutoffs 0.964
+exact empties  3 interior      8414 moves/node  2.46 searched/node 2.06 cutoff 0.355 first-move share of cutoffs 0.670
+exact empties  4 interior      6691 moves/node  2.67 searched/node 1.43 cutoff 0.789 first-move share of cutoffs 0.873
+exact empties  5 interior      2410 moves/node  4.09 searched/node 3.13 cutoff 0.408 first-move share of cutoffs 0.539
+exact empties  6 interior      1622 moves/node  3.56 searched/node 1.64 cutoff 0.782 first-move share of cutoffs 0.842
+exact empties  7 interior       471 moves/node  5.69 searched/node 3.86 cutoff 0.469 first-move share of cutoffs 0.557
+exact empties  8 interior       266 moves/node  4.17 searched/node 1.86 cutoff 0.741 first-move share of cutoffs 0.827
+exact empties  9 interior        78 moves/node  7.03 searched/node 3.65 cutoff 0.590 first-move share of cutoffs 0.761
+exact empties 10 interior        29 moves/node  4.21 searched/node 2.59 cutoff 0.586 first-move share of cutoffs 0.824
+exact empties 11 interior         8 moves/node  8.75 searched/node 2.50 cutoff 0.875 first-move share of cutoffs 0.571
+midgame nodes 30553931
+exact nodes 78111

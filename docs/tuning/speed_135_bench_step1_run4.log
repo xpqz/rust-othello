@@ -1,0 +1,12 @@
+530807a460414a23d0548daf80e439e2af077b99
+working tree: src/search.rs null-window search (step 1), run 4
+Fri 13 Nov 2026 08:34:25 CET
+ 8:34  up 44 days, 18:26, 9 users, load averages: 3.32 2.80 2.04
+bench midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 17151669 ms 2761.7 exact nodes 6583100 ms 1159.0
+round 1 midgame nodes 17151669 ms 2681.3 exact nodes 6583100 ms 1112.0
+round 2 midgame nodes 17151669 ms 2629.5 exact nodes 6583100 ms 1131.7
+round 3 midgame nodes 17151669 ms 2680.9 exact nodes 6583100 ms 1122.2
+round 4 midgame nodes 17151669 ms 2678.1 exact nodes 6583100 ms 1131.4
+midgame nodes 17151669 min_ms 2629.5 median_ms 2680.9 max_ms 2761.7 spread 0.0503 nodes_per_s 6522857
+exact nodes 6583100 min_ms 1112.0 median_ms 1131.4 max_ms 1159.0 spread 0.0423 nodes_per_s 5920237

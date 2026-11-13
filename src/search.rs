@@ -215,7 +215,7 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
     };
     let next = if exact { depth } else { depth - 1 };
     for &square in &order[..len] {
-        let value = -negamax(play(board, square), next, -beta, -alpha, ctx)?;
+        let value = scout(play(board, square), next, alpha, beta, best == -INF, ctx)?;
         if value > best {
             best = value;
             chosen = square;
@@ -246,6 +246,25 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
         table.store(entry);
     }
     Some(best)
+}
+
+/// The mover's value of `child`. After the first move a null window is tried,
+/// and only a value strictly inside the window is searched again in full.
+fn scout(
+    child: Board,
+    depth: u32,
+    alpha: i32,
+    beta: i32,
+    first: bool,
+    ctx: &mut Ctx,
+) -> Option<i32> {
+    if !first && beta - alpha > 1 {
+        let value = -negamax(child, depth, -alpha - 1, -alpha, ctx)?;
+        if value <= alpha || value >= beta {
+            return Some(value);
+        }
+    }
+    negamax(child, depth, -beta, -alpha, ctx).map(|value| -value)
 }
 
 pub fn solve(board: Board, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<i32> {
@@ -416,7 +435,7 @@ fn root(
     };
     let next = if ctx.exact { depth } else { depth - 1 };
     for &square in &order[..len] {
-        let value = -negamax(play(board, square), next, -beta, -alpha, ctx)?;
+        let value = scout(play(board, square), next, alpha, beta, score == -INF, ctx)?;
         if value > score {
             score = value;
             chosen = square;
