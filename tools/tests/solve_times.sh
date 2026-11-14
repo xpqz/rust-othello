@@ -57,6 +57,20 @@ fi
 grep -q 'journal header mismatch' "$TMP/bad.err" || { echo "no header mismatch message" >&2; exit 1; }
 cmp -s "$TMP/kill.journal" "$TMP/copy.journal" || { echo "rejected run changed the journal" >&2; exit 1; }
 
+# A journal from a different build of the same commit is refused, untouched.
+cargo build --quiet --example solve_times --manifest-path tools/Cargo.toml
+if "$ROOT/tools/target/debug/examples/solve_times" --out "$TMP/kill.journal" $ARGS >"$TMP/debug.out" 2>"$TMP/debug.err"; then
+    echo "journal accepted a different executable" >&2; exit 1
+fi
+grep -q 'journal header mismatch' "$TMP/debug.err" || { echo "no header mismatch for a different executable" >&2; exit 1; }
+cmp -s "$TMP/kill.journal" "$TMP/copy.journal" || { echo "different executable changed the journal" >&2; exit 1; }
+
+# A repeated empties count is refused before any journal is written.
+if "$BIN" --out "$TMP/twice.journal" --empties 12,12 --budget 2000 --previous 20 >"$TMP/twice.out" 2>"$TMP/twice.err"; then
+    echo "repeated empties count accepted" >&2; exit 1
+fi
+test ! -e "$TMP/twice.journal" || { echo "repeated empties count wrote a journal" >&2; exit 1; }
+
 # A torn last line is discarded and that position redone.
 last=$(tail -n 1 "$TMP/kill.journal" | cut -f1)
 sed '$d' "$TMP/kill.journal" >"$TMP/torn.journal"

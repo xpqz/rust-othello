@@ -101,13 +101,20 @@ fn run(args: &[String]) -> Result<(), String> {
         .split(',')
         .map(|n| n.parse().map_err(|_| "invalid --empties".to_string()))
         .collect::<Result<_, _>>()?;
+    if (1..counts.len()).any(|index| counts[..index].contains(&counts[index])) {
+        return Err("each --empties count may be given once".into());
+    }
     let (budget, previous) = (number("--budget", "30000")?, number("--previous", "3000")?);
     let progress = number("--progress", "30")?.max(1);
     let source = format!("{}/../{SOURCE}", env!("CARGO_MANIFEST_DIR"));
+    // The executable's own hash: timings from a different build (profile,
+    // compiler, code or embedded weights) must not join this journal.
+    let exe = std::env::current_exe().map_err(|error| error.to_string())?;
     let header = format!(
-        "header v1 solve_times empties {list} budget_ms {budget} previous_ms {previous} source {SOURCE} hash {:016x} commit {}",
+        "header v1 solve_times empties {list} budget_ms {budget} previous_ms {previous} source {SOURCE} hash {:016x} commit {} binary {:016x}",
         file_hash(&source)?,
-        git_commit()
+        git_commit(),
+        file_hash(&exe.to_string_lossy())?
     );
     let (mut journal, done) = Journal::open(Path::new(&out), &header)?;
     let text = std::fs::read_to_string(&source).map_err(|error| format!("{source}: {error}"))?;
