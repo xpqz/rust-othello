@@ -1,0 +1,7 @@
+70eb618f5dd4e05c6ce6661e754ddf5df15b2e18
+Sat 14 Nov 2026 14:31:00 CET
+timing sample: --nodes 100
+probcut_fit collect: 100 of 100 units to do, 6 jobs
+progress 50/100 elapsed 56s eta 56s
+progress 100/100 elapsed 163s eta 0s
+probcut_fit collect units 100 cpu_s 909 wall_s 163
