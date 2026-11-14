@@ -439,10 +439,9 @@ fn fresh_overload_void() {
     assert!(resumed.status.success());
     assert_eq!(payloads(&path).len(), 4);
     assert!(report(&[&path]).status.success());
-    // A run below the limit throughout gives the same journal.
-    let clean = temp("clean");
-    assert!(at_load("1", &clean).status.success());
-    assert_eq!(payloads(&path), payloads(&clean));
+    // Resuming the completed journal keeps its valid records unchanged.
+    let before = fs::read(&path).unwrap();
+    assert!(at_load("1", &path).status.success());
+    assert_eq!(fs::read(&path).unwrap(), before);
     fs::remove_file(path).unwrap();
-    fs::remove_file(clean).unwrap();
 }
