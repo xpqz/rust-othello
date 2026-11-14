@@ -579,3 +579,16 @@ fn exact_unaffected() {
         assert!(a.solved);
     }
 }
+
+#[test]
+fn fitted_rectangle() {
+    // The shallow rule is valid on the whole fitted rectangle, which sits
+    // above the solver.
+    let p = ProbCut::FITTED;
+    for d in p.d_min..=p.d_max {
+        let s = shallow_depth(&p, d).unwrap();
+        assert!(s >= 1 && s < d);
+    }
+    assert!(p.e_min >= SearchConfig::standard().endgame_threshold + 2);
+    assert!((500..=1500).contains(&p.a_milli) && p.b.abs() <= EVAL_BOUND);
+}

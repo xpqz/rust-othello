@@ -428,3 +428,24 @@ fn pattern_name_removed() {
         assert!(othello_tools::agents::parse_name(name).is_err(), "{name}");
     }
 }
+
+#[test]
+fn probcut_agents() {
+    use othello::search::ProbCut;
+    use othello_tools::agents::{config, parse_name};
+    for name in ["pc", "pc:30", "pc:401", "pc:x", "pc:120:500:1"] {
+        assert!(parse_name(name).is_err(), "{name}");
+    }
+    let (on, limits) = config("pc:120:500", 0, true).unwrap();
+    assert_eq!(
+        on.probcut,
+        Some(ProbCut {
+            t: 120,
+            ..ProbCut::FITTED
+        })
+    );
+    assert_eq!(limits.time_ms, 500);
+    let (off, _) = config("pc:off:500", 0, true).unwrap();
+    assert_eq!(off.probcut, None);
+    assert_eq!(off.endgame_threshold, on.endgame_threshold);
+}

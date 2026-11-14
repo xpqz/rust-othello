@@ -52,6 +52,22 @@ fn ceil_div(n: i64, k: i64) -> i64 {
 }
 
 impl ProbCut {
+    /// Fitted and audited in #146 (`docs/tuning/probcut2_audit.log`, commit
+    /// 2c9ab08); `t` from #148's tuning.
+    pub const FITTED: ProbCut = ProbCut {
+        t: 150,
+        s0: 90066,
+        s1: -514,
+        s2: -1180,
+        a_milli: 973,
+        b: 30,
+        shallow: 0,
+        d_min: 4,
+        d_max: 14,
+        e_min: 21,
+        e_max: 56,
+    };
+
     /// σ in centidiscs, rounded up, within `1..=2·EVAL_BOUND`.
     pub fn sigma(&self, d: u32, e: u32) -> i64 {
         let (d, e) = (i64::from(d.min(64)), i64::from(e.min(64)));

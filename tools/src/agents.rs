@@ -1,6 +1,6 @@
 use crate::baselines::{PHASE2_DEPTH, classic_config, phase2_config};
 use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
-use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits};
+use othello::search::{NO_DEADLINE, ProbCut, SearchConfig, SearchLimits};
 
 fn unknown(name: &str) -> String {
     format!("unknown agent: {name}")
@@ -30,6 +30,13 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
                 }
             }
             (depth, time)
+        }
+        "pc" => {
+            let t = parts.next().ok_or_else(|| unknown(name))?;
+            if t != "off" && !t.parse().is_ok_and(|t: u32| (50..=400).contains(&t)) {
+                return Err(unknown(name));
+            }
+            (64, time(&mut parts)?)
         }
         "ab" => {
             let depth = parts
@@ -68,6 +75,8 @@ pub fn config(
     let (kind, depth, time) = parse_name(name)?;
     let (depth, time) = effective(depth, time, nodes)?;
     let limits = SearchLimits::new(depth, time, nodes);
+    // `pc:<t>`: the fitted model with margin `t`; `pc:off`: none.
+    let margin = name.split(':').nth(1).and_then(|t| t.parse().ok());
     let config = match kind {
         "phase2" => SearchConfig {
             ordering,
@@ -76,6 +85,14 @@ pub fn config(
         "classic" => SearchConfig {
             ordering,
             ..classic_config()
+        },
+        "pc" => SearchConfig {
+            ordering,
+            probcut: margin.map(|t| ProbCut {
+                t,
+                ..ProbCut::FITTED
+            }),
+            ..SearchConfig::standard()
         },
         _ => SearchConfig {
             ordering,

@@ -1,0 +1,15 @@
+c9c5996078fea2da32d43c6cae91a9fd2da01d20
+ M ../src/search.rs  M src/agents.rs ?? ../docs/tuning/probcut2_screen_nodes.log ?? examples/probcut_screen.rs 
+Sat 14 Nov 2026 17:26:45 CET
+full positions 12 depth 10 nodes 9724172
+probcut positions 12 depth 10 nodes 2522654
+screen nodes t 80 ratio 0.2594 limit 0.6000 pass
+full positions 12 depth 10 nodes 9724172
+probcut positions 12 depth 10 nodes 4439242
+screen nodes t 120 ratio 0.4565 limit 0.6000 pass
+full positions 12 depth 10 nodes 9724172
+probcut positions 12 depth 10 nodes 6074718
+screen nodes t 160 ratio 0.6247 limit 0.6000 fail
+full positions 12 depth 10 nodes 9724172
+probcut positions 12 depth 10 nodes 7867758
+screen nodes t 200 ratio 0.8091 limit 0.6000 fail
