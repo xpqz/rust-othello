@@ -281,12 +281,13 @@ fn cancelled_parent() {
     let config = with(tight(D, D, 0, 64));
     let v = value(board, S);
     let mut table = Table::new(1 << 16);
-    let mut ctx = Ctx::new(&config);
-    ctx.set_table(&mut table);
-    ctx.set_node_limit(3);
-    assert_eq!(negamax(board, D, v - 1, v, &mut ctx), None);
-    assert_eq!(ctx.probcut_tries, 1, "the stop came inside the probe");
-    drop(ctx);
+    {
+        let mut ctx = Ctx::new(&config);
+        ctx.set_table(&mut table);
+        ctx.set_node_limit(3);
+        assert_eq!(negamax(board, D, v - 1, v, &mut ctx), None);
+        assert_eq!(ctx.probcut_tries, 1, "the stop came inside the probe");
+    }
     assert!(table.probe(zobrist(board)).is_none());
 }
 

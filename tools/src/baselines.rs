@@ -33,6 +33,7 @@ pub fn phase2_config() -> SearchConfig {
         eval: eval_phase2,
         endgame_threshold: 12,
         ordering: true,
+        probcut: None,
     }
 }
 
@@ -129,5 +130,6 @@ pub fn classic_config() -> SearchConfig {
         eval: eval_classic,
         endgame_threshold: 14,
         ordering: true,
+        probcut: None,
     }
 }

@@ -84,6 +84,8 @@ struct App {
     think_seconds: f32,
     threshold: u32,
     table: Arc<Mutex<Table>>,
+    /// The solve threshold the table's entries were searched with.
+    served: Option<u32>,
     generation: u64,
     thinking: Option<Thinking>,
     last_search: Option<(SearchResult, Duration, bool)>,
@@ -103,6 +105,7 @@ impl App {
             think_seconds: 3.0,
             threshold: SearchConfig::standard().endgame_threshold,
             table: Arc::new(Mutex::new(Table::new(MAX_ENTRIES))),
+            served: None,
             generation: 0,
             thinking: None,
             last_search: None,
@@ -164,15 +167,25 @@ impl App {
         self.message = "Move taken back.".into();
     }
 
+    /// The search configuration; the table serves one policy, so it is
+    /// cleared when a setting that enters the configuration has changed.
+    fn engine_config(&mut self) -> SearchConfig {
+        if self.served != Some(self.threshold) {
+            self.table.lock().unwrap().clear();
+            self.served = Some(self.threshold);
+        }
+        SearchConfig {
+            endgame_threshold: self.threshold,
+            ..SearchConfig::standard()
+        }
+    }
+
     fn start_engine(&mut self) {
         let (sender, result) = channel();
         let generation = self.generation;
         let board = self.position.board;
+        let config = self.engine_config();
         let table = Arc::clone(&self.table);
-        let config = SearchConfig {
-            endgame_threshold: self.threshold,
-            ..SearchConfig::standard()
-        };
         let limits = SearchLimits::new(64, (self.think_seconds * 1000.0) as u64, 0);
         thread::spawn(move || {
             let mut table = table.lock().unwrap();

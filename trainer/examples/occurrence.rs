@@ -31,6 +31,7 @@ fn main() {
         eval: pattern::evaluate,
         endgame_threshold: 14,
         ordering: true,
+        probcut: None,
     };
     let mut sample = BTreeSet::new();
     for &start in corpus.iter().take(10) {

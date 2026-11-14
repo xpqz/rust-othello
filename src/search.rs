@@ -11,6 +11,7 @@ pub struct SearchConfig {
     pub eval: fn(Board) -> i32,
     pub endgame_threshold: u32,
     pub ordering: bool,
+    pub probcut: Option<ProbCut>,
 }
 
 impl SearchConfig {
@@ -19,8 +20,95 @@ impl SearchConfig {
             eval: crate::pattern::evaluate,
             endgame_threshold: 18,
             ordering: true,
+            probcut: None,
         }
     }
+}
+
+/// Selective cuts (docs/design/probcut2.md): a shallow null-window search
+/// predicts the deep one, `v_d = a·v_s + b` with error σ. A table serves one
+/// policy: callers clear it when any of these fields change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProbCut {
+    /// Margin in hundredths of σ; at most 400 is used.
+    pub t: u32,
+    /// σ = s0 + s1·empties + s2·depth, in hundredths of a centidisc.
+    pub s0: i32,
+    pub s1: i32,
+    pub s2: i32,
+    /// Slope in thousandths (500..=1500 used) and intercept in centidiscs.
+    pub a_milli: i32,
+    pub b: i32,
+    /// 0: shallow depth 2·⌊d/4⌋ + d mod 2; k > 0: d − k.
+    pub shallow: u32,
+    pub d_min: u32,
+    pub d_max: u32,
+    pub e_min: u32,
+    pub e_max: u32,
+}
+
+fn ceil_div(n: i64, k: i64) -> i64 {
+    n.div_euclid(k) + i64::from(n.rem_euclid(k) != 0)
+}
+
+impl ProbCut {
+    /// σ in centidiscs, rounded up, within `1..=2·EVAL_BOUND`.
+    pub fn sigma(&self, d: u32, e: u32) -> i64 {
+        let (d, e) = (i64::from(d.min(64)), i64::from(e.min(64)));
+        let raw = i64::from(self.s0) + i64::from(self.s1) * e + i64::from(self.s2) * d;
+        ceil_div(raw, 100).clamp(1, 2 * i64::from(EVAL_BOUND))
+    }
+}
+
+/// The shallow depth for remaining depth `d`, if `1 <= s < d`.
+pub fn shallow_depth(p: &ProbCut, d: u32) -> Option<u32> {
+    match p.shallow {
+        0 => (d >= 3).then(|| 2 * (d / 4) + (d & 1)),
+        gap => d.checked_sub(gap).filter(|&s| s >= 1),
+    }
+}
+
+/// The values the shallow search must reach: at least `H` to cut high, at
+/// most `L` to cut low, each rounded toward the harder side.
+pub fn probcut_bounds(p: &ProbCut, d: u32, e: u32, alpha: i32, beta: i32) -> (i64, i64) {
+    let margin = ceil_div(i64::from(p.t.min(400)) * p.sigma(d, e), 100);
+    let a = i64::from(p.a_milli.clamp(500, 1500));
+    let b = i64::from(p.b.clamp(-EVAL_BOUND, EVAL_BOUND));
+    let high = ceil_div((i64::from(beta) + margin - b) * 1000, a);
+    let low = ((i64::from(alpha) - margin - b) * 1000).div_euclid(a);
+    (high, low)
+}
+
+/// The ProbCut check at a heuristic node: `Some(Some(bound))` on a cut (`beta`
+/// high, `alpha` low), `Some(None)` without one, `None` when stopped.
+pub fn probcut(board: Board, d: u32, alpha: i32, beta: i32, ctx: &mut Ctx) -> Option<Option<i32>> {
+    let Some(p) = ctx.config.probcut else {
+        return Some(None);
+    };
+    let e = empty_count(board);
+    let shallow = shallow_depth(&p, d)
+        .filter(|_| (p.d_min..=p.d_max).contains(&d) && (p.e_min..=p.e_max).contains(&e));
+    let Some(s) = shallow else {
+        return Some(None);
+    };
+    ctx.probcut_tries += 1;
+    let (high, low) = probcut_bounds(&p, d, e, alpha, beta);
+    let reachable = -i64::from(EVAL_BOUND)..=i64::from(EVAL_BOUND);
+    if reachable.contains(&high) {
+        let high = high as i32;
+        if negamax(board, s, high - 1, high, ctx)? >= high {
+            ctx.probcut_cuts[0] += 1;
+            return Some(Some(beta));
+        }
+    }
+    if reachable.contains(&low) {
+        let low = low as i32;
+        if negamax(board, s, low, low + 1, ctx)? <= low {
+            ctx.probcut_cuts[1] += 1;
+            return Some(Some(alpha));
+        }
+    }
+    Some(None)
 }
 
 pub const NO_DEADLINE: u64 = u64::MAX;
@@ -95,6 +183,9 @@ impl SearchResult {
 pub struct Ctx<'a> {
     pub config: &'a SearchConfig,
     pub nodes: u64,
+    pub probcut_tries: u64,
+    /// High and low cuts.
+    pub probcut_cuts: [u64; 2],
     max_nodes: u64,
     deadline: Option<Instant>,
     table: Option<&'a mut Table>,
@@ -106,6 +197,8 @@ impl<'a> Ctx<'a> {
         Self {
             config,
             nodes: 0,
+            probcut_tries: 0,
+            probcut_cuts: [0; 2],
             max_nodes: 0,
             deadline: None,
             table: None,
@@ -115,6 +208,10 @@ impl<'a> Ctx<'a> {
 
     pub fn set_table(&mut self, table: &'a mut Table) {
         self.table = Some(table);
+    }
+
+    pub fn set_node_limit(&mut self, max_nodes: u64) {
+        self.max_nodes = max_nodes;
     }
 
     fn expired(&self) -> bool {
@@ -279,6 +376,9 @@ pub fn negamax(board: Board, depth: u32, mut alpha: i32, beta: i32, ctx: &mut Ct
     if cutoff.is_some() {
         return cutoff;
     }
+    if !exact && let Some(cut) = probcut(board, depth, alpha, beta, ctx)? {
+        return Some(cut);
+    }
     let alpha_orig = alpha;
     let hint = (!exact)
         .then(|| entry.and_then(|entry| entry.move_hint()))
@@ -432,12 +532,10 @@ fn search_inner(
     if empty_count(board) <= config.endgame_threshold {
         let allowance = limits.time_ms.saturating_mul(SOLVE_ALLOWANCE);
         let mut ctx = Ctx {
-            config,
-            nodes: 0,
             max_nodes: limits.max_nodes,
             deadline: start.checked_add(Duration::from_millis(allowance)),
-            table: None,
             exact: true,
+            ..Ctx::new(config)
         };
         if let Some(table) = table.as_deref_mut() {
             ctx.set_table(table);
@@ -472,12 +570,11 @@ fn search_inner(
     let mut result = fallback_result;
     for depth in 1..=limits.max_depth {
         let mut ctx = Ctx {
-            config,
             nodes,
             max_nodes: limits.max_nodes,
             deadline,
             table: table.as_deref_mut(),
-            exact: false,
+            ..Ctx::new(config)
         };
         if ctx.stop_iteration() {
             break;
