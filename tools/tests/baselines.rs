@@ -51,8 +51,11 @@ fn frozen_off() {
     assert!(classic_config().probcut.is_none());
 }
 
+/// Runs the tools binary with the measured load fixed at zero, so that timed
+/// matches here are not voided by whatever else the machine is doing.
 fn tools(args: &[&str]) -> std::process::Output {
     Command::new(env!("CARGO_BIN_EXE_othello-tools"))
+        .env("OTHELLO_TOOLS_LOAD", "0")
         .args(args)
         .output()
         .unwrap()

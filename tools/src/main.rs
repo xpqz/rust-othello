@@ -90,6 +90,10 @@ fn control(a: &str, b: &str, nodes: u64) -> Result<&'static str, String> {
 }
 
 fn load_average() -> f64 {
+    // Tests fix the measured load here.
+    if let Ok(load) = std::env::var("OTHELLO_TOOLS_LOAD") {
+        return load.parse().expect("OTHELLO_TOOLS_LOAD is a number");
+    }
     if let Ok(text) = fs::read_to_string("/proc/loadavg")
         && let Some(value) = text.split_whitespace().next().and_then(|v| v.parse().ok())
     {
@@ -412,47 +416,49 @@ fn match_command(args: &[String]) -> Result<(), String> {
             openings.len()
         ));
     }
+    let ctrl = control(&run.a, &run.b, run.nodes)?;
     let mut journal = None;
     let mut saved = BTreeMap::new();
     if let Some(path) = &run.out {
-        let (mut opened, _) = Journal::open(Path::new(path), &run.header()?)?;
+        let (opened, _) = Journal::open(Path::new(path), &run.header()?)?;
         for record in opened.records().to_vec() {
             let (pair, game, record) = parse_saved(&record.id, &record.line)?;
             saved.insert((pair, game), record);
         }
-        let ctrl = control(&run.a, &run.b, run.nodes)?;
-        let mut discard = BTreeSet::new();
-        for pair in run.first..run.past {
-            if pair_points(&saved, pair, ctrl, run.max_load).is_none() {
-                for game in 0..2 {
-                    if saved.remove(&(pair, game)).is_some() {
-                        discard.insert(format!("{pair}:{game}"));
-                    }
-                }
-            }
-        }
-        opened.discard(&discard)?;
         journal = Some(Arc::new(Mutex::new(opened)));
     }
-    let queued: Vec<usize> = (run.first..run.past)
-        .filter(|&pair| !saved.contains_key(&(pair, 0)))
-        .collect();
-    let outcomes = run.run(&queued, &openings, journal.as_ref())?;
-    for outcome in &outcomes {
-        saved.insert(
-            (outcome.pair, 0),
-            Saved {
-                points: outcome.points[0],
-                load: outcome.load,
-            },
-        );
-        saved.insert(
-            (outcome.pair, 1),
-            Saved {
-                points: outcome.points[1],
-                load: outcome.load,
-            },
-        );
+    // Saved and fresh pairs alike: a pair above the load limit is discarded
+    // and played again, up to ten passes.
+    let mut outcomes = Vec::new();
+    for pass in 0.. {
+        // Missing and half-played pairs count as void too: nothing valid to keep.
+        let void: Vec<usize> = (run.first..run.past)
+            .filter(|&pair| pair_points(&saved, pair, ctrl, run.max_load).is_none())
+            .collect();
+        saved.retain(|(pair, _), _| !void.contains(pair));
+        let discard: BTreeSet<String> = (void.iter())
+            .flat_map(|pair| [format!("{pair}:0"), format!("{pair}:1")])
+            .collect();
+        if let Some(journal) = &journal {
+            journal.lock().unwrap().discard(&discard)?;
+        }
+        outcomes.retain(|outcome: &Outcome| !void.contains(&outcome.pair));
+        let queued: Vec<usize> = (run.first..run.past)
+            .filter(|&pair| !saved.contains_key(&(pair, 0)))
+            .collect();
+        if queued.is_empty() {
+            break;
+        }
+        if pass == 10 {
+            return Err(format!("{} pairs void after ten passes", queued.len()));
+        }
+        for outcome in run.run(&queued, &openings, journal.as_ref())? {
+            for (game, &points) in (0..).zip(&outcome.points) {
+                let load = outcome.load;
+                saved.insert((outcome.pair, game), Saved { points, load });
+            }
+            outcomes.push(outcome);
+        }
     }
     let game_points: Vec<(f64, f64)> = (run.first..run.past)
         .map(|pair| Ok((saved[&(pair, 0)].points, saved[&(pair, 1)].points)))

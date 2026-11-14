@@ -412,3 +412,37 @@ fn bad_arguments_are_rejected() {
         assert!(!tools(args).status.success(), "{args:?}");
     }
 }
+
+/// A timed match at a fixed measured load (`OTHELLO_TOOLS_LOAD`).
+fn at_load(load: &str, out: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_othello-tools"))
+        .env("OTHELLO_TOOLS_LOAD", load)
+        .args(["match", "--a", "ab:2:1", "--b", "greedy", "--pairs", "2"])
+        .args(["--seed", "7", "--jobs", "1", "--max-load", "7"])
+        .args(["--out", out.to_str().unwrap()])
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn fresh_overload_void() {
+    // Fresh pairs above the load limit never reach the summary or the
+    // journal: they are replayed, and after ten void passes the run fails.
+    let path = temp("overload");
+    let overloaded = at_load("9", &path);
+    assert!(!overloaded.status.success());
+    assert!(String::from_utf8_lossy(&overloaded.stderr).contains("void after ten passes"));
+    assert!(!String::from_utf8_lossy(&overloaded.stdout).contains("pairs 2"));
+    assert_eq!(payloads(&path).len(), 0, "no void record is kept");
+    // Resumed below the limit, the same command completes with valid pairs.
+    let resumed = at_load("1", &path);
+    assert!(resumed.status.success());
+    assert_eq!(payloads(&path).len(), 4);
+    assert!(report(&[&path]).status.success());
+    // A run below the limit throughout gives the same journal.
+    let clean = temp("clean");
+    assert!(at_load("1", &clean).status.success());
+    assert_eq!(payloads(&path), payloads(&clean));
+    fs::remove_file(path).unwrap();
+    fs::remove_file(clean).unwrap();
+}

@@ -1714,7 +1714,7 @@ mod tests {
     }
 
     #[test]
-    fn replay_one_per_game() {
+    fn replay_per_game() {
         let sample = |id, game| Sample {
             id,
             game,
