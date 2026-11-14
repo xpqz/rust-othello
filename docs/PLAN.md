@@ -892,8 +892,8 @@ reusable endgame bounds and honest completion reporting.
   `(-INF, INF)` for exact margins.
 - **Root-only trigger:** when the root has `empty_count <= endgame_threshold`,
   run WDL then exact, with no heuristic iterations. Interior nodes never call
-  the solver. Default threshold 14; Phase 6 may raise it to 14-18 based on
-  measured completion.
+  the solver. Default threshold 14 in this phase; #142 raised it to 18 after
+  a pre-registered match.
 - Timeout integration: an aborted root solve returns the fallback with
   `solved = false`; a completed WDL-only solve is `Partial`. Test this here,
   not in Phase 4.

@@ -504,8 +504,8 @@ impl App {
                 .suffix(" s / move")
                 .text("think time"),
         );
-        ui.add(egui::Slider::new(&mut self.threshold, 8..=16).text("solve at empties"));
-        if self.threshold > 14 {
+        ui.add(egui::Slider::new(&mut self.threshold, 8..=20).text("solve at empties"));
+        if self.threshold > SearchConfig::standard().endgame_threshold {
             ui.label(
                 RichText::new("High solve thresholds need generous think time.")
                     .small()
@@ -650,4 +650,19 @@ fn score_chip(ui: &mut egui::Ui, black: bool, count: u32, you: bool) {
                 .weak(),
         );
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Rendering the settings without input must not move the default threshold.
+    #[test]
+    fn panel_keeps_default_threshold() {
+        let mut app = App::new();
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| app.panel_ui(ui));
+        output.textures_delta.clear();
+        assert_eq!(app.threshold, SearchConfig::standard().endgame_threshold);
+    }
 }
