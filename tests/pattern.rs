@@ -351,6 +351,6 @@ fn evaluate_clamp() {
 fn standard_uses_pattern() {
     let config = othello::search::SearchConfig::standard();
     assert_eq!((config.eval)(Board::START), pattern::evaluate(Board::START));
-    assert_eq!(config.endgame_threshold, 14);
+    assert_eq!(config.endgame_threshold, 18);
     assert!(config.ordering);
 }

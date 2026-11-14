@@ -17,7 +17,7 @@ impl SearchConfig {
     pub fn standard() -> Self {
         Self {
             eval: crate::pattern::evaluate,
-            endgame_threshold: 14,
+            endgame_threshold: 18,
             ordering: true,
         }
     }

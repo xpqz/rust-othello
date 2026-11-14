@@ -1611,6 +1611,6 @@ fn solver_full_game() {
 }
 
 #[test]
-fn standard_threshold_is_14() {
-    assert_eq!(SearchConfig::standard().endgame_threshold, 14);
+fn standard_threshold_is_18() {
+    assert_eq!(SearchConfig::standard().endgame_threshold, 18);
 }
