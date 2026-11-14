@@ -1,19 +1,25 @@
 //! Time to solve, per position, at several empties counts, on the positions of
 //! a recorded match: from each game, the first position with exactly N empties
-//! and a legal move, solved with the threshold set to N under the move budget
-//! a match uses. Cold: table cleared before the solve. In game: the same side's
-//! previous move is searched first on the same table, as a match worker would,
-//! and the solve follows without clearing. Prints every position and, per
-//! condition, the mean, 95th and 99th percentiles and maximum.
-//! usage: solve_times [--empties 16,18,20] [--budget 30000] [--previous 3000]
+//! and a legal move, solved with the threshold set to N. Cold: table cleared
+//! before the solve. Previous-move warmed: the same side's previous move is
+//! searched first on the same table, as a match worker would, and the solve
+//! follows without clearing. One journal line per position, so the job resumes
+//! by re-running the same command; the summary is computed from the journal.
+//! usage: solve_times --out FILE [--empties 16,18,20] [--budget 30000]
+//!        [--previous 3000] [--progress 30]
 
-use std::time::Instant;
+use std::collections::BTreeMap;
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed};
+use std::time::{Duration, Instant};
 
 use othello::board::{Board, empty_count, legal_moves, pass, play};
 use othello::search::{SearchConfig, SearchLimits, search_tt};
 use othello::tt::{MAX_ENTRIES, Table};
+use othello_tools::journal::Journal;
+use othello_tools::provenance::{file_hash, git_commit};
 
-const JOURNAL: &str = "docs/tuning/speed_135_match.journal";
+const SOURCE: &str = "docs/tuning/speed_135_match.journal";
 
 /// Every position of each game with the colour to move, passes included.
 fn games(text: &str) -> Vec<Vec<(Board, bool)>> {
@@ -36,84 +42,173 @@ fn games(text: &str) -> Vec<Vec<(Board, bool)>> {
     games
 }
 
-fn summary(label: &str, empties: u32, times: &mut [f64], unsolved: usize) {
+/// The position to solve and the same side's previous position, if any.
+fn unit(positions: &[(Board, bool)], empties: u32) -> Option<(Board, Option<Board>)> {
+    let movable = |board: Board| legal_moves(board.me, board.opp) != 0;
+    let at = positions
+        .iter()
+        .position(|&(board, _)| empty_count(board) == empties && movable(board))?;
+    let (board, black) = positions[at];
+    let earlier = positions[..at]
+        .iter()
+        .rev()
+        .find(|&&(prior, colour)| colour == black && movable(prior));
+    Some((board, earlier.map(|&(prior, _)| prior)))
+}
+
+fn field<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    let mut words = line.split_whitespace();
+    while let Some(word) = words.next() {
+        if word == name {
+            return words.next();
+        }
+    }
+    None
+}
+
+fn summary(label: &str, empties: &str, mut times: Vec<f64>, unsolved: usize) {
     times.sort_by(|a, b| a.total_cmp(b));
-    let at = |fraction: f64| {
-        times[((times.len() as f64 * fraction).ceil() as usize).min(times.len()) - 1]
+    let rank = |fraction: f64| {
+        let index = (times.len() as f64 * fraction).ceil() as usize;
+        times[index.clamp(1, times.len()) - 1]
     };
     let mean = times.iter().sum::<f64>() / times.len() as f64;
     println!(
         "{label} empties {empties} positions {} mean_ms {mean:.1} p95_ms {:.1} p99_ms {:.1} max_ms {:.1} unsolved {unsolved}",
         times.len(),
-        at(0.95),
-        at(0.99),
+        rank(0.95),
+        rank(0.99),
         times[times.len() - 1]
     );
 }
 
-fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+fn run(args: &[String]) -> Result<(), String> {
     let value = |flag: &str, default: &str| {
         let at = args.iter().position(|arg| arg == flag);
         at.and_then(|at| args.get(at + 1))
             .map_or(default.to_string(), String::clone)
     };
-    let list: Vec<u32> = value("--empties", "16,18,20")
+    let number = |flag: &str, default: &str| {
+        let text = value(flag, default);
+        text.parse::<u64>().map_err(|_| format!("invalid {flag}"))
+    };
+    let out = value("--out", "");
+    if out.is_empty() {
+        return Err("usage: solve_times --out FILE [--empties 16,18,20] [--budget MS] [--previous MS] [--progress S]".into());
+    }
+    let list = value("--empties", "16,18,20");
+    let counts: Vec<u32> = list
         .split(',')
-        .map(|n| n.parse().expect("--empties"))
-        .collect();
-    let budget: u64 = value("--budget", "30000").parse().expect("--budget");
-    let previous: u64 = value("--previous", "3000").parse().expect("--previous");
-    let path = format!("{}/../{JOURNAL}", env!("CARGO_MANIFEST_DIR"));
-    let games = games(&std::fs::read_to_string(path).unwrap());
-    let mut table = Table::new(MAX_ENTRIES);
-    println!("solve_times v1 positions from {JOURNAL} budget_ms {budget} previous_ms {previous}");
-    for empties in list {
-        let config = SearchConfig {
-            endgame_threshold: empties,
-            ..SearchConfig::standard()
-        };
-        let solve = |table: &mut Table, board: Board| {
-            let start = Instant::now();
-            let limits = SearchLimits::new(64, budget, 0);
-            let result = search_tt(board, limits, &config, table);
-            (start.elapsed().as_secs_f64() * 1000.0, result)
-        };
-        let (mut cold, mut warm, mut unsolved) = (Vec::new(), Vec::new(), [0, 0]);
+        .map(|n| n.parse().map_err(|_| "invalid --empties".to_string()))
+        .collect::<Result<_, _>>()?;
+    let (budget, previous) = (number("--budget", "30000")?, number("--previous", "3000")?);
+    let progress = number("--progress", "30")?.max(1);
+    let source = format!("{}/../{SOURCE}", env!("CARGO_MANIFEST_DIR"));
+    let header = format!(
+        "header v1 solve_times empties {list} budget_ms {budget} previous_ms {previous} source {SOURCE} hash {:016x} commit {}",
+        file_hash(&source)?,
+        git_commit()
+    );
+    let (mut journal, done) = Journal::open(Path::new(&out), &header)?;
+    let text = std::fs::read_to_string(&source).map_err(|error| format!("{source}: {error}"))?;
+    let games = games(&text);
+    let mut units = Vec::new();
+    for &empties in &counts {
         for (game, positions) in games.iter().enumerate() {
-            let found = positions.iter().position(|(board, _)| {
-                empty_count(*board) == empties && legal_moves(board.me, board.opp) != 0
-            });
-            let Some(at) = found else { continue };
-            let (board, black) = positions[at];
-            table.clear();
-            let (cold_ms, cold_result) = solve(&mut table, board);
-            let earlier = positions[..at].iter().rposition(|&(prior, colour)| {
-                colour == black && legal_moves(prior.me, prior.opp) != 0
-            });
-            table.clear();
-            if let Some(earlier) = earlier {
-                let limits = SearchLimits::new(64, previous, 0);
-                search_tt(positions[earlier].0, limits, &config, &mut table);
+            if let Some((board, earlier)) = unit(positions, empties) {
+                units.push((format!("{empties}:{game}"), empties, board, earlier));
             }
-            let (warm_ms, warm_result) = solve(&mut table, board);
-            if cold_result.solved && warm_result.solved {
-                assert_eq!(cold_result.score, warm_result.score, "{board:?}");
-            }
-            unsolved[0] += usize::from(!cold_result.solved);
-            unsolved[1] += usize::from(!warm_result.solved);
-            println!(
-                "game {game} empties {empties} board {:016x} {:016x} cold_ms {cold_ms:.1} cold_solved {} in_game_ms {warm_ms:.1} in_game_solved {} score {}",
-                board.me,
-                board.opp,
-                cold_result.solved as u8,
-                warm_result.solved as u8,
-                cold_result.score
-            );
-            cold.push(cold_ms);
-            warm.push(warm_ms);
         }
-        summary("cold", empties, &mut cold, unsolved[0]);
-        summary("in_game", empties, &mut warm, unsolved[1]);
+    }
+    let total = units.len();
+    let finished = AtomicUsize::new(done.len());
+    let stop = AtomicBool::new(false);
+    let start = Instant::now();
+    std::thread::scope(|scope| -> Result<(), String> {
+        scope.spawn(|| {
+            let mut last = Instant::now();
+            while !stop.load(Relaxed) {
+                std::thread::sleep(Duration::from_millis(200));
+                if last.elapsed() >= Duration::from_secs(progress) {
+                    last = Instant::now();
+                    let count = finished.load(Relaxed);
+                    let fresh = (count - done.len()).max(1) as f64;
+                    let eta = start.elapsed().as_secs_f64() / fresh * (total - count) as f64;
+                    eprintln!(
+                        "progress {count}/{total} positions, elapsed {:.0}s eta {eta:.0}s",
+                        start.elapsed().as_secs_f64()
+                    );
+                }
+            }
+        });
+        let mut table = Table::new(MAX_ENTRIES);
+        let result = (|| {
+            for (id, empties, board, earlier) in units.iter().filter(|unit| !done.contains(&unit.0))
+            {
+                let config = SearchConfig {
+                    endgame_threshold: *empties,
+                    ..SearchConfig::standard()
+                };
+                let solve = |table: &mut Table| {
+                    let begin = Instant::now();
+                    let result =
+                        search_tt(*board, SearchLimits::new(64, budget, 0), &config, table);
+                    (begin.elapsed().as_secs_f64() * 1000.0, result)
+                };
+                table.clear();
+                let (cold_ms, cold) = solve(&mut table);
+                table.clear();
+                if let Some(earlier) = earlier {
+                    search_tt(
+                        *earlier,
+                        SearchLimits::new(64, previous, 0),
+                        &config,
+                        &mut table,
+                    );
+                }
+                let (warm_ms, warm) = solve(&mut table);
+                if cold.solved && warm.solved && cold.score != warm.score {
+                    return Err(format!("{id}: scores differ {} {}", cold.score, warm.score));
+                }
+                journal.append(
+                    id,
+                    &format!(
+                        "board {:016x}:{:016x} cold_ms {cold_ms:.1} cold_solved {} cold_score {} warm_ms {warm_ms:.1} warm_solved {} warm_score {}",
+                        board.me, board.opp, cold.solved as u8, cold.score, warm.solved as u8, warm.score
+                    ),
+                )?;
+                finished.fetch_add(1, Relaxed);
+            }
+            Ok(())
+        })();
+        stop.store(true, Relaxed);
+        result
+    })?;
+    let mut groups: BTreeMap<&str, [(Vec<f64>, usize); 2]> = BTreeMap::new();
+    for record in journal.records() {
+        let (empties, _) = record.id.split_once(':').ok_or("invalid journal id")?;
+        let group = groups.entry(empties).or_default();
+        for (slot, (time, solved)) in [("cold_ms", "cold_solved"), ("warm_ms", "warm_solved")]
+            .iter()
+            .enumerate()
+        {
+            let ms = field(&record.line, time).and_then(|ms| ms.parse().ok());
+            group[slot].0.push(ms.ok_or("invalid journal line")?);
+            group[slot].1 += usize::from(field(&record.line, solved) != Some("1"));
+        }
+    }
+    println!("solve_times {header}");
+    for (empties, [cold, warm]) in groups {
+        summary("cold", empties, cold.0, cold.1);
+        summary("previous_move_warmed", empties, warm.0, warm.1);
+    }
+    Ok(())
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Err(message) = run(&args) {
+        eprintln!("{message}");
+        std::process::exit(2);
     }
 }
