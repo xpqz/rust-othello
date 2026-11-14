@@ -13,6 +13,8 @@ use othello::tt::{MAX_ENTRIES, Table};
 const ROUNDS: usize = 5;
 const MIDGAME_DEPTH: u32 = 10;
 const SOLVE_REPEATS: usize = 100;
+/// Fixed split and solve threshold, so the workload does not move with `standard()`.
+const SPLIT_EMPTIES: u32 = 14;
 
 fn workload(
     boards: &[Board],
@@ -20,7 +22,10 @@ fn workload(
     repeats: usize,
     table: &mut Table,
 ) -> (u64, f64, f64) {
-    let config = SearchConfig::standard();
+    let config = SearchConfig {
+        endgame_threshold: SPLIT_EMPTIES,
+        ..SearchConfig::standard()
+    };
     let (mut nodes, mut search, mut clear) = (0, 0.0, 0.0);
     for _ in 0..repeats {
         for &board in boards {
@@ -66,10 +71,9 @@ fn main() {
         })
         .filter(|board| legal_moves(board.me, board.opp) != 0)
         .collect();
-    let threshold = SearchConfig::standard().endgame_threshold;
     let (solves, midgames): (Vec<Board>, Vec<Board>) = boards
         .iter()
-        .partition(|board| empty_count(**board) <= threshold);
+        .partition(|board| empty_count(**board) <= SPLIT_EMPTIES);
     println!(
         "bench v2 (search time; table clearing apart) midgame positions {} depth {MIDGAME_DEPTH} exact positions {} repeats {SOLVE_REPEATS} rounds {ROUNDS}",
         midgames.len(),

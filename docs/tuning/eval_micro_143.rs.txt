@@ -1,0 +1,37 @@
+use std::hint::black_box;
+use std::time::Instant;
+use othello::board::{Board, empty_count, legal_moves, play};
+use othello::pattern::{evaluate, features};
+
+fn main() {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/bench/corpus.txt")).unwrap();
+    let seeds: Vec<Board> = text.lines().filter(|l| !l.starts_with('#')).filter_map(|l| {
+        let mut p = l.split_whitespace();
+        Some(Board { me: u64::from_str_radix(p.next()?, 16).ok()?, opp: u64::from_str_radix(p.next()?, 16).ok()? })
+    }).filter(|b| empty_count(*b) >= 24).collect();
+    let mut x = 0x9e3779b97f4a7c15u64;
+    let mut boards = Vec::new();
+    while boards.len() < 1 << 20 {
+        x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+        let mut b = seeds[(x % seeds.len() as u64) as usize];
+        for _ in 0..12 {
+            let m = legal_moves(b.me, b.opp);
+            if m == 0 { break; }
+            x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+            let n = (x % m.count_ones() as u64) as u32;
+            let mut mm = m; for _ in 0..n { mm &= mm - 1; }
+            b = play(b, mm.trailing_zeros() as u8);
+            if empty_count(b) >= 14 { boards.push(b); }
+        }
+    }
+    let hot: Vec<Board> = boards.iter().take(16).cycle().take(boards.len()).copied().collect();
+    for (name, set) in [("varied", &boards), ("hot16", &hot), ("varied", &boards), ("hot16", &hot)] {
+        let t = Instant::now(); let mut s = 0u32;
+        for _ in 0..5 { for &b in set.iter() { s = s.wrapping_add(features(black_box(b))[7]); } }
+        let f = t.elapsed().as_nanos() as f64 / (5 * set.len()) as f64;
+        let t = Instant::now(); let mut e = 0i32;
+        for _ in 0..5 { for &b in set.iter() { e = e.wrapping_add(evaluate(black_box(b))); } }
+        let v = t.elapsed().as_nanos() as f64 / (5 * set.len()) as f64;
+        println!("{name}: features {f:.1} ns  evaluate (incl. features) {v:.1} ns  [{s} {e}]");
+    }
+}

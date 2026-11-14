@@ -1,0 +1,20 @@
+# Issue 143 step 1. Engine at b9cc414 (issue 142 branch: main plus threshold 18; midgame code identical to main) copied to scratch/profile-143;
+# features, evaluate, runs, legal_moves, flips, ordered_moves, negamax, scout, zobrist, Table::probe/store marked #[inline(never)];
+# depth-9 search_tt on the ten corpus positions with 24 or more empties, table cleared per search, repeated for 40 s;
+# /usr/bin/sample for 25 s starting 5 s in. Same method as docs/tuning/search_profile_139.log. Load about 2.
+positions 10 nodes 430550260 seconds 40.1 nps 10736999
+Sort by top of stack, same collapsed (when >= 5):
+        7pattern8evaluate        4702
+        7pattern8features        4697
+        5board4runs        2412
+        6search13ordered_moves        2363
+        6search7negamax        1690
+        5board5flips        1351
+        5board11legal_moves        451
+        6search5scout        422
+        __bzero  (in libsystem_platform.dylib)        315
+        2tt7zobrist        113
+        2ttNtB4_5Table5probe        64
+        2ttNtB4_5Table5store        39
+        mach_absolute_time  (in libsystem_kernel.dylib)        6
+
