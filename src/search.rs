@@ -92,17 +92,20 @@ pub fn probcut(board: Board, d: u32, alpha: i32, beta: i32, ctx: &mut Ctx) -> Op
         return Some(None);
     };
     ctx.probcut_tries += 1;
+    // Every search value lies within ±EVAL_BOUND, so a threshold beyond the
+    // far bound decides nothing and one beyond the near bound decides as the
+    // bound itself does.
+    let bound = i64::from(EVAL_BOUND);
     let (high, low) = probcut_bounds(&p, d, e, alpha, beta);
-    let reachable = -i64::from(EVAL_BOUND)..=i64::from(EVAL_BOUND);
-    if reachable.contains(&high) {
-        let high = high as i32;
+    if high <= bound {
+        let high = high.max(-bound) as i32;
         if negamax(board, s, high - 1, high, ctx)? >= high {
             ctx.probcut_cuts[0] += 1;
             return Some(Some(beta));
         }
     }
-    if reachable.contains(&low) {
-        let low = low as i32;
+    if low >= -bound {
+        let low = low.min(bound) as i32;
         if negamax(board, s, low, low + 1, ctx)? <= low {
             ctx.probcut_cuts[1] += 1;
             return Some(Some(alpha));

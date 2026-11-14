@@ -220,6 +220,26 @@ fn unreachable_thresholds() {
 }
 
 #[test]
+fn far_thresholds() {
+    // An intercept at ±EVAL_BOUND puts H below -EVAL_BOUND (easy to reach)
+    // or L above EVAL_BOUND (easy to fail low): both still probe and cut.
+    let model = |b| ProbCut {
+        b,
+        ..tight(D, D, 0, 64)
+    };
+    let config = with(model(EVAL_BOUND));
+    assert_eq!(probcut_bounds(&model(EVAL_BOUND), D, 60, -2, -1).0, -6401);
+    let mut ctx = Ctx::new(&config);
+    let high = probcut(Board::START, D, -2, -1, &mut ctx);
+    assert_eq!((high, ctx.probcut_cuts), (Some(Some(-1)), [1, 0]));
+    let config = with(model(-EVAL_BOUND));
+    assert_eq!(probcut_bounds(&model(-EVAL_BOUND), D, 60, 1, 2).1, 6401);
+    let mut ctx = Ctx::new(&config);
+    let low = probcut(Board::START, D, 1, 2, &mut ctx);
+    assert_eq!((low, ctx.probcut_cuts), (Some(Some(1)), [0, 1]));
+}
+
+#[test]
 fn nested_probes() {
     // Constant evaluation, an opening position (no game end within 12
     // plies), depths 3–12 supported, zero margin: the depth-12 check probes
