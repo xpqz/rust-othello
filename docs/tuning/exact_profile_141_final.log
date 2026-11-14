@@ -1,0 +1,45 @@
+# Profile of the exact solver after issue 141. Scratch copy of the engine at 770adce (root crate, root release profile);
+# runs, legal_moves, flips, final_score, ordered_moves, negamax, scout, root, last_square, last_two, zobrist, Table::probe/store marked #[inline(never)];
+# workload as in docs/tuning/exact_profile_141.log: the first 16-empties position with a legal move from each of the 200 games in
+# docs/tuning/speed_135_match.journal, solved through search_tt with endgame_threshold 16, cleared table each, looped for 40 s;
+# /usr/bin/sample for 25 s starting 5 s in.
+loop empties 16 positions 200 solves 800 nodes 520124144 seconds 49.0
+Sort by top of stack, same collapsed (when >= 5):
+        othello5board4runs        7196
+        othello6search13ordered_moves        4196
+        othello6search7negamax        2291
+        othello5board5flips        1839
+        othello6search8last_two        1362
+        othello5board11legal_moves        407
+        othello6search5scout        383
+        othello6search11last_square        323
+        othello2tt7zobrist        160
+        __bzero  (in libsystem_platform.dylib)        148
+        othello5board11final_score        132
+        othello2ttNtB4_5Table5probe        111
+        othello2ttNtB4_5Table5store        82
+        mach_absolute_time  (in libsystem_kernel.dylib)        9
+#
+# Counters by empties at the node, same 200 positions solved once each, scratch copy with counters in negamax (exact nodes only):
+# nodes = negamax entries; no_move = nodes with no legal move for the mover; terminal = neither side can move;
+# tt_hit/tt_cutoff = table entry found / cutoff taken; interior = nodes reaching the move loop;
+# reply_counted_moves = moves played and their replies generated for ordering; children = children searched.
+# Nodes at 2 empties are settled by last_two and at 1 by last_square; 0- and 1-empty nodes no longer occur below them.
+empties nodes no_move terminal tt_hit tt_cutoff interior reply_counted_moves children
+ 0           0         0         0          0          0          0           0           0
+ 1           0         0         0          0          0          0           0           0
+ 2    48089738         0         0          0          0          0           0           0
+ 3    34301398    918617       852    4155463    3642761   29740020           0    48083562
+ 4    22077724    392706       189    2729869    2292270   19392748           0    33377840
+ 5    12109614     98684        81    1625730    1258902   10752028           0    21679646
+ 6     6747783     43972        30    1030397     747876    5955935           0    12006428
+ 7     3491989     12188        12     606393     391168    3088633    14185786     6700012
+ 8     1752121      4570         0     352904     207213    1540338     7641867     3476798
+ 9      832097      1364         0     187818      94366     736367     4127966     1744957
+10      367501       450         0      96219      42765     324286     1895421      828717
+11      162833       125         0      46059      17196     145512      948529      365589
+12       62435        60         0      20613       6771      55604      366991      161645
+13       25315        13         0       8565       2165      23137      169378       61622
+14        7763         4         0       3145        690       7069       51311       24799
+15        2725         0         0       1144        230       2495       20036        7467
+16           0         0         0          0          0          0           0           0
