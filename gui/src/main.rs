@@ -668,7 +668,7 @@ mod tests {
 
     /// The table serves one search policy: a changed setting clears it.
     #[test]
-    fn setting_change_clears_table() {
+    fn setting_clears_table() {
         use othello::tt::{Bound, Entry};
         let mut app = App::new();
         let stored = |app: &App| app.table.lock().unwrap().probe(42).is_some();

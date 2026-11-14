@@ -81,7 +81,8 @@ after the TT probe and before move ordering, with `p = config.probcut`:
    (see [Supported domain](#supported-domain)); there are no holes.
 2. `s = shallow(d)`, a fixed formula with `1 ≤ s < d` on the whole
    rectangle (tested at every cell).
-3. `σ = clamp((p.s0 + p.s1·e + p.s2·d) / 100, 1, SIGMA_MAX)` in centidiscs,
+3. `σ = clamp(ceil((p.s0 + p.s1·e + p.s2·d) / 100), 1, SIGMA_MAX)` in centidiscs
+   (rounded up, the conservative side; #147),
    coefficients in hundredths of a centidisc; `SIGMA_MAX = 2·EVAL_BOUND`.
 4. `t = min(p.t, 400)` hundredths of σ; `m = ceil(t·σ / 100)`.
 5. `a = clamp(p.a_milli, 500, 1500)` thousandths, always positive; `b`
