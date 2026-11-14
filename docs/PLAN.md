@@ -1109,6 +1109,13 @@ the first 200 `openings_probcut2.txt` openings, score **0.7788**
 The engine is 1,017 production lines and `pattern.rs` is 100; tools are
 1,278.
 
+ProbCut v2 (epic #144, design `docs/design/probcut2.md`) refits selective
+search to the learned evaluator. User decision, 14 Nov 2026: "any tools stuff
+for probcut fitting we can say is exempt from the LOC constraints. do what is
+necessary to make it work and make it run as fast as you can." The fitting and
+calibration tools are therefore outside the tools budget and may use threads;
+the engine constraints are unchanged.
+
 ### Process
 
 The working agreement is unchanged: one issue at a time, red/green TDD with a
