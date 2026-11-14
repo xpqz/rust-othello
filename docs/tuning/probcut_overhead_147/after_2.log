@@ -1,0 +1,8 @@
+bench v2 (search time; table clearing apart) midgame positions 12 depth 10 exact positions 8 repeats 100 rounds 5
+round 0 midgame nodes 9724172 ms 806.6 exact nodes 4069500 ms 274.5 clear ms 8.9 544.2
+round 1 midgame nodes 9724172 ms 797.6 exact nodes 4069500 ms 274.8 clear ms 5.1 568.2
+round 2 midgame nodes 9724172 ms 796.1 exact nodes 4069500 ms 274.5 clear ms 5.2 646.9
+round 3 midgame nodes 9724172 ms 798.7 exact nodes 4069500 ms 276.1 clear ms 5.3 522.8
+round 4 midgame nodes 9724172 ms 790.7 exact nodes 4069500 ms 273.2 clear ms 5.2 626.0
+midgame nodes 9724172 min_ms 790.7 median_ms 797.6 max_ms 806.6 spread 0.0201 nodes_per_s 12297994
+exact nodes 4069500 min_ms 273.2 median_ms 274.5 max_ms 276.1 spread 0.0107 nodes_per_s 14898083

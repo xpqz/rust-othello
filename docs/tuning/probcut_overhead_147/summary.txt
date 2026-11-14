@@ -1,0 +1,13 @@
+# Issue 147 off-switch overhead: search_bench (fixed split 14), parent main b1def19 ('before') against 147 GREEN a5a92c1 ('after'), alternating before/after five times, 14 Nov 17:23-17:24, load 2.1 falling to 1.7 after the calibration run ended.
+# before sha256 904948e34c68e040886dae91ecbfc85989cb351343831e6be234da0e03bbcfe3, after sha256 cc78f393a6ac3cb7905524a79d268cb7f37aabc1f5b547db11aacfcdf2592d76
+# run: midgame nodes min_ms spread | exact nodes min_ms spread
+before_1 9724172 789.4 0.0442 | 4069500 273.2 0.0014
+after_1 9724172 789.7 0.0417 | 4069500 272.4 0.0117
+before_2 9724172 792.2 0.0063 | 4069500 272.5 0.0124
+after_2 9724172 790.7 0.0201 | 4069500 273.2 0.0107
+before_3 9724172 790.4 0.0058 | 4069500 273.4 0.0136
+after_3 9724172 790.2 0.0069 | 4069500 274.5 0.0071
+before_4 9724172 792.3 0.0187 | 4069500 273.6 0.0191
+after_4 9724172 789.4 0.0092 | 4069500 273.5 0.0111
+before_5 9724172 790.2 0.0113 | 4069500 272.8 0.0095
+after_5 9724172 792.1 0.0029 | 4069500 272.8 0.0184
