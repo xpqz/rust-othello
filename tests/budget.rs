@@ -62,7 +62,6 @@ fn budget_guard() {
     assert!(total <= 1500, "engine production lines {total} exceed 1500");
 }
 
-
 #[test]
 fn asset_budget() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
