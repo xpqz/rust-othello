@@ -82,3 +82,31 @@ fn fresh_set_is_spread_across_groups() {
     }
     assert!(*first.values().max().unwrap() <= 100);
 }
+
+#[test]
+fn gate_set_is_disjoint() {
+    let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../bench");
+    let gate = end_keys(&base.join("openings_probcut3.txt"));
+    assert_eq!(gate.len(), 1024);
+    for file in [
+        "openings_tune.txt",
+        "openings_validation.txt",
+        "openings_final.txt",
+        "openings_probcut2.txt",
+    ] {
+        assert!(gate.is_disjoint(&end_keys(&base.join(file))), "{file}");
+    }
+}
+
+#[test]
+fn gate_set_is_spread() {
+    // The gate plays the first 400 openings: no group holds more than 10%.
+    let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../bench");
+    let gate = positions::load(base.join("openings_probcut3.txt").to_str().unwrap()).unwrap();
+    let mut groups = std::collections::BTreeMap::new();
+    for opening in gate.iter().take(400) {
+        *groups.entry(opening.key).or_insert(0usize) += 1;
+    }
+    assert!(*groups.values().max().unwrap() <= 40, "{groups:?}");
+    assert!(groups.len() >= 20);
+}
