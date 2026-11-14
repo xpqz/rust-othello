@@ -20,6 +20,7 @@
 //!        [--deep-depth 16] [--deep-every 8] [--jobs 6] [--seed 145]
 //!        probcut_fit fit --in FILE [--t 150] [--min-cell 30]
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
@@ -299,6 +300,7 @@ fn collect(args: &[String]) -> Result<(), String> {
 
 struct Sample {
     id: usize,
+    game: usize,
     board: Board,
     empties: u32,
     values: Vec<i32>,
@@ -347,6 +349,9 @@ fn samples(path: &Path) -> Result<Vec<Sample>, String> {
                 .ok_or("bad board")?;
             Ok(Sample {
                 id: record.id.parse().map_err(|_| "bad unit id")?,
+                game: field(line, "game")
+                    .and_then(|g| g.parse().ok())
+                    .ok_or("bad game")?,
                 board: Board { me, opp },
                 empties: number("empties").ok_or("bad empties")?,
                 values,
@@ -388,26 +393,25 @@ fn canonical(board: Board) -> (u64, u64) {
     best
 }
 
-/// Split by canonical position: 0 fit (60%), 1 selection (20%), 2 audit (20%).
-fn split((me, opp): (u64, u64)) -> usize {
-    match mix(me ^ mix(opp)) % 10 {
+/// Fold by game: 0 fit (60%), 1 selection (20%), 2 audit (20%).
+fn fold(game: usize) -> usize {
+    match mix(game as u64 ^ 0x5eed_f01d) % 10 {
         0..=5 => 0,
         6 | 7 => 1,
         _ => 2,
     }
 }
 
-/// Samples without repeated canonical positions (the lowest unit id is
-/// kept), each with its split.
-fn distinct(mut samples: Vec<Sample>) -> Vec<(usize, Sample)> {
+/// Samples in game folds without repeated canonical positions across folds
+/// (the lowest unit id is kept); development units are never in the audit fold.
+fn distinct(mut samples: Vec<Sample>, development: &HashSet<usize>) -> Vec<(usize, Sample)> {
     samples.sort_by_key(|sample| sample.id);
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = HashSet::new();
     samples
         .into_iter()
-        .filter_map(|sample| {
-            let key = canonical(sample.board);
-            seen.insert(key).then(|| (split(key), sample))
-        })
+        .filter(|sample| seen.insert(canonical(sample.board)))
+        .map(|sample| (fold(sample.game), sample))
+        .filter(|(fold, sample)| !(*fold == 2 && development.contains(&sample.id)))
         .collect()
 }
 
@@ -433,15 +437,18 @@ const RULES: [Rule; 3] = [
     ("d-6", |d| d - 6, 7),
 ];
 
-/// Pairs `(v_s, v_d)` per split.
+/// Pairs `(v_s, v_d)` and the positions' empties, per split.
 #[derive(Default, Clone)]
 struct Cell {
     pairs: [Vec<(f64, f64)>; 3],
+    empties: [Vec<u32>; 3],
 }
 
-/// `grid[d][bucket]` for depths from the rule's minimum.
+/// `grid[d][bucket]` for depths from the rule's minimum, at most one position
+/// per game in each cell (samples come sorted by unit id: the lowest is kept).
 fn cells(samples: &[(usize, Sample)], (_, rule, least): Rule) -> Vec<Vec<Cell>> {
     let mut grid = vec![vec![Cell::default(); BUCKETS.len()]; *DEPTHS.end() as usize + 1];
+    let mut used = HashSet::new();
     for (split, sample) in samples {
         let Some(bucket) = BUCKETS
             .iter()
@@ -453,8 +460,11 @@ fn cells(samples: &[(usize, Sample)], (_, rule, least): Rule) -> Vec<Vec<Cell>> 
             if let (Some(&vd), Some(&vs)) = (
                 sample.values.get(d as usize),
                 sample.values.get(rule(d) as usize),
-            ) {
-                grid[d as usize][bucket].pairs[*split].push((f64::from(vs), f64::from(vd)));
+            ) && used.insert((d, bucket, sample.game))
+            {
+                let cell = &mut grid[d as usize][bucket];
+                cell.pairs[*split].push((f64::from(vs), f64::from(vd)));
+                cell.empties[*split].push(sample.empties);
             }
         }
     }
@@ -568,6 +578,19 @@ fn rect_cells(((d0, d1), (b0, b1)): Rect) -> impl Iterator<Item = (u32, usize)> 
     (d0..=d1).flat_map(move |d| (b0..=b1).map(move |b| (d, b)))
 }
 
+/// The rectangle order: most cells, smallest mean σ, smallest first depth,
+/// largest last depth, smallest first bucket, largest last bucket.
+fn better(x: (usize, f64, Rect), y: (usize, f64, Rect)) -> bool {
+    let (((xd0, xd1), (xb0, xb1)), ((yd0, yd1), (yb0, yb1))) = (x.2, y.2);
+    y.0.cmp(&x.0)
+        .then(x.1.total_cmp(&y.1))
+        .then(xd0.cmp(&yd0))
+        .then(yd1.cmp(&xd1))
+        .then(xb0.cmp(&yb0))
+        .then(yb1.cmp(&xb1))
+        .is_lt()
+}
+
 /// Whether one cell passes on the given split with the model as inflated.
 fn accepted(cell: &Cell, split: usize, model: &Model, d: u32, bucket: usize) -> bool {
     let pairs = &cell.pairs[split];
@@ -622,7 +645,7 @@ fn best_rect(
                         / count as f64;
                     if best
                         .as_ref()
-                        .is_none_or(|&(c, m, _, _)| count > c || (count == c && mean < m))
+                        .is_none_or(|&(c, m, r, _)| better((count, mean, rect), (c, m, r)))
                     {
                         best = Some((count, mean, rect, inflated));
                     }
@@ -675,11 +698,11 @@ fn forms(grid: &[Vec<Cell>]) -> Vec<(&'static str, Model)> {
 
 fn report_cells(name: &str, grid: &[Vec<Cell>], model: Option<&Model>, rule: fn(u32) -> u32) {
     println!(
-        "\nrule {name}: per cell; spread of v_d - v_s by split (fit, selection, audit){}",
+        "\nrule {name}: per cell; spread of v_d - v_s on fit and selection (audit counted only){}",
         if model.is_some() { "; model sigma" } else { "" }
     );
     println!(
-        "   d  s  bucket  n_fit n_sel n_aud  sd_fit  sd_sel  sd_aud{}",
+        "   d  s  bucket  n_fit n_sel n_aud  sd_fit  sd_sel{}",
         if model.is_some() { "   sigma" } else { "" }
     );
     for d in DEPTHS {
@@ -690,7 +713,7 @@ fn report_cells(name: &str, grid: &[Vec<Cell>], model: Option<&Model>, rule: fn(
             }
             let unit = (1.0, 0.0);
             print!(
-                "  {d:2} {:2}  {:2}-{:2}  {:5} {:5} {:5}  {:6.1}  {:6.1}  {:6.1}",
+                "  {d:2} {:2}  {:2}-{:2}  {:5} {:5} {:5}  {:6.1}  {:6.1}",
                 rule(d),
                 BUCKETS[bucket].0,
                 BUCKETS[bucket].1,
@@ -698,8 +721,7 @@ fn report_cells(name: &str, grid: &[Vec<Cell>], model: Option<&Model>, rule: fn(
                 s.len(),
                 a.len(),
                 spread(f, unit),
-                spread(s, unit),
-                spread(a, unit)
+                spread(s, unit)
             );
             match model {
                 Some(model) => println!("  {:6.1}", model.sigma(d, bucket)),
@@ -707,6 +729,20 @@ fn report_cells(name: &str, grid: &[Vec<Cell>], model: Option<&Model>, rule: fn(
             }
         }
     }
+}
+
+/// Empties bounds of a rectangle, intersected with the selection positions
+/// in it, the solver threshold and the largest supported count.
+fn empties_bounds(grid: &[Vec<Cell>], ((d0, d1), (b0, b1)): Rect) -> (u32, u32) {
+    let seen: Vec<u32> = rect_cells(((d0, d1), (b0, b1)))
+        .flat_map(|(d, b)| grid[d as usize][b].empties[1].iter().copied())
+        .collect();
+    let low = seen.iter().copied().min().unwrap_or(BUCKETS[b0].0);
+    let high = seen.iter().copied().max().unwrap_or(BUCKETS[b1].1);
+    (
+        BUCKETS[b0].0.max(low).max(THRESHOLD + 2),
+        BUCKETS[b1].1.min(high).min(MAX_EMPTIES),
+    )
 }
 
 fn fit(args: &[String]) -> Result<(), String> {
@@ -717,15 +753,27 @@ fn fit(args: &[String]) -> Result<(), String> {
     };
     let input = value("--in", "");
     if input.is_empty() {
-        return Err("usage: probcut_fit fit --in FILE [--audit]".into());
+        return Err("usage: probcut_fit fit --in FILE --dev FILE [--audit]".into());
     }
+    let dev_path = value("--dev", "");
+    let development: HashSet<usize> = std::fs::read_to_string(&dev_path)
+        .map_err(|error| format!("--dev {dev_path}: {error}"))?
+        .lines()
+        .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
+        .map(|line| {
+            line.trim()
+                .parse()
+                .map_err(|_| format!("bad unit id {line}"))
+        })
+        .collect::<Result<_, _>>()?;
     let audit = args.iter().any(|arg| arg == "--audit");
     let raw = samples(Path::new(&input))?;
     let total = raw.len();
-    let samples = distinct(raw);
+    let samples = distinct(raw, &development);
     let counts = [0, 1, 2].map(|s| samples.iter().filter(|(split, _)| *split == s).count());
     println!(
-        "probcut_fit fit {input} records {total} distinct {} fit {} selection {} audit {} min_positions {MIN_POSITIONS} floor {FLOOR} max_error {MAX_ERROR} check_t {CHECK_T}",
+        "probcut_fit fit {input} records {total} development {} kept {} fit {} selection {} audit {} min_positions {MIN_POSITIONS} floor {FLOOR} max_error {MAX_ERROR} check_t {CHECK_T}",
+        development.len(),
         samples.len(),
         counts[0],
         counts[1],
@@ -755,7 +803,7 @@ fn fit(args: &[String]) -> Result<(), String> {
                     );
                     if chosen
                         .as_ref()
-                        .is_none_or(|c| count > c.0 || (count == c.0 && mean < c.1))
+                        .is_none_or(|c| better((count, mean, rect), (c.0, c.1, c.4)))
                     {
                         chosen = Some((count, mean, rule.0, form, rect, inflated));
                     }
@@ -771,8 +819,7 @@ fn fit(args: &[String]) -> Result<(), String> {
     let grid = cells(&samples, rule);
     report_cells(name, &grid, Some(&model), rule.1);
     let ((d0, d1), (b0, b1)) = rect;
-    let e_min = BUCKETS[b0].0.max(THRESHOLD + 2);
-    let e_max = BUCKETS[b1].1.min(MAX_EMPTIES);
+    let (e_min, e_max) = empties_bounds(&grid, rect);
     println!(
         "\nchosen (selection split): rule {name} form {form} a {:.4} b {:.1} inflation {:.3}\n  rectangle depths {d0}..={d1} empties {e_min}..={e_max}",
         model.line.0, model.line.1, model.k
@@ -818,30 +865,35 @@ fn fit(args: &[String]) -> Result<(), String> {
     if failed.is_empty() {
         println!("audit: every cell meets the floor; rectangle unchanged");
     } else {
-        // Shrink: the largest sub-rectangle without a failed cell, no refit.
-        let mut best: Option<(usize, Rect)> = None;
+        // Shrink by the rectangle order to a sub-rectangle without failed cells; no refit.
+        let mut best: Option<(usize, f64, Rect)> = None;
         for e0 in d0..=d1 {
             for e1 in e0..=d1 {
                 for c0 in b0..=b1 {
                     for c1 in c0..=b1 {
                         let sub = ((e0, e1), (c0, c1));
                         let count = rect_cells(sub).count();
+                        let mean = rect_cells(sub).map(|(d, b)| model.sigma(d, b)).sum::<f64>()
+                            / count as f64;
                         if rect_cells(sub).all(|cell| !failed.contains(&cell))
-                            && best.is_none_or(|(c, _)| count > c)
+                            && best.is_none_or(|b| better((count, mean, sub), b))
                         {
-                            best = Some((count, sub));
+                            best = Some((count, mean, sub));
                         }
                     }
                 }
             }
         }
         match best {
-            Some((_, ((e0, e1), (c0, c1)))) => println!(
-                "audit: {} cells fail the floor; rectangle shrinks to depths {e0}..={e1} empties {}..={}",
-                failed.len(),
-                BUCKETS[c0].0.max(THRESHOLD + 2),
-                BUCKETS[c1].1.min(MAX_EMPTIES)
-            ),
+            Some((_, _, sub)) => {
+                let (low, high) = empties_bounds(&grid, sub);
+                println!(
+                    "audit: {} cells fail the floor; rectangle shrinks to depths {}..={} empties {low}..={high}",
+                    failed.len(),
+                    sub.0.0,
+                    sub.0.1
+                );
+            }
             None => println!("audit: every cell fails; no rectangle"),
         }
     }
@@ -977,18 +1029,22 @@ mod tests {
         };
         let sample = |id, board| Sample {
             id,
+            game: id,
             board,
             empties: 50,
             values: vec![0],
         };
-        let kept = distinct(vec![
-            sample(7, mirrored),
-            sample(3, board),
-            sample(5, Board::START),
-        ]);
+        let kept = distinct(
+            vec![
+                sample(7, mirrored),
+                sample(3, board),
+                sample(5, Board::START),
+            ],
+            &HashSet::new(),
+        );
         let ids: Vec<usize> = kept.iter().map(|(_, s)| s.id).collect();
         assert_eq!(ids, [3, 5]);
-        assert_eq!(kept[0].0, split(canonical(board)));
+        assert_eq!(kept[0].0, fold(3));
     }
 
     #[test]
@@ -1021,5 +1077,107 @@ mod tests {
         );
         assert_eq!(rect_cells(rect).count(), 18, "{rect:?}");
         assert!(inflated.k >= 1.0 && inflated.k < 1.1, "k {}", inflated.k);
+    }
+
+    #[test]
+    fn development_units_never_audit() {
+        let audit_game = (0..1000).find(|&g| fold(g) == 2).unwrap();
+        let other = (0..1000).find(|&g| fold(g) == 0).unwrap();
+        let board = |n: u64| Board {
+            me: 1 << n,
+            opp: 1 << (n + 20),
+        };
+        let samples = vec![
+            Sample {
+                id: 1,
+                game: audit_game,
+                board: board(1),
+                empties: 50,
+                values: vec![0],
+            },
+            Sample {
+                id: 2,
+                game: audit_game,
+                board: board(2),
+                empties: 50,
+                values: vec![0],
+            },
+            Sample {
+                id: 3,
+                game: other,
+                board: board(3),
+                empties: 50,
+                values: vec![0],
+            },
+        ];
+        let development = HashSet::from([1, 3]);
+        let kept: Vec<(usize, usize)> = distinct(samples, &development)
+            .iter()
+            .map(|(f, s)| (*f, s.id))
+            .collect();
+        assert_eq!(kept, [(2, 2), (0, 3)]);
+    }
+
+    #[test]
+    fn one_position_per_game_in_a_cell() {
+        let board = |n: u64| Board {
+            me: 1 << n,
+            opp: 1 << (n + 20),
+        };
+        let values: Vec<i32> = (0..=4).collect();
+        let samples = vec![
+            (
+                0,
+                Sample {
+                    id: 1,
+                    game: 9,
+                    board: board(1),
+                    empties: 30,
+                    values: values.clone(),
+                },
+            ),
+            (
+                0,
+                Sample {
+                    id: 2,
+                    game: 9,
+                    board: board(2),
+                    empties: 31,
+                    values: values.clone(),
+                },
+            ),
+            (
+                0,
+                Sample {
+                    id: 3,
+                    game: 8,
+                    board: board(3),
+                    empties: 30,
+                    values,
+                },
+            ),
+        ];
+        let grid = cells(&samples, RULES[0]);
+        assert_eq!(grid[3][1].pairs[0].len(), 2);
+        assert_eq!(grid[3][1].empties[0], [30, 30]);
+    }
+
+    #[test]
+    fn rectangle_order_and_empties_bounds() {
+        let r = |d0, d1, b0, b1| ((d0, d1), (b0, b1));
+        assert!(better((6, 300.0, r(3, 5, 1, 2)), (4, 100.0, r(3, 4, 1, 2))));
+        assert!(better((6, 299.0, r(4, 6, 1, 2)), (6, 300.0, r(3, 5, 1, 2))));
+        assert!(better((6, 300.0, r(3, 5, 1, 2)), (6, 300.0, r(4, 6, 1, 2))));
+        assert!(better((6, 300.0, r(3, 5, 1, 2)), (6, 300.0, r(3, 5, 2, 3))));
+        assert!(!better(
+            (6, 300.0, r(3, 5, 1, 2)),
+            (6, 300.0, r(3, 5, 1, 2))
+        ));
+        let mut grid = vec![vec![Cell::default(); BUCKETS.len()]; *DEPTHS.end() as usize + 1];
+        grid[3][0].empties[1] = vec![21, 23];
+        grid[3][1].empties[1] = vec![24, 29];
+        assert_eq!(empties_bounds(&grid, r(3, 3, 0, 1)), (21, 29));
+        grid[3][0].empties[1] = vec![17];
+        assert_eq!(empties_bounds(&grid, r(3, 3, 0, 1)), (THRESHOLD + 2, 29));
     }
 }
