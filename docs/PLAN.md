@@ -177,9 +177,17 @@ struct SearchResult {
   no heuristic iterations. Run WDL, then exact. If exact completes, status is
   `Complete`, `depth = 0`, `solved = true`. If only WDL completes, status is
   `Partial`, `solved = false`, `score` is the WDL bound, and `best` is the WDL
-  root move. If WDL aborts,
-  status is `Fallback`, `depth = 0`, `solved = false`, and `score` is the root
-  static evaluation.
+  root move. If WDL aborts and node budget is left (none was set, or the
+  deadline fired first), a heuristic search to depth 8 runs on the remaining
+  node budget with no deadline, and its result is returned: `Partial`,
+  `depth` the heuristic depth it completed, `solved = false`. If the node
+  budget is used up, status is `Fallback`, `depth = 0`, `solved = false`, and
+  `score` is the root static evaluation, so a node limit is never exceeded.
+  (Issue 142; before it, every WDL abort gave `Fallback`.)
+- The solver root's deadline is four times `time_ms` from the same entry
+  instant (`SOLVE_ALLOWANCE`), so an exact solve may overrun the move time;
+  heuristic search keeps `time_ms`. Unlimited time saturates and stays
+  unlimited.
 - A partial iteration is discarded. Only completed depths update the best move.
   Once the root is proven exact, stop deepening instead of repeating solves.
 - Deadline checks happen at node entry and before expensive ordering work.

@@ -24,6 +24,10 @@ impl SearchConfig {
 }
 
 pub const NO_DEADLINE: u64 = u64::MAX;
+/// An exact solve may run to this many times the move time.
+const SOLVE_ALLOWANCE: u64 = 4;
+/// Depth of the heuristic search that stands in for a solve that ran out of time.
+const FALLBACK_DEPTH: u32 = 8;
 const EXACT_ORDER_DEPTH: u32 = 2;
 /// Exact search with fewer empties orders moves without counting replies.
 const PLAIN_ORDER_EMPTIES: u32 = 7;
@@ -34,6 +38,7 @@ const HINT_BONUS: i32 = 800;
 #[derive(Clone, Copy, Debug)]
 pub struct SearchLimits {
     pub max_depth: u32,
+    /// Move time from entry; an exact solve may use `SOLVE_ALLOWANCE` times it.
     pub time_ms: u64,
     pub max_nodes: u64,
 }
@@ -421,14 +426,16 @@ fn search_inner(
     config: &SearchConfig,
     mut table: Option<&mut Table>,
 ) -> SearchResult {
-    let deadline = Instant::now().checked_add(Duration::from_millis(limits.time_ms));
+    let start = Instant::now();
+    let deadline = start.checked_add(Duration::from_millis(limits.time_ms));
     let (moves, fallback, fallback_result) = root_setup(board, config);
     if empty_count(board) <= config.endgame_threshold {
+        let allowance = limits.time_ms.saturating_mul(SOLVE_ALLOWANCE);
         let mut ctx = Ctx {
             config,
             nodes: 0,
             max_nodes: limits.max_nodes,
-            deadline,
+            deadline: start.checked_add(Duration::from_millis(allowance)),
             table: None,
             exact: true,
         };
@@ -436,7 +443,8 @@ fn search_inner(
             ctx.set_table(table);
         }
         let Some((wdl_best, wdl)) = wdl_root(board, moves, fallback, &mut ctx) else {
-            return fallback_result;
+            let used = ctx.nodes;
+            return fallback_search(board, limits, config, table, used, fallback_result);
         };
         ctx.exact = true;
         let (alpha, beta) = match wdl {
@@ -482,6 +490,35 @@ fn search_inner(
         result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
     }
     if result.depth > 0 && result.depth < limits.max_depth {
+        result.status = SearchStatus::Partial;
+    }
+    result
+}
+
+/// After a win/draw/loss pass that did not finish: a heuristic search to
+/// `FALLBACK_DEPTH` on whatever node budget is left, so that the move is not
+/// the arbitrary lowest square. A used-up budget gets the static fallback.
+fn fallback_search(
+    board: Board,
+    limits: SearchLimits,
+    config: &SearchConfig,
+    table: Option<&mut Table>,
+    used: u64,
+    fallback: SearchResult,
+) -> SearchResult {
+    let spare = match limits.max_nodes {
+        0 => 0,
+        max if max > used => max - used,
+        _ => return fallback,
+    };
+    let heuristic = SearchConfig {
+        endgame_threshold: 0,
+        ..*config
+    };
+    let limits = SearchLimits::new(FALLBACK_DEPTH, NO_DEADLINE, spare);
+    let mut result = search_inner(board, limits, &heuristic, table);
+    result.nodes += used;
+    if result.depth > 0 {
         result.status = SearchStatus::Partial;
     }
     result

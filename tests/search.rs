@@ -1286,6 +1286,41 @@ fn exact_timeout_plays_heuristic() {
     assert!(checked >= 10, "{checked} positions checked");
 }
 
+/// With both a time and a node limit, the fallback search spends only the
+/// nodes left: none left gives the static fallback, a few give a shallower
+/// heuristic move, plenty give depth 8; the total never passes the limit.
+#[test]
+fn exact_timeout_node_budget() {
+    let config = SearchConfig {
+        endgame_threshold: 14,
+        ..config()
+    };
+    let board = sample_positions(14, 14, 40)
+        .into_iter()
+        .filter(|board| legal_moves(board.me, board.opp) != 0)
+        .find(|&board| {
+            let mut ctx = Ctx::new(&config);
+            solve_wdl(board, &mut ctx).unwrap();
+            ctx.nodes >= 4096
+        })
+        .unwrap();
+    // An expired deadline is seen at the 1,024th node.
+    let run = |max_nodes| {
+        let mut table = Table::new(1 << 16);
+        let limits = SearchLimits::new(64, 0, max_nodes);
+        search_tt(board, limits, &config, &mut table)
+    };
+    let spent = run(1024);
+    assert_eq!(spent.status, SearchStatus::Fallback);
+    assert!(!spent.solved);
+    let few = run(1024 + 40);
+    assert!(few.nodes <= 1024 + 40, "{} nodes", few.nodes);
+    assert!(few.depth < 8 && !few.solved);
+    let plenty = run(1 << 30);
+    assert_eq!((plenty.status, plenty.depth), (SearchStatus::Partial, 8));
+    assert!(plenty.nodes > 1024 && plenty.nodes <= 1 << 30);
+}
+
 /// An exact solve may run to four times the move time, measured from the
 /// start of the move: one that needs about 2.5 times the move time is
 /// still solved, and one whose win/draw/loss pass needs ten times it ends
