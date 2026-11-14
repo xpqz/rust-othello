@@ -26,7 +26,7 @@ impl SearchConfig {
 pub const NO_DEADLINE: u64 = u64::MAX;
 const EXACT_ORDER_DEPTH: u32 = 2;
 /// Exact search with fewer empties orders moves without counting replies.
-const PLAIN_ORDER_EMPTIES: u32 = 5;
+const PLAIN_ORDER_EMPTIES: u32 = 7;
 const EVAL_ORDER_DEPTH: u32 = 4;
 const REPLY_WEIGHT: i32 = 300;
 const HINT_BONUS: i32 = 800;
