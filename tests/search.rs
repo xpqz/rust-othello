@@ -1227,22 +1227,50 @@ fn wdl_stores_bounds() {
     assert_eq!(entry.value, 0);
 }
 
-/// When the win/draw/loss pass cannot finish, the move is that of a depth-8
-/// heuristic search, not the lowest legal square: the reported score is that
-/// search's, and the move chosen is worth it.
+/// A node budget spent by the win/draw/loss pass is not exceeded: the
+/// static fallback, as before.
+#[test]
+fn wdl_cancellation_falls_back() {
+    let config = config();
+    let board = endgame_board(6);
+    let mut table = Table::new(1 << 16);
+    let limits = SearchLimits {
+        max_depth: 10,
+        time_ms: NO_DEADLINE,
+        max_nodes: 1,
+    };
+    let result = search_tt(board, limits, &config, &mut table);
+    assert_eq!(result.status, SearchStatus::Fallback);
+    assert!(!result.solved);
+}
+
+/// When time runs out before the win/draw/loss pass finishes, the move is
+/// that of a depth-8 heuristic search, not the lowest legal square: the
+/// reported score is that search's, and the move chosen is worth it.
 #[test]
 fn exact_timeout_plays_heuristic() {
-    let config = config();
+    let config = SearchConfig {
+        endgame_threshold: 14,
+        ..config()
+    };
     let heuristic = heuristic_config();
-    for board in sample_positions(10, 12, 20) {
+    let mut checked = 0;
+    for board in sample_positions(14, 14, 40) {
         if legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        // The deadline is looked at every 1,024 nodes, so a solve this
+        // small can finish before it is seen.
+        let mut ctx = Ctx::new(&config);
+        solve_wdl(board, &mut ctx).unwrap();
+        if ctx.nodes < 4096 {
             continue;
         }
         let mut table = Table::new(1 << 16);
         let limits = SearchLimits {
             max_depth: 64,
-            time_ms: NO_DEADLINE,
-            max_nodes: 1,
+            time_ms: 0,
+            max_nodes: 0,
         };
         let result = search_tt(board, limits, &config, &mut table);
         assert_eq!(result.status, SearchStatus::Partial, "{board:?}");
@@ -1253,7 +1281,65 @@ fn exact_timeout_plays_heuristic() {
         let mut ctx = Ctx::new(&heuristic);
         let child = negamax(play(board, result.best), 7, -INF, INF, &mut ctx).unwrap();
         assert_eq!(-child, reference, "{board:?} move {}", result.best);
+        checked += 1;
     }
+    assert!(checked >= 10, "{checked} positions checked");
+}
+
+/// An exact solve may run to four times the move time, measured from the
+/// start of the move: one that needs about 2.5 times the move time is
+/// still solved, and one whose win/draw/loss pass needs ten times it ends
+/// near the fourfold limit with the heuristic move. Wall-clock margins are
+/// wide; release builds only.
+#[test]
+#[cfg_attr(debug_assertions, ignore = "release-only")]
+fn solve_allowance() {
+    let config = SearchConfig {
+        endgame_threshold: 18,
+        ..config()
+    };
+    let timed = |board: Board, time_ms: u64| {
+        let mut table = Table::new(othello::tt::MAX_ENTRIES);
+        let start = Instant::now();
+        let result = search_tt(
+            board,
+            SearchLimits::new(64, time_ms, 0),
+            &config,
+            &mut table,
+        );
+        (result, start.elapsed().as_secs_f64() * 1000.0)
+    };
+    let board = sample_positions(17, 18, 60)
+        .into_iter()
+        .filter(|board| legal_moves(board.me, board.opp) != 0)
+        .find(|&board| (300.0..3000.0).contains(&timed(board, NO_DEADLINE).1))
+        .expect("a position solved in 0.3 to 3 s");
+    let (_, solve_ms) = timed(board, NO_DEADLINE);
+    let (result, elapsed) = timed(board, (solve_ms / 2.5) as u64);
+    assert!(
+        result.solved,
+        "{board:?}: not solved in four times {:.0} ms",
+        solve_ms / 2.5
+    );
+    assert!(elapsed > solve_ms / 2.5, "{elapsed:.0} ms");
+    let wdl_ms = {
+        let mut table = Table::new(othello::tt::MAX_ENTRIES);
+        let mut ctx = Ctx::new(&config);
+        ctx.set_table(&mut table);
+        let start = Instant::now();
+        solve_wdl(board, &mut ctx).unwrap();
+        start.elapsed().as_secs_f64() * 1000.0
+    };
+    let limit = (wdl_ms / 10.0) as u64;
+    let (result, elapsed) = timed(board, limit);
+    assert_eq!(result.status, SearchStatus::Partial, "{board:?}");
+    assert_eq!(result.depth, 8);
+    assert!(!result.solved);
+    let hard = 4.0 * limit as f64;
+    assert!(
+        elapsed >= hard && elapsed <= hard + 200.0,
+        "{elapsed:.0} ms against {hard:.0}"
+    );
 }
 
 #[test]
