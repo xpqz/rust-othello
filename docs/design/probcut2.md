@@ -1,12 +1,12 @@
 # ProbCut v2: Design
 
-Nov 14, 2026 · Draft, revision 2 · SKIS epic #144, design issue #145
+Nov 14, 2026 · Draft, revision 3 · SKIS epic #144, design issue #145
 
 > Scope: selective pruning in the heuristic (midgame) search, fitted to the
 > learned pattern evaluator. The exact solver is untouched. `docs/PLAN.md`
 > stays the source of truth for budgets, statistics and process. This is a
 > fresh design. It cites v1 (`docs/design/probcut.md`, tag `probcut-v1`)
-> for its evidence, not as a template. Revision 2 answers the first review;
+> for its evidence, not as a template. Revisions 2 and 3 answer the first two reviews;
 > [Review response](#review-response) maps each finding to its change.
 
 ## Why a second version, and what v1 taught
@@ -96,8 +96,12 @@ Steps 1–7 are one public function, `probcut(board, d, α, β, ctx) ->
 Option<Option<i32>>` (outer `None` on cancellation, inner the cut bound),
 which `negamax` calls and the runtime replay calls directly.
 
-Steps 3–7 are in `i64`. With the clamps the largest magnitude is about
-`(INF + 4·SIGMA_MAX + EVAL_BOUND)·1000 ≈ 1.06·10^9`, far inside `i64`.
+Steps 3–7 are in `i64`. In step 3, `d` and `e` are at most 64 at any node
+and the coefficients are `i32`, so `|s0| + 64·|s1| + 64·|s2| < 129·2^31
+≈ 2.8·10^11` before the division and clamp. In steps 6–7 the clamped
+values bound the largest magnitude by about
+`(INF + 4·SIGMA_MAX + EVAL_BOUND)·1000 ≈ 1.06·10^9`. Both are far inside
+`i64`.
 Ceiling and floor of the signed division use `div_euclid` with a
 correction, so rounding is toward the harder-to-reach side for any sign.
 Every `ProbCut` value, including one built directly with out-of-range
@@ -117,9 +121,10 @@ selective search wrote. "Full-width" describes a whole search run with
 ## Configuration, API and table lifecycle
 
 - `SearchConfig` gains `pub probcut: Option<ProbCut>`. `ProbCut` is a
-  small `Copy` struct with public fields `t`, `s0`, `s1`, `s2`, `a_milli`,
-  `b`, `d_min`, `d_max`, `e_min`, `e_max`. Tools inject candidate models
-  and `t` values without recompiling.
+  small `Copy` struct with public fields `t: u32`, `s0: i32`, `s1: i32`,
+  `s2: i32`, `a_milli: i32`, `b: i32`, `d_min: u32`, `d_max: u32`,
+  `e_min: u32`, `e_max: u32`. Tools inject candidate models and `t` values
+  without recompiling.
 - `ProbCut::FITTED` is a `const` with the chosen model and `t`, with a
   provenance comment (fit log, commit). `standard()` keeps `probcut: None`
   until the gate passes; enabling it is a separate one-line commit.
@@ -172,11 +177,23 @@ decisions are evaluated with defined boundary windows (below), not with the
 windows of the depth-8 sampler, which are unrelated to the depths being
 modelled.
 
-**Deduplicated and split by position.** `fit` keys each record by the
-canonical (D4) form of its board. Records whose key appeared at a lower
-unit id are dropped. The split comes from a hash of the key, not the game:
-60% fit, 20% selection, 20% audit. Exact and symmetric duplicates therefore
-never sit on both sides. The `split` field written by `collect` is ignored.
+**Folds by game, then deduplicated.** `fit` assigns each record a fold
+from a hash of its WTHOR game index: 60% fit, 20% selection, 20% audit, so
+all positions of one game share a fold (games drawn more than once included).
+It then keys each record by the canonical (D4) form of its board and keeps
+only the lowest-unit representative of each key across all folds; a later
+duplicate is dropped wherever it falls. Within each cell, at most one
+position per game is used (the lowest unit id), so a cell's pairs come
+from distinct games and distinct positions; that, not position
+deduplication alone, is the independence assumption behind the per-cell
+Wilson bounds. The `split` field written by `collect` is ignored.
+
+**Development units.** 726 units of the running journal (ids listed in
+`docs/tuning/probcut2_dev_units.txt`) were examined in exploratory fit
+runs during development, and the 100 timing-sample units are in a separate
+journal. Development units are never in the audit fold: one whose game
+hashes to audit is dropped. Every audit position is therefore unseen; the
+development units may serve the fit and selection folds.
 
 ## Decision checks
 
@@ -193,12 +210,19 @@ labelled so.
 **Runtime replay (selective predictor).** For an audit position and a
 depth `d` in the rectangle, with the candidate `ProbCut` injected:
 
-- High: `β = v_d + 1`, so the true value is just below the window and any
-  high cut is wrong. Call the engine's check directly,
-  `probcut(board, d, β − 1, β, ctx)` (public, the same function `negamax`
-  calls; it returns the cut bound or nothing), and count a false high if it
-  cuts.
-- Low: `α = v_d − 1`, window `(α, α + 1)`; a false low if it cuts.
+- High query: window `(v_d, v_d + 1)`. Call the engine's check directly,
+  `probcut(board, d, v_d, v_d + 1, ctx)` (public, the same function
+  `negamax` calls; it returns the cut bound or nothing). A top-level return
+  of `β = v_d + 1` is a false high. A return of `α = v_d` is a valid low
+  cut (the true value is not above `v_d`) and is not counted.
+- Low query: window `(v_d − 1, v_d)`. A top-level return of `α = v_d − 1`
+  is a false low; a return of `β = v_d` is valid and not counted.
+- Only the check's own top-level return is classified, never counters that
+  include nested probe cuts. Hand-built RED cases include a valid
+  opposite-direction return in each query.
+- Denominator: the rate is false cuts per targeted boundary query in that
+  direction. It is not an estimate of the error rate conditional on a cut
+  under natural in-search windows.
 
 Each query uses a fresh table, never a collection table, so full-width
 oracle values cannot satisfy selective probes. Replay is cold and labelled
@@ -217,17 +241,25 @@ GREEN, with candidate models injected.
   `t = 1.5` with 95% Wilson upper bound at most 15% in each direction
   (6.7% expected under the Gaussian model).
 - **Rectangle:** the rectangle of consecutive depths and consecutive
-  empties buckets with the most cells, every cell accepted. Its empties
-  bounds are the buckets' bounds; `e_min` is also at least
-  `endgame_threshold + 2`, and `e_max` at most 56, where the data end.
+  empties buckets with every cell accepted, chosen by, in order: most
+  cells, smallest mean σ, smallest `d_min`, largest `d_max`, smallest first
+  bucket, largest last bucket. Its empties bounds are intersected with the
+  data: `e_min` is the largest of the first bucket's lower bound, the
+  fewest empties among the rectangle's selection positions, and
+  `endgame_threshold + 2`; `e_max` is the smallest of the last bucket's
+  upper bound, the most empties among its selection positions, and 56. The
+  sampler cannot produce nodes with fewer than 21 empties (roots from 26,
+  at most five placements before a node of remaining depth 3), so no
+  bound below the data is ever compiled.
 - **Per-depth reporting:** every cell's counts, σ and rates are printed,
   accepted or not.
-- **Deep cells:** tier 2 gives about 750 positions at depths 15–16, about
-  150 per bucket on the selection split before deduplication. A cell with
-  fewer than 60 is outside the rectangle. If the rectangle ends at depth 14,
-  a second collection of depth-16 units (a separate journal,
-  `--deep-every 1`, a new seed) may be run before the model is frozen;
-  that decision is recorded in #146 before the audit split is opened.
+- **Deep cells:** tier 2 gives about 750 positions at depths 15–16, so
+  about 150 selection positions in all, about 30 per bucket before
+  deduplication: below the 60-position floor. Depths 15–16 are therefore
+  expected to fall outside the rectangle, which then ends at depth 14. That
+  is accepted for this attempt and no top-up is run: at 3 s the engine
+  completes depth 12–17, so nodes with more than 14 remaining plies are the
+  top one to three plies of the tree, a small share of its nodes.
 
 ## σ model and model selection
 
@@ -243,8 +275,11 @@ Model (Buro 1995): `v_d = a·v_s + b + ε`, `ε ~ N(0, σ²)`.
   is model-selection data and no confidence claim is made from it.
 - **Audit split, once:** the frozen model's per-cell σ floor and proxy
   rates are recomputed on the audit split and reported with Wilson bounds.
-  A cell that fails the floor there is removed by shrinking the rectangle
-  (the rule stated here, before the audit); no refit follows.
+  If any cell fails the floor there, the rectangle becomes its
+  sub-rectangle without failing cells chosen by the same order as above
+  (most cells, smallest mean σ, smallest `d_min`, largest `d_max`, smallest
+  first bucket, largest last bucket); empties bounds are recomputed by the
+  same intersection. No refit and no other choice follows.
 
 ## Screening and tuning `t`
 
@@ -307,10 +342,13 @@ was.
 - Branch coverage on constructed positions: high cut, low cut, no cut,
   outside the rectangle at each of its four bounds, threshold beyond
   `±EVAL_BOUND`, no check in exact mode, cancellation inside a probe.
-- Arithmetic boundaries: `t` above 400, `a_milli` outside 500–1500, extreme
-  `s0..s2` and `b`, `α` or `β` at `±INF`: no overflow, and ceiling and
+- Arithmetic boundaries, with the field types pinned as above: `t` at
+  `u32::MAX`, `a_milli` and `b` and `s0..s2` at `i32::MIN` and `i32::MAX`,
+  `d` and `e` at 64, `α` or `β` at `±INF`: no overflow, and ceiling and
   floor checked against exact rational values for negative and positive
   numerators.
+- Replay direction: hand-built positions where the high query returns the
+  valid low bound and the low query the valid high bound; neither counts.
 - `shallow(d)` satisfies `1 ≤ s < d` on the whole `ProbCut::FITTED`
   rectangle.
 - With ProbCut on, every search returns a legal move under every limit;
@@ -335,7 +373,7 @@ tuning, and about 6.5 h of gate, an overnight run.
 
 ## Review response
 
-Review of `bf8fa02` with `70eb618`:
+### First review, of `bf8fa02` with `70eb618`
 
 1. **Decision replay.** The record already holds board, unit and game id
    and full-width values; completeness is now stated. The proxy check uses
@@ -361,6 +399,24 @@ Review of `bf8fa02` with `70eb618`:
    in thousandths, conservative signed division, clamps on every field;
    #143's correction carried into the motivation; epic #144 updated;
    `tests/budget.rs` formatting fixed.
+
+### Second review, of `0d36d61`
+
+1. **Fold isolation.** Folds by game first, then canonical deduplication
+   across folds, at most one position per game per cell; the 726 examined
+   development units are listed and kept out of the audit fold. See
+   [Calibration data](#calibration-data).
+2. **Replay direction.** Only the targeted direction's top-level return is
+   counted; the valid opposite return is named; no nested counters; the
+   denominator is stated. See [Decision checks](#decision-checks).
+3. **Deep sizing and coverage.** The arithmetic is corrected (about 30
+   selection positions per bucket at depths 15–16); depth 14 is the
+   expected end of the rectangle, accepted without a top-up; empties bounds
+   are intersected with the observed data. See [Supported
+   domain](#supported-domain).
+4. **Deterministic policy and types.** Lexicographic ties for the
+   rectangle and the audit shrink; field types pinned and the step-3
+   bound stated; RED cases at the type limits.
 
 ## References
 
