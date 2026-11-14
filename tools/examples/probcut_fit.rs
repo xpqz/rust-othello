@@ -1078,6 +1078,16 @@ fn development(path: &str) -> Result<HashSet<usize>, String> {
         .collect()
 }
 
+/// Entries of the replay's table, cleared before each query.
+const REPLAY_TABLE: usize = 1 << 14;
+
+/// The first sample of each game, in the given order (unit order from
+/// `distinct`), so that Wilson bounds count independent games.
+fn per_game<'a>(samples: impl Iterator<Item = &'a Sample>) -> Vec<&'a Sample> {
+    let mut games = HashSet::new();
+    samples.filter(|sample| games.insert(sample.game)).collect()
+}
+
 /// Candidate margins of the registered screen, in hundredths of σ.
 const MARGINS: [u32; 4] = [80, 120, 160, 200];
 
@@ -1086,7 +1096,8 @@ const MARGINS: [u32; 4] = [80, 120, 160, 200];
 /// its rectangle. Per position and depth, the high query (window
 /// `(v_d, v_d + 1)`) is false only on a top-level return of `v_d + 1`, the
 /// low query (`(v_d - 1, v_d)`) only on `v_d - 1`; a cleared table per
-/// query. Rates are per targeted boundary query.
+/// query. One position per game, so each depth's queries come from
+/// independent games. Rates are per targeted boundary query.
 fn replay(args: &[String]) -> Result<(), String> {
     let usage = "usage: probcut_fit replay --in FILE --dev FILE";
     let map =
@@ -1096,22 +1107,23 @@ fn replay(args: &[String]) -> Result<(), String> {
     };
     let samples = distinct(samples(Path::new(input))?, &development(dev_path)?);
     let fitted = ProbCut::FITTED;
-    let audit: Vec<&Sample> = samples
-        .iter()
-        .filter(|(fold, sample)| {
-            *fold == 2 && (fitted.e_min..=fitted.e_max).contains(&sample.empties)
-        })
-        .map(|(_, sample)| sample)
-        .collect();
+    let audit = per_game(
+        samples
+            .iter()
+            .filter(|(fold, sample)| {
+                *fold == 2 && (fitted.e_min..=fitted.e_max).contains(&sample.empties)
+            })
+            .map(|(_, sample)| sample),
+    );
     println!(
-        "probcut_fit replay {input} audit positions {} depths {}..={} empties {}..={} model {fitted:?}",
+        "probcut_fit replay {input} audit positions {} (one per game) table_entries {REPLAY_TABLE} depths {}..={} empties {}..={} model {fitted:?}",
         audit.len(),
         fitted.d_min,
         fitted.d_max,
         fitted.e_min,
         fitted.e_max
     );
-    let mut table = Table::new(1 << 14);
+    let mut table = Table::new(REPLAY_TABLE);
     for t in MARGINS {
         let config = SearchConfig {
             probcut: Some(ProbCut { t, ..fitted }),
@@ -1699,5 +1711,25 @@ mod tests {
             (Err(a), Err(b)) => assert_eq!(a, b),
             _ => panic!("audit labels changed the outcome"),
         }
+    }
+
+    #[test]
+    fn replay_one_per_game() {
+        let sample = |id, game| Sample {
+            id,
+            game,
+            board: Board::START,
+            empties: 30,
+            values: vec![0],
+        };
+        let samples = [
+            sample(1, 7),
+            sample(2, 9),
+            sample(3, 7),
+            sample(4, 8),
+            sample(5, 9),
+        ];
+        let kept: Vec<usize> = per_game(samples.iter()).iter().map(|s| s.id).collect();
+        assert_eq!(kept, [1, 2, 4]);
     }
 }
