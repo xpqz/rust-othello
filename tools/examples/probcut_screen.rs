@@ -10,14 +10,24 @@
 //!   fresh table, ProbCut and full-width; passes if the median completed
 //!   depth with ProbCut is at least the full-width median plus one.
 //!
+//! - `diag` (the gate's separate, non-gated diagnostic, SKIS #149): the
+//!   first 50 openings of `bench/openings_probcut3.txt`, each continued to 20
+//!   plies by the full-width standard engine at fixed depth 6 (cleared table
+//!   per move; a game that ends first is reported and left out); for each, the
+//!   depth completed in `--ms` with and without ProbCut (standard solve
+//!   threshold, fresh table), and ProbCut's tries and cuts in a cold
+//!   fixed-depth search at the depth ProbCut completed.
+//!
 //! usage: probcut_screen nodes --t T
 //!        probcut_screen depth --t T [--ms 3000] [--jobs 5]
+//!        probcut_screen diag --t T [--ms 3000] [--jobs 5]
 
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 use othello::board::{Board, empty_count, legal_moves, pass, play};
-use othello::search::{ProbCut, SearchConfig, SearchLimits, search_tt};
+use othello::score::INF;
+use othello::search::{Ctx, ProbCut, SearchConfig, SearchLimits, negamax, search_tt};
 use othello::tt::{MAX_ENTRIES, Table};
 
 const SPLIT_EMPTIES: u32 = 14;
@@ -25,9 +35,9 @@ const MIDGAME_DEPTH: u32 = 10;
 const GAMES: usize = 50;
 const PLIES: usize = 20;
 
-fn configs(t: u32) -> [(&'static str, SearchConfig); 2] {
+fn configs(t: u32, threshold: u32) -> [(&'static str, SearchConfig); 2] {
     let off = SearchConfig {
-        endgame_threshold: SPLIT_EMPTIES,
+        endgame_threshold: threshold,
         probcut: None,
         ..SearchConfig::standard()
     };
@@ -104,7 +114,7 @@ struct Options {
 }
 
 fn options(command: &str, args: &[String]) -> Result<Options, String> {
-    let allowed: &[&str] = if command == "depth" {
+    let allowed: &[&str] = if command != "nodes" {
         &["--t", "--ms", "--jobs"]
     } else {
         &["--t"]
@@ -145,15 +155,17 @@ fn options(command: &str, args: &[String]) -> Result<Options, String> {
 
 fn run(args: &[String]) -> Result<(), String> {
     let command = args.first().map(String::as_str).unwrap_or("");
-    if command != "nodes" && command != "depth" {
-        return Err("usage: probcut_screen nodes --t T | depth --t T [--ms MS] [--jobs J]".into());
+    if !["nodes", "depth", "diag"].contains(&command) {
+        return Err(
+            "usage: probcut_screen nodes --t T | depth|diag --t T [--ms MS] [--jobs J]".into(),
+        );
     }
     let Options { t, ms, jobs } = options(command, &args[1..])?;
     match command {
         "nodes" => {
             let boards = corpus();
             let mut totals = Vec::new();
-            for (label, config) in configs(t) {
+            for (label, config) in configs(t, SPLIT_EMPTIES) {
                 let mut table = Table::new(MAX_ENTRIES);
                 let mut nodes = 0;
                 for &board in &boards {
@@ -171,35 +183,15 @@ fn run(args: &[String]) -> Result<(), String> {
             let verdict = if ratio <= 0.60 { "pass" } else { "fail" };
             println!("screen nodes t {t} ratio {ratio:.4} limit 0.6000 {verdict}");
         }
-        _ => {
+        "depth" => {
             let boards = positions();
             let mut medians = Vec::new();
-            for (label, config) in configs(t) {
-                let depths = Mutex::new(vec![0u32; boards.len()]);
-                let next = AtomicUsize::new(0);
-                std::thread::scope(|scope| {
-                    for _ in 0..jobs {
-                        scope.spawn(|| {
-                            let mut table = Table::new(MAX_ENTRIES);
-                            loop {
-                                let index = next.fetch_add(1, Relaxed);
-                                let Some(&board) = boards.get(index) else {
-                                    break;
-                                };
-                                table.clear();
-                                let limits = SearchLimits::new(64, ms, 0);
-                                let result = search_tt(board, limits, &config, &mut table);
-                                depths.lock().unwrap()[index] = result.depth;
-                            }
-                        });
-                    }
-                });
-                let depths = depths.into_inner().unwrap();
-                let list: Vec<String> = depths.iter().map(u32::to_string).collect();
+            for (label, config) in configs(t, SPLIT_EMPTIES) {
+                let depths = depths(&boards, &config, ms, jobs);
                 println!(
                     "{label} positions {} ms {ms} depths {}",
                     boards.len(),
-                    list.join(",")
+                    list(&depths)
                 );
                 medians.push(median(depths));
             }
@@ -213,7 +205,123 @@ fn run(args: &[String]) -> Result<(), String> {
                 medians[0], medians[1]
             );
         }
+        _ => diag(t, ms, jobs)?,
     }
+    Ok(())
+}
+
+fn list(values: &[u32]) -> String {
+    values
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// The depth each board's timed search completes, `jobs` boards at a time,
+/// each with a cleared table.
+fn depths(boards: &[Board], config: &SearchConfig, ms: u64, jobs: usize) -> Vec<u32> {
+    let depths = Mutex::new(vec![0u32; boards.len()]);
+    let next = AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        for _ in 0..jobs {
+            scope.spawn(|| {
+                let mut table = Table::new(MAX_ENTRIES);
+                loop {
+                    let index = next.fetch_add(1, Relaxed);
+                    let Some(&board) = boards.get(index) else {
+                        break;
+                    };
+                    table.clear();
+                    let limits = SearchLimits::new(64, ms, 0);
+                    let result = search_tt(board, limits, config, &mut table);
+                    depths.lock().unwrap()[index] = result.depth;
+                }
+            });
+        }
+    });
+    depths.into_inner().unwrap()
+}
+
+const GATE_OPENINGS: usize = 50;
+const GATE_DEPTH: u32 = 6;
+
+/// The first gate openings continued to `PLIES` plies (passes not counted) by
+/// the full-width standard engine at `GATE_DEPTH`; `None` for a game that
+/// ends first.
+fn gate_positions() -> Result<Vec<Option<Board>>, String> {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../bench/openings_probcut3.txt"
+    );
+    let config = SearchConfig {
+        probcut: None,
+        ..SearchConfig::standard()
+    };
+    let mut table = Table::new(MAX_ENTRIES);
+    let openings = othello_tools::positions::load(path)?;
+    let continued = openings.iter().take(GATE_OPENINGS).map(|opening| {
+        let mut board = opening
+            .squares
+            .iter()
+            .fold(Board::START, |board, &sq| play(board, sq));
+        let mut plies = opening.squares.len();
+        while plies < PLIES {
+            if legal_moves(board.me, board.opp) == 0 {
+                if legal_moves(board.opp, board.me) == 0 {
+                    return None;
+                }
+                board = pass(board);
+                continue;
+            }
+            table.clear();
+            let best = search_tt(board, SearchLimits::depth(GATE_DEPTH), &config, &mut table).best;
+            board = play(board, best);
+            plies += 1;
+        }
+        if legal_moves(board.me, board.opp) == 0 {
+            board = pass(board);
+        }
+        Some(board)
+    });
+    Ok(continued.collect())
+}
+
+fn diag(t: u32, ms: u64, jobs: usize) -> Result<(), String> {
+    let all = gate_positions()?;
+    let ended: Vec<usize> = (0..all.len()).filter(|&i| all[i].is_none()).collect();
+    let boards: Vec<Board> = all.into_iter().flatten().collect();
+    println!(
+        "diag gate openings {GATE_OPENINGS} plies {PLIES} continuation depth {GATE_DEPTH} positions {} ended {ended:?} ms {ms} jobs {jobs}",
+        boards.len()
+    );
+    let [(_, off), (_, on)] = configs(t, SearchConfig::standard().endgame_threshold);
+    let full = depths(&boards, &off, ms, jobs);
+    let selective = depths(&boards, &on, ms, jobs);
+    println!("full depths {}", list(&full));
+    println!("probcut depths {}", list(&selective));
+    let mut table = Table::new(MAX_ENTRIES);
+    let (mut tries, mut cuts) = (0, [0, 0]);
+    println!("cold fixed-depth ProbCut search at the ProbCut depth: position depth tries high low");
+    for (index, (&board, &depth)) in boards.iter().zip(&selective).enumerate() {
+        table.clear();
+        let mut ctx = Ctx::new(&on);
+        ctx.set_table(&mut table);
+        negamax(board, depth, -INF, INF, &mut ctx);
+        println!(
+            "  {index} {depth} {} {} {}",
+            ctx.probcut_tries, ctx.probcut_cuts[0], ctx.probcut_cuts[1]
+        );
+        tries += ctx.probcut_tries;
+        cuts = [cuts[0] + ctx.probcut_cuts[0], cuts[1] + ctx.probcut_cuts[1]];
+    }
+    println!(
+        "diag t {t} median_full {:.1} median_probcut {:.1} tries {tries} cuts_high {} cuts_low {}",
+        median(full),
+        median(selective),
+        cuts[0],
+        cuts[1]
+    );
     Ok(())
 }
 

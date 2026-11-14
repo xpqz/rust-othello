@@ -24,4 +24,7 @@ reject nodes --t 30
 reject nodes --t 401
 reject nodes --t -5
 reject bogus --t 80
+reject diag
+reject diag --t 80 --jobs
+reject diag --t 80 --nodes 5
 echo "probcut_screen option test passed"
