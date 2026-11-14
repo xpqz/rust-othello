@@ -95,23 +95,60 @@ fn median(mut values: Vec<u32>) -> f64 {
     }
 }
 
-fn value(args: &[String], flag: &str, default: Option<&str>) -> Result<u64, String> {
-    let at = args.iter().position(|arg| arg == flag);
-    let text = match (at.and_then(|at| args.get(at + 1)), default) {
-        (Some(text), _) => text.as_str(),
-        (None, Some(default)) => default,
-        (None, None) => return Err(format!("{flag} is required")),
+/// Options: `--t` for both commands, `--ms` and `--jobs` for `depth` only.
+/// Each at most once, each with a value; anything else is an error.
+struct Options {
+    t: u32,
+    ms: u64,
+    jobs: usize,
+}
+
+fn options(command: &str, args: &[String]) -> Result<Options, String> {
+    let allowed: &[&str] = if command == "depth" {
+        &["--t", "--ms", "--jobs"]
+    } else {
+        &["--t"]
     };
-    text.parse().map_err(|_| format!("invalid {flag}"))
+    let mut seen = std::collections::HashMap::new();
+    let mut rest = args.iter();
+    while let Some(flag) = rest.next() {
+        if !allowed.contains(&flag.as_str()) {
+            return Err(format!("unknown option {flag} for {command}"));
+        }
+        let value = rest.next().ok_or_else(|| format!("{flag} needs a value"))?;
+        if seen.insert(flag.as_str(), value.as_str()).is_some() {
+            return Err(format!("{flag} given twice"));
+        }
+    }
+    let number = |flag: &str, default: Option<&str>| -> Result<u64, String> {
+        let text = seen
+            .get(flag)
+            .copied()
+            .or(default)
+            .ok_or_else(|| format!("{flag} is required"))?;
+        text.parse().map_err(|_| format!("invalid {flag} {text}"))
+    };
+    let t = u32::try_from(number("--t", None)?)
+        .ok()
+        .filter(|t| (50..=400).contains(t))
+        .ok_or("--t must be 50..=400")?;
+    let ms = number("--ms", Some("3000"))?;
+    if ms == 0 {
+        return Err("--ms must be positive".into());
+    }
+    let jobs = usize::try_from(number("--jobs", Some("5"))?)
+        .ok()
+        .filter(|jobs| (1..=64).contains(jobs))
+        .ok_or("--jobs must be 1..=64")?;
+    Ok(Options { t, ms, jobs })
 }
 
 fn run(args: &[String]) -> Result<(), String> {
     let command = args.first().map(String::as_str).unwrap_or("");
-    let t = value(args, "--t", None)?;
-    let t = u32::try_from(t)
-        .ok()
-        .filter(|t| (50..=400).contains(t))
-        .ok_or("--t must be 50..=400")?;
+    if command != "nodes" && command != "depth" {
+        return Err("usage: probcut_screen nodes --t T | depth --t T [--ms MS] [--jobs J]".into());
+    }
+    let Options { t, ms, jobs } = options(command, &args[1..])?;
     match command {
         "nodes" => {
             let boards = corpus();
@@ -121,13 +158,8 @@ fn run(args: &[String]) -> Result<(), String> {
                 let mut nodes = 0;
                 for &board in &boards {
                     table.clear();
-                    nodes += search_tt(
-                        board,
-                        SearchLimits::depth(MIDGAME_DEPTH),
-                        &config,
-                        &mut table,
-                    )
-                    .nodes;
+                    let limits = SearchLimits::depth(MIDGAME_DEPTH);
+                    nodes += search_tt(board, limits, &config, &mut table).nodes;
                 }
                 println!(
                     "{label} positions {} depth {MIDGAME_DEPTH} nodes {nodes}",
@@ -136,15 +168,10 @@ fn run(args: &[String]) -> Result<(), String> {
                 totals.push(nodes);
             }
             let ratio = totals[1] as f64 / totals[0] as f64;
-            let pass = ratio <= 0.60;
-            println!(
-                "screen nodes t {t} ratio {ratio:.4} limit 0.6000 {}",
-                if pass { "pass" } else { "fail" }
-            );
+            let verdict = if ratio <= 0.60 { "pass" } else { "fail" };
+            println!("screen nodes t {t} ratio {ratio:.4} limit 0.6000 {verdict}");
         }
-        "depth" => {
-            let ms = value(args, "--ms", Some("3000"))?;
-            let jobs = value(args, "--jobs", Some("5"))?.max(1) as usize;
+        _ => {
             let boards = positions();
             let mut medians = Vec::new();
             for (label, config) in configs(t) {
@@ -176,15 +203,16 @@ fn run(args: &[String]) -> Result<(), String> {
                 );
                 medians.push(median(depths));
             }
-            let pass = medians[1] >= medians[0] + 1.0;
+            let verdict = if medians[1] >= medians[0] + 1.0 {
+                "pass"
+            } else {
+                "fail"
+            };
             println!(
-                "screen depth t {t} median_full {:.1} median_probcut {:.1} {}",
-                medians[0],
-                medians[1],
-                if pass { "pass" } else { "fail" }
+                "screen depth t {t} median_full {:.1} median_probcut {:.1} {verdict}",
+                medians[0], medians[1]
             );
         }
-        _ => return Err("usage: probcut_screen nodes|depth --t T [--ms MS] [--jobs J]".into()),
     }
     Ok(())
 }
