@@ -84,7 +84,7 @@ fn fresh_set_is_spread_across_groups() {
 }
 
 #[test]
-fn gate_set_is_disjoint() {
+fn gate_disjoint() {
     let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../bench");
     let gate = end_keys(&base.join("openings_probcut3.txt"));
     assert_eq!(gate.len(), 1024);
@@ -99,7 +99,7 @@ fn gate_set_is_disjoint() {
 }
 
 #[test]
-fn gate_set_is_spread() {
+fn gate_spread() {
     // The gate plays the first 400 openings: no group holds more than 10%.
     let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../bench");
     let gate = positions::load(base.join("openings_probcut3.txt").to_str().unwrap()).unwrap();
