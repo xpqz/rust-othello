@@ -44,6 +44,13 @@ fn config_pins() {
     assert_eq!(PHASE2_DEPTH, 4);
 }
 
+#[test]
+fn frozen_off() {
+    // Frozen baselines never inherit ProbCut from a future `standard()`.
+    assert!(phase2_config().probcut.is_none());
+    assert!(classic_config().probcut.is_none());
+}
+
 fn tools(args: &[&str]) -> std::process::Output {
     Command::new(env!("CARGO_BIN_EXE_othello-tools"))
         .args(args)

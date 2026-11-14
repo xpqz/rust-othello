@@ -665,4 +665,23 @@ mod tests {
         output.textures_delta.clear();
         assert_eq!(app.threshold, SearchConfig::standard().endgame_threshold);
     }
+
+    /// The table serves one search policy: a changed setting clears it.
+    #[test]
+    fn setting_change_clears_table() {
+        use othello::tt::{Bound, Entry};
+        let mut app = App::new();
+        let stored = |app: &App| app.table.lock().unwrap().probe(42).is_some();
+        app.engine_config();
+        app.table
+            .lock()
+            .unwrap()
+            .store(Entry::heuristic(42, 0, 3, Bound::Exact, 19));
+        app.engine_config();
+        assert!(stored(&app), "unchanged settings keep the table");
+        app.threshold -= 2;
+        let config = app.engine_config();
+        assert_eq!(config.endgame_threshold, app.threshold);
+        assert!(!stored(&app), "a changed threshold clears the table");
+    }
 }
