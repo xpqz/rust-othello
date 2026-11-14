@@ -1,0 +1,37 @@
+# Issue 143 step 2 raw microbenchmark output, copied from the terminal of the
+# runs on 14 Nov 2026 (13:1x CET) while review checks were also running.
+# Source: scratch copy of the engine at b9cc414 with features/evaluate
+# #[inline(never)], plus micro.rs.txt as examples/micro.rs; release profile
+# (fat LTO, one codegen unit). Build: cargo build --release --example micro.
+# Binaries (SHA-256): micro-before 5943f43dc729b948f41e099bd68a8b7e2712c8af13144417af6fe7eca240d8c6
+#                     micro-split  fa518e6db36375e7539068fdcfe6bb575184f926fa368b27bcfc13adb589e224 (split.patch)
+#                     micro-hoist  372bb1cab550c1f0e49466fc9574b78d25f8cb05b889483ed243e453e625569c (hoist.patch)
+# "varied" = 2^20 playout boards; "hot16" = repeated subset of 16 boards.
+# Disassembly: objdump -d --no-show-raw-insn --disassemble-symbols=<mangled>
+# on the prof binary (prof.rs.txt), saved as features.s and evaluate.s.
+
+## micro-before, first run (single binary)
+varied: features 23.2 ns  evaluate (incl. features) 58.0 ns  [4005189050 1582101020]
+hot16: features 25.2 ns  evaluate (incl. features) 47.7 ns  [1371962636 1960836530]
+varied: features 30.4 ns  evaluate (incl. features) 63.1 ns  [4005189050 1582101020]
+hot16: features 26.6 ns  evaluate (incl. features) 44.0 ns  [1371962636 1960836530]
+
+## alternating micro-before / micro-split (first two lines of each), twice
+varied: features 21.7 ns  evaluate (incl. features) 52.7 ns  [4005189050 1582101020]   (before)
+hot16: features 22.4 ns  evaluate (incl. features) 39.7 ns  [1371962636 1960836530]    (before)
+varied: features 23.5 ns  evaluate (incl. features) 54.8 ns  [4005189050 1582101020]   (split)
+hot16: features 23.8 ns  evaluate (incl. features) 41.8 ns  [1371962636 1960836530]    (split)
+varied: features 22.5 ns  evaluate (incl. features) 58.1 ns  [4005189050 1582101020]   (before)
+hot16: features 21.3 ns  evaluate (incl. features) 40.3 ns  [1371962636 1960836530]    (before)
+varied: features 22.8 ns  evaluate (incl. features) 51.2 ns  [4005189050 1582101020]   (split)
+hot16: features 23.0 ns  evaluate (incl. features) 40.9 ns  [1371962636 1960836530]    (split)
+
+## alternating micro-before / micro-hoist, twice
+varied: features 21.1 ns  evaluate (incl. features) 50.3 ns  [4005189050 1582101020]   (before)
+hot16: features 21.3 ns  evaluate (incl. features) 38.3 ns  [1371962636 1960836530]    (before)
+varied: features 28.2 ns  evaluate (incl. features) 55.3 ns  [4005189050 1582101020]   (hoist)
+hot16: features 28.6 ns  evaluate (incl. features) 46.3 ns  [1371962636 1960836530]    (hoist)
+varied: features 21.1 ns  evaluate (incl. features) 52.0 ns  [4005189050 1582101020]   (before)
+hot16: features 21.6 ns  evaluate (incl. features) 41.1 ns  [1371962636 1960836530]    (before)
+varied: features 28.2 ns  evaluate (incl. features) 56.8 ns  [4005189050 1582101020]   (hoist)
+hot16: features 28.6 ns  evaluate (incl. features) 46.2 ns  [1371962636 1960836530]    (hoist)

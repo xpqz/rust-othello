@@ -1,0 +1,16 @@
+--- a/src/pattern.rs
++++ b/src/pattern.rs
+@@ -53,10 +53,11 @@
+ });
+ 
+ pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
++    let rows: &[[u16; LANES]; 8 * 256] = ROWS.as_slice().try_into().unwrap();
+     let mut sums = [0u16; LANES];
+     for row in 0..8 {
+-        let me = &ROWS[row * 256 + (board.me >> (row * 8) & 0xff) as usize];
+-        let opp = &ROWS[row * 256 + (board.opp >> (row * 8) & 0xff) as usize];
++        let me = &rows[row * 256 + (board.me >> (row * 8) & 0xff) as usize];
++        let opp = &rows[row * 256 + (board.opp >> (row * 8) & 0xff) as usize];
+         for ((sum, &me), &opp) in sums.iter_mut().zip(me).zip(opp) {
+             *sum += me + 2 * opp;
+         }

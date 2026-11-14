@@ -1,0 +1,21 @@
+use std::time::Instant;
+use othello::board::{Board, empty_count, legal_moves};
+use othello::search::{SearchConfig, SearchLimits, search_tt};
+use othello::tt::{MAX_ENTRIES, Table};
+
+fn main() {
+    let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/bench/corpus.txt")).unwrap();
+    let boards: Vec<Board> = text.lines().filter(|l| !l.starts_with('#')).filter_map(|l| {
+        let mut p = l.split_whitespace();
+        Some(Board { me: u64::from_str_radix(p.next()?, 16).ok()?, opp: u64::from_str_radix(p.next()?, 16).ok()? })
+    }).filter(|b| legal_moves(b.me, b.opp) != 0 && empty_count(*b) >= 24).collect();
+    let config = SearchConfig::standard();
+    let mut table = Table::new(MAX_ENTRIES);
+    let start = Instant::now();
+    let mut nodes = 0u64;
+    while start.elapsed().as_secs() < 40 {
+        for &b in &boards { table.clear(); nodes += search_tt(b, SearchLimits::depth(9), &config, &mut table).nodes; }
+    }
+    let s = start.elapsed().as_secs_f64();
+    println!("positions {} nodes {nodes} seconds {s:.1} nps {:.0}", boards.len(), nodes as f64 / s);
+}

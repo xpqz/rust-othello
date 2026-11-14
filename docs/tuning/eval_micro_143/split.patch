@@ -1,0 +1,21 @@
+--- a/src/pattern.rs
++++ b/src/pattern.rs
+@@ -53,14 +53,14 @@
+ });
+ 
+ pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
+-    let mut sums = [0u16; LANES];
++    let (mut mine, mut theirs) = ([0u16; LANES], [0u16; LANES]);
+     for row in 0..8 {
+         let me = &ROWS[row * 256 + (board.me >> (row * 8) & 0xff) as usize];
+         let opp = &ROWS[row * 256 + (board.opp >> (row * 8) & 0xff) as usize];
+-        for ((sum, &me), &opp) in sums.iter_mut().zip(me).zip(opp) {
+-            *sum += me + 2 * opp;
+-        }
++        for (sum, &me) in mine.iter_mut().zip(me) { *sum += me; }
++        for (sum, &opp) in theirs.iter_mut().zip(opp) { *sum += opp; }
+     }
++    let sums: [u16; LANES] = std::array::from_fn(|i| mine[i] + 2 * theirs[i]);
+     let mut out = [0; INSTANCE_COUNT];
+     for ((out, sum), offset) in out.iter_mut().zip(sums).zip(*OFFSETS) {
+         *out = offset + u32::from(sum);
