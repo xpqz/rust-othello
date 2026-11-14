@@ -53,9 +53,10 @@ fn ceil_div(n: i64, k: i64) -> i64 {
 
 impl ProbCut {
     /// The audited calibration fit (`docs/tuning/probcut2_audit.log`, commit
-    /// 2c9ab08). `t` is provisional until the tuning matches pick it.
+    /// 2c9ab08); `t` picked by the registered tuning matches
+    /// (`docs/tuning/probcut2_tune_80.log`, `probcut2_tune_120.log`).
     pub const FITTED: ProbCut = ProbCut {
-        t: 150,
+        t: 80,
         s0: 90066,
         s1: -514,
         s2: -1180,
