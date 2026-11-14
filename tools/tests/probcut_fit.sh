@@ -2,7 +2,9 @@
 # probcut_fit collect: a run killed part-way resumes by re-running the same
 # command and ends with the same records (timings aside) as an uninterrupted
 # run, with no unit repeated or omitted; a larger --nodes extends a finished
-# run; a changed header is rejected; a torn last line is redone.
+# run; a changed header is rejected; a torn last line is redone. Malformed
+# options fail before any journal exists, and timed progress appears while a
+# run is still going.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
@@ -50,4 +52,20 @@ if "$BIN" collect --out "$TMP/kill.journal" --nodes 450 --depth 5 --deep-depth 7
     echo "mismatched header accepted" >&2; exit 1
 fi
 cmp -s "$TMP/kill.journal" "$TMP/saved" || { echo "rejected run changed the journal" >&2; exit 1; }
+# Malformed options: non-zero exit and no journal created.
+for bad in "--seeeed 8" "--depth" "--depth 4294967302" "--nodes 5 --nodes 6" "--jobs 0"; do
+    rm -f "$TMP/bad.journal"
+    # shellcheck disable=SC2086
+    if "$BIN" collect --out "$TMP/bad.journal" --nodes 0 $bad 2>/dev/null >/dev/null; then
+        echo "accepted malformed options: $bad" >&2; exit 1
+    fi
+    test ! -e "$TMP/bad.journal" || { echo "journal created for: $bad" >&2; exit 1; }
+done
+if "$BIN" fit --in "$TMP/whole.journal" --dev 2>/dev/null >/dev/null; then
+    echo "fit accepted a missing --dev value" >&2; exit 1
+fi
+
+# Timed progress: a line reporting fewer than all units, before completion.
+"$BIN" collect --out "$TMP/progress.journal" --nodes 60 --depth 9 --deep-depth 9 --deep-every 1 --jobs 1 --seed 3 --progress 1 2>"$TMP/progress.err" >/dev/null
+grep -Eq '^progress ([0-9]|[1-5][0-9])/60 ' "$TMP/progress.err" || { echo "no progress line before completion" >&2; cat "$TMP/progress.err" >&2; exit 1; }
 echo "probcut_fit resume test passed ($before records before the kill)"
