@@ -1,5 +1,5 @@
 //! ProbCut v2 screen (docs/design/probcut2.md § Screening and tuning `t`,
-//! SKIS #148 step 3), for one candidate `t` in hundredths of σ with the
+//! the registered screen), for one candidate `t` in hundredths of σ with the
 //! frozen `ProbCut::FITTED` model:
 //!
 //! - `nodes`: the `search_bench` midgame workload (corpus positions with more
@@ -10,7 +10,7 @@
 //!   fresh table, ProbCut and full-width; passes if the median completed
 //!   depth with ProbCut is at least the full-width median plus one.
 //!
-//! - `diag` (the gate's separate, non-gated diagnostic, SKIS #149): the
+//! - `diag` (the strength gate's separate, non-gated diagnostic): the
 //!   first 50 openings of `bench/openings_probcut3.txt`, each continued to 20
 //!   plies by the full-width standard engine at fixed depth 6 (cleared table
 //!   per move; a game that ends first is reported and left out); for each, the
