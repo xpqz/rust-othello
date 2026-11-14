@@ -119,13 +119,22 @@ impl Drop for Worker {
     }
 }
 
-/// Plays one game; returns A's points and A's final disc margin (WTHOR).
-fn play_game(args: &Args, opening: &Opening, a_black: bool) -> Result<(f64, i32, String), String> {
+/// Thinking time per side, as the driver sees it: total and longest move, ms.
+type Clock = [(f64, f64); 2];
+
+/// Plays one game; returns A's points, A's final disc margin (WTHOR), the
+/// moves and each side's thinking time (A first).
+fn play_game(
+    args: &Args,
+    opening: &Opening,
+    a_black: bool,
+) -> Result<(f64, i32, String, Clock), String> {
     let mut a = Worker::start(&args.a, args.time)?;
     let mut b = Worker::start(&args.b, args.time)?;
     let mut board = Board::START;
     let mut black = true;
     let mut moves = Vec::new();
+    let mut clock: Clock = [(0.0, 0.0); 2];
     for &square in &opening.squares {
         board = play(board, square);
         black = !black;
@@ -136,8 +145,12 @@ fn play_game(args: &Args, opening: &Opening, a_black: bool) -> Result<(f64, i32,
             board = pass(board);
             moves.push("pass".into());
         } else {
-            let mover = if black == a_black { &mut a } else { &mut b };
+            let side = usize::from(black != a_black);
+            let mover = if side == 0 { &mut a } else { &mut b };
+            let start = Instant::now();
             let square = mover.choose(board)?;
+            let ms = start.elapsed().as_secs_f64() * 1000.0;
+            clock[side] = (clock[side].0 + ms, clock[side].1.max(ms));
             board = play(board, square);
             moves.push(positions::square_name(square));
         }
@@ -154,7 +167,7 @@ fn play_game(args: &Args, opening: &Opening, a_black: bool) -> Result<(f64, i32,
         0 => 0.5,
         _ => 0.0,
     };
-    Ok((points, margin, moves.join(" ")))
+    Ok((points, margin, moves.join(" "), clock))
 }
 
 fn load_average() -> f64 {
@@ -245,11 +258,12 @@ fn play_missing(args: &Args, openings: &[Opening], journal: &mut Journal) -> Res
                             return Ok(false);
                         }
                         let mut journal = journal.lock().unwrap();
-                        for (game, (points, discs, moves)) in [first, second].iter().enumerate() {
+                        for (game, (points, discs, moves, clock)) in [first, second].iter().enumerate() {
+                            let [(a_ms, a_max), (b_ms, b_max)] = clock;
                             journal.append(
                                 &format!("{pair}:{game}"),
                                 &format!(
-                                    "pair {pair} game {game} a_black {} points {points:.4} discs {discs:+} load {load:.3} moves {moves}",
+                                    "pair {pair} game {game} a_black {} points {points:.4} discs {discs:+} load {load:.3} a_ms {a_ms:.0} a_max_ms {a_max:.0} b_ms {b_ms:.0} b_max_ms {b_max:.0} moves {moves}",
                                     u8::from(game == 0)
                                 ),
                             )?;
@@ -357,6 +371,25 @@ fn run(args: &Args) -> Result<(), String> {
         report.interval.informative(),
         (variance / n).sqrt(),
         args.seed
+    );
+    let mut time = [0.0f64; 4];
+    for record in journal.records() {
+        for (slot, key) in ["a_ms", "a_max_ms", "b_ms", "b_max_ms"].iter().enumerate() {
+            let ms: f64 = number(&record.line, key)?;
+            time[slot] = if slot % 2 == 0 {
+                time[slot] + ms
+            } else {
+                time[slot].max(ms)
+            };
+        }
+    }
+    let games = journal.records().len() as f64;
+    println!(
+        "thinking a_ms_per_game {:.0} a_max_move_ms {:.0} b_ms_per_game {:.0} b_max_move_ms {:.0}",
+        time[0] / games,
+        time[1],
+        time[2] / games,
+        time[3]
     );
     Ok(())
 }
