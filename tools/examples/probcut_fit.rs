@@ -33,7 +33,9 @@ use std::time::{Duration, Instant};
 use othello::board::{Board, empty_count, final_score, legal_moves, pass, play};
 use othello::pattern::evaluate;
 use othello::score::terminal_score;
-use othello::search::{SearchConfig, SearchLimits, ordered_moves, search_tt};
+use othello::search::{
+    Ctx, ProbCut, SearchConfig, SearchLimits, ordered_moves, probcut, search_tt,
+};
 use othello::tt::{MAX_ENTRIES, Table};
 use othello_tools::journal::Journal;
 use othello_tools::provenance::{file_hash, git_commit};
@@ -1062,15 +1064,10 @@ fn report_cells(name: &str, grid: &Grid, model: Option<&Runtime>, rule: fn(u32) 
     }
 }
 
-fn fit(args: &[String]) -> Result<(), String> {
-    let usage = "usage: probcut_fit fit --in FILE --dev FILE [--audit]";
-    let map = options(args, &["--in", "--dev"], &["--audit"])
-        .map_err(|error| format!("{error}\n{usage}"))?;
-    let (Some(input), Some(dev_path)) = (map.get("--in"), map.get("--dev")) else {
-        return Err(usage.into());
-    };
-    let development: HashSet<usize> = std::fs::read_to_string(dev_path)
-        .map_err(|error| format!("--dev {dev_path}: {error}"))?
+/// Unit ids listed in a development file (`#` lines are comments).
+fn development(path: &str) -> Result<HashSet<usize>, String> {
+    std::fs::read_to_string(path)
+        .map_err(|error| format!("--dev {path}: {error}"))?
         .lines()
         .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
         .map(|line| {
@@ -1078,7 +1075,94 @@ fn fit(args: &[String]) -> Result<(), String> {
                 .parse()
                 .map_err(|_| format!("bad unit id {line}"))
         })
-        .collect::<Result<_, _>>()?;
+        .collect()
+}
+
+/// Candidate margins of the registered screen, in hundredths of σ.
+const MARGINS: [u32; 4] = [80, 120, 160, 200];
+
+/// Runtime replay (design § Decision checks): the engine's own check with
+/// `ProbCut::FITTED` at each candidate margin, on the audit positions inside
+/// its rectangle. Per position and depth, the high query (window
+/// `(v_d, v_d + 1)`) is false only on a top-level return of `v_d + 1`, the
+/// low query (`(v_d - 1, v_d)`) only on `v_d - 1`; a cleared table per
+/// query. Rates are per targeted boundary query.
+fn replay(args: &[String]) -> Result<(), String> {
+    let usage = "usage: probcut_fit replay --in FILE --dev FILE";
+    let map =
+        options(args, &["--in", "--dev"], &[]).map_err(|error| format!("{error}\n{usage}"))?;
+    let (Some(input), Some(dev_path)) = (map.get("--in"), map.get("--dev")) else {
+        return Err(usage.into());
+    };
+    let samples = distinct(samples(Path::new(input))?, &development(dev_path)?);
+    let fitted = ProbCut::FITTED;
+    let audit: Vec<&Sample> = samples
+        .iter()
+        .filter(|(fold, sample)| {
+            *fold == 2 && (fitted.e_min..=fitted.e_max).contains(&sample.empties)
+        })
+        .map(|(_, sample)| sample)
+        .collect();
+    println!(
+        "probcut_fit replay {input} audit positions {} depths {}..={} empties {}..={} model {fitted:?}",
+        audit.len(),
+        fitted.d_min,
+        fitted.d_max,
+        fitted.e_min,
+        fitted.e_max
+    );
+    let mut table = Table::new(1 << 14);
+    for t in MARGINS {
+        let config = SearchConfig {
+            probcut: Some(ProbCut { t, ..fitted }),
+            ..SearchConfig::standard()
+        };
+        let mut query = |board: Board, d: u32, alpha: i32, beta: i32, wrong: i32| {
+            table.clear();
+            let mut ctx = Ctx::new(&config);
+            ctx.set_table(&mut table);
+            probcut(board, d, alpha, beta, &mut ctx) == Some(Some(wrong))
+        };
+        let (mut total, mut total_high, mut total_low) = (0, 0, 0);
+        println!("\nt {t}: depth queries false_high (rate, upper95) false_low (rate, upper95)");
+        for d in fitted.d_min..=fitted.d_max {
+            let (mut queries, mut high, mut low) = (0, 0, 0);
+            for sample in &audit {
+                let Some(&v) = sample.values.get(d as usize) else {
+                    continue;
+                };
+                queries += 1;
+                high += usize::from(query(sample.board, d, v, v + 1, v + 1));
+                low += usize::from(query(sample.board, d, v - 1, v, v - 1));
+            }
+            let rate = |n: usize| 100.0 * n as f64 / queries.max(1) as f64;
+            println!(
+                "  {d:2} {queries:5} {high:4} ({:.1}%, {:.1}%) {low:4} ({:.1}%, {:.1}%)",
+                rate(high),
+                100.0 * wilson_upper(high, queries),
+                rate(low),
+                100.0 * wilson_upper(low, queries)
+            );
+            (total, total_high, total_low) = (total + queries, total_high + high, total_low + low);
+        }
+        let rate = |n: usize| 100.0 * n as f64 / total.max(1) as f64;
+        println!(
+            "  all {total} false_high {total_high} ({:.2}%) false_low {total_low} ({:.2}%)",
+            rate(total_high),
+            rate(total_low)
+        );
+    }
+    Ok(())
+}
+
+fn fit(args: &[String]) -> Result<(), String> {
+    let usage = "usage: probcut_fit fit --in FILE --dev FILE [--audit]";
+    let map = options(args, &["--in", "--dev"], &["--audit"])
+        .map_err(|error| format!("{error}\n{usage}"))?;
+    let (Some(input), Some(dev_path)) = (map.get("--in"), map.get("--dev")) else {
+        return Err(usage.into());
+    };
+    let development = development(dev_path)?;
     let raw = samples(Path::new(input))?;
     let total = raw.len();
     let samples = distinct(raw, &development);
@@ -1127,6 +1211,7 @@ fn main() {
     let result = match args.first().map(String::as_str) {
         Some("collect") => collect(&args[1..]),
         Some("fit") => fit(&args[1..]),
+        Some("replay") => replay(&args[1..]),
         _ => Err(
             "usage: probcut_fit collect --out FILE ... | fit --in FILE --dev FILE [--audit]".into(),
         ),
