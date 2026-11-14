@@ -59,19 +59,9 @@ fn budget_guard() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let total = rules::count_dir(&root.join("src"));
     println!("engine production lines: {total}");
-    assert!(total <= 1499, "engine production lines {total} exceed 1499");
+    assert!(total <= 1500, "engine production lines {total} exceed 1500");
 }
 
-#[test]
-fn engine_budget() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let total = rules::count_dir(&root.join("src"));
-    println!("engine production lines: {total}");
-    assert!(
-        total <= 1150,
-        "engine production lines {total} exceed 1150 after the switch"
-    );
-}
 
 #[test]
 fn asset_budget() {

@@ -22,7 +22,7 @@ strength target. Everything else in this plan still applies.
 
 | Constraint | Target | How it is enforced |
 | --- | --- | --- |
-| Implementation size | **Hard ceiling: 1,499 LOC for the engine + playable CLI, excluding tests** (Phase 2; 999 in release 1.0.0) | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
+| Implementation size | **Hard ceiling: 1,500 LOC for the engine + playable CLI, excluding tests** (Phase 2; 999 in release 1.0.0) | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
 | Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,300-line budget (650 in release 1.0.0); the trainer is a separate crate with a 1,200-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
 | Early feasibility | A complete playable vertical slice with actual counts by the end of Phase 2 | Phase 2 gate records formatted LOC and cuts scope before Phase 3 if needed |
 | Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies, guarded by a test; the tools crate may path-depend on the engine; the trainer may use external crates and depends on the engine and tools crates |
@@ -1033,7 +1033,7 @@ a new budget and with the same discipline.
 
 | Item | 1.0.0 | Phase 2 | Enforced by |
 | --- | ---: | ---: | --- |
-| Engine + playable CLI | 999 | **1,499** | `tests/budget.rs` (same metric) |
+| Engine + playable CLI | 999 | **1,500** | `tests/budget.rs` (same metric) |
 | Tools crate | 650 | **1,300** | `tools/tests/budget.rs` |
 | Trainer crate | — | **1,200** | `trainer/tests/budget.rs` |
 | Model assets | — | **4 MiB** total | Guard added with the first asset |
@@ -1053,6 +1053,10 @@ a new budget and with the same discipline.
   crate.
 
 ### Why 1,499
+
+User decision, 14 Nov 2026, for ProbCut v2 (#144): "raise core budget to
+1500". The single engine guard is now 1,500; the former 1,150 working guard
+is removed. The rest of this section is the original rationale.
 
 The ceiling covers the candidate work below with little to spare, so the
 priorities still have to be chosen. Estimates are formatted engine lines:

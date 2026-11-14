@@ -241,14 +241,11 @@ reversal between 500 ms and 3 s is why the binding gate is at 3 s, and a
 
 ## Engine budget
 
-The engine is at 1,129 production lines. `tests/budget.rs` holds a working
-guard of 1,150 (`engine_budget`) under the hard ceiling of 1,499
-(`budget_guard`). Option B adds about 45 lines (about 1,175), option A about
-65 (about 1,195). Both exceed the working guard. Proposed: the user raises
-the working guard to 1,200 for this epic, with the code staying behind the
-switch, and if the gate fails the code is removed as v1's was. Lines are
-spent only on the check, the constants and the switch; nothing else in the
-search changes.
+The engine is at 1,129 production lines. User decision, 14 Nov: "raise core
+budget to 1500"; `tests/budget.rs` now has a single guard at 1,500 and the
+former 1,150 working guard is gone. Option B adds about 45 lines, option A
+about 65. Lines are still spent only on the check, the constants and the
+switch; if the gate fails the code is removed as v1's was.
 
 ## Tests (RED, in the implementation issue)
 
