@@ -1,6 +1,6 @@
-c9c5996078fea2da32d43c6cae91a9fd2da01d20
- M ../src/search.rs  M src/agents.rs ?? ../docs/tuning/probcut2_screen_nodes.log ?? examples/probcut_screen.rs 
-Sat 14 Nov 2026 17:26:45 CET
+commit a00dc2817fa6980c599fc8221a311774a0b4f81d tree clean: 1 changes
+binary sha256 b6593d5ad77651664d753260ad4c1258977ded3a527fd9099d91d7a9c8528b92
+Sat 14 Nov 2026 17:46:02 CET
 full positions 12 depth 10 nodes 9724172
 probcut positions 12 depth 10 nodes 2522654
 screen nodes t 80 ratio 0.2594 limit 0.6000 pass
