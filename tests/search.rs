@@ -1227,19 +1227,33 @@ fn wdl_stores_bounds() {
     assert_eq!(entry.value, 0);
 }
 
+/// When the win/draw/loss pass cannot finish, the move is that of a depth-8
+/// heuristic search, not the lowest legal square: the reported score is that
+/// search's, and the move chosen is worth it.
 #[test]
-fn wdl_cancellation_falls_back() {
+fn exact_timeout_plays_heuristic() {
     let config = config();
-    let board = endgame_board(6);
-    let mut table = Table::new(1 << 16);
-    let limits = SearchLimits {
-        max_depth: 10,
-        time_ms: NO_DEADLINE,
-        max_nodes: 1,
-    };
-    let result = search_tt(board, limits, &config, &mut table);
-    assert_eq!(result.status, SearchStatus::Fallback);
-    assert!(!result.solved);
+    let heuristic = heuristic_config();
+    for board in sample_positions(10, 12, 20) {
+        if legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let mut table = Table::new(1 << 16);
+        let limits = SearchLimits {
+            max_depth: 64,
+            time_ms: NO_DEADLINE,
+            max_nodes: 1,
+        };
+        let result = search_tt(board, limits, &config, &mut table);
+        assert_eq!(result.status, SearchStatus::Partial, "{board:?}");
+        assert!(!result.solved);
+        assert_eq!(result.depth, 8, "{board:?}");
+        let reference = search(board, 8, &heuristic).score;
+        assert_eq!(result.score, reference, "{board:?}");
+        let mut ctx = Ctx::new(&heuristic);
+        let child = negamax(play(board, result.best), 7, -INF, INF, &mut ctx).unwrap();
+        assert_eq!(-child, reference, "{board:?} move {}", result.best);
+    }
 }
 
 #[test]
@@ -1393,6 +1407,7 @@ fn endgame_bench() {
         }
         if remaining == 14 {
             let mut partial = (0usize, 0usize, 0.0f64);
+            let mut heuristic = (0usize, 0usize, 0.0f64);
             let mut fallback = (0usize, 0usize, 0.0f64);
             for board in sample_positions(14, 14, count) {
                 if legal_moves(board.me, board.opp) == 0 {
@@ -1410,7 +1425,8 @@ fn endgame_bench() {
                 let kept = usize::from(value.signum() == exact.signum());
                 let loss = (exact - value) as f64;
                 let bucket = match result.status {
-                    SearchStatus::Partial => &mut partial,
+                    SearchStatus::Partial if result.depth == 0 => &mut partial,
+                    SearchStatus::Partial => &mut heuristic,
                     SearchStatus::Fallback => &mut fallback,
                     SearchStatus::Complete => continue,
                 };
@@ -1419,15 +1435,22 @@ fn endgame_bench() {
                 bucket.2 += loss;
             }
             println!(
-                "14 interrupted: partial n={} kept={} avg_loss={:.1} fallback n={} kept={} avg_loss={:.1}",
+                "14 interrupted: partial n={} kept={} avg_loss={:.1} heuristic n={} kept={} avg_loss={:.1} fallback n={} kept={} avg_loss={:.1}",
                 partial.0,
                 partial.1,
                 partial.2 / partial.0.max(1) as f64,
+                heuristic.0,
+                heuristic.1,
+                heuristic.2 / heuristic.0.max(1) as f64,
                 fallback.0,
                 fallback.1,
                 fallback.2 / fallback.0.max(1) as f64
             );
             assert_eq!(partial.1, partial.0, "Partial lost a proven WDL result");
+            assert_eq!(
+                fallback.0, 0,
+                "an exact search fell back to the lowest square"
+            );
         }
     }
 }
