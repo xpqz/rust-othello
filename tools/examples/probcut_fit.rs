@@ -298,7 +298,8 @@ fn collect(args: &[String]) -> Result<(), String> {
 }
 
 struct Sample {
-    held: bool,
+    id: usize,
+    board: Board,
     empties: u32,
     values: Vec<i32>,
 }
@@ -313,60 +314,147 @@ fn field<'a>(line: &'a str, name: &str) -> Option<&'a str> {
     None
 }
 
+/// Every record of a `collect` journal; a record whose value count is not
+/// its depth plus one is an error (values are completed searches only).
 fn samples(path: &Path) -> Result<Vec<Sample>, String> {
     let (_, records) = othello_tools::journal::read(path)?;
     records
         .iter()
         .map(|record| {
             let line = &record.line;
-            let values = field(line, "values")
+            let number = |name: &str| field(line, name).and_then(|v| v.parse::<u32>().ok());
+            let values: Vec<i32> = field(line, "values")
                 .ok_or("no values")?
                 .split(',')
                 .map(|value| value.parse().map_err(|_| "bad value".to_string()))
                 .collect::<Result<_, _>>()?;
+            let depth = number("depth").ok_or("bad depth")?;
+            if values.len() != depth as usize + 1 {
+                return Err(format!(
+                    "unit {}: {} values for depth {depth}",
+                    record.id,
+                    values.len()
+                ));
+            }
+            let (me, opp) = field(line, "board")
+                .and_then(|b| b.split_once(':'))
+                .and_then(|(me, opp)| {
+                    Some((
+                        u64::from_str_radix(me, 16).ok()?,
+                        u64::from_str_radix(opp, 16).ok()?,
+                    ))
+                })
+                .ok_or("bad board")?;
             Ok(Sample {
-                held: field(line, "split") == Some("held"),
-                empties: field(line, "empties")
-                    .and_then(|e| e.parse().ok())
-                    .ok_or("bad empties")?,
+                id: record.id.parse().map_err(|_| "bad unit id")?,
+                board: Board { me, opp },
+                empties: number("empties").ok_or("bad empties")?,
                 values,
             })
         })
         .collect()
 }
 
-/// Empties buckets (inclusive) for cells and the per-stage form.
-const BUCKETS: [(u32, u32); 5] = [(16, 23), (24, 31), (32, 39), (40, 47), (48, 60)];
-const DEPTHS: std::ops::RangeInclusive<u32> = 3..=16;
-
-type Rule = (&'static str, fn(u32) -> u32);
-
-const RULES: [Rule; 3] = [
-    ("v1", |d| 2 * (d / 4) + (d & 1)),
-    ("d-4", |d| d.saturating_sub(4).max(1)),
-    ("d-6", |d| d.saturating_sub(6).max(1)),
-];
-
-#[derive(Default, Clone)]
-struct Cell {
-    /// (v_s, v_d) by split: fit, held.
-    pairs: [Vec<(f64, f64)>; 2],
+#[cfg(test)]
+fn flip_vertical(x: u64) -> u64 {
+    x.swap_bytes()
 }
 
-fn cells(samples: &[Sample], rule: fn(u32) -> u32) -> Vec<Vec<Cell>> {
+fn mirror_horizontal(x: u64) -> u64 {
+    u64::from_le_bytes(x.to_le_bytes().map(u8::reverse_bits))
+}
+
+fn transpose(mut x: u64) -> u64 {
+    let mut t = 0x0f0f_0f0f_0000_0000 & (x ^ (x << 28));
+    x ^= t ^ (t >> 28);
+    t = 0x3333_0000_3333_0000 & (x ^ (x << 14));
+    x ^= t ^ (t >> 14);
+    t = 0x5500_5500_5500_5500 & (x ^ (x << 7));
+    x ^ t ^ (t >> 7)
+}
+
+/// The least of the eight symmetric images of the position (D4).
+fn canonical(board: Board) -> (u64, u64) {
+    let mut best = (u64::MAX, u64::MAX);
+    let (mut me, mut opp) = (board.me, board.opp);
+    for turn in 0..8 {
+        best = best.min((me, opp));
+        (me, opp) = if turn % 2 == 0 {
+            (mirror_horizontal(me), mirror_horizontal(opp))
+        } else {
+            (transpose(me), transpose(opp))
+        };
+    }
+    best
+}
+
+/// Split by canonical position: 0 fit (60%), 1 selection (20%), 2 audit (20%).
+fn split((me, opp): (u64, u64)) -> usize {
+    match mix(me ^ mix(opp)) % 10 {
+        0..=5 => 0,
+        6 | 7 => 1,
+        _ => 2,
+    }
+}
+
+/// Samples without repeated canonical positions (the lowest unit id is
+/// kept), each with its split.
+fn distinct(mut samples: Vec<Sample>) -> Vec<(usize, Sample)> {
+    samples.sort_by_key(|sample| sample.id);
+    let mut seen = std::collections::HashSet::new();
+    samples
+        .into_iter()
+        .filter_map(|sample| {
+            let key = canonical(sample.board);
+            seen.insert(key).then(|| (split(key), sample))
+        })
+        .collect()
+}
+
+/// Empties buckets (inclusive) for cells.
+const BUCKETS: [(u32, u32); 5] = [(16, 23), (24, 31), (32, 39), (40, 47), (48, 60)];
+const DEPTHS: std::ops::RangeInclusive<u32> = 3..=16;
+/// The engine's solve threshold: ProbCut acts from two empties above it.
+const THRESHOLD: u32 = 18;
+const MAX_EMPTIES: u32 = 56;
+/// Cell acceptance: positions, σ floor, proxy error bound and its `t`.
+const MIN_POSITIONS: usize = 60;
+const FLOOR: f64 = 0.95;
+const MAX_ERROR: f64 = 0.15;
+const CHECK_T: f64 = 1.5;
+
+/// A shallow-depth rule and the least depth at which it gives `1 <= s < d`
+/// with `d - s` even.
+type Rule = (&'static str, fn(u32) -> u32, u32);
+
+const RULES: [Rule; 3] = [
+    ("v1", |d| 2 * (d / 4) + (d & 1), 3),
+    ("d-4", |d| d - 4, 5),
+    ("d-6", |d| d - 6, 7),
+];
+
+/// Pairs `(v_s, v_d)` per split.
+#[derive(Default, Clone)]
+struct Cell {
+    pairs: [Vec<(f64, f64)>; 3],
+}
+
+/// `grid[d][bucket]` for depths from the rule's minimum.
+fn cells(samples: &[(usize, Sample)], (_, rule, least): Rule) -> Vec<Vec<Cell>> {
     let mut grid = vec![vec![Cell::default(); BUCKETS.len()]; *DEPTHS.end() as usize + 1];
-    for sample in samples {
+    for (split, sample) in samples {
         let Some(bucket) = BUCKETS
             .iter()
             .position(|&(lo, hi)| (lo..=hi).contains(&sample.empties))
         else {
             continue;
         };
-        for d in DEPTHS {
-            let s = rule(d) as usize;
-            if let (Some(&vd), Some(&vs)) = (sample.values.get(d as usize), sample.values.get(s)) {
-                grid[d as usize][bucket].pairs[usize::from(sample.held)]
-                    .push((f64::from(vs), f64::from(vd)));
+        for d in least.max(*DEPTHS.start())..=*DEPTHS.end() {
+            if let (Some(&vd), Some(&vs)) = (
+                sample.values.get(d as usize),
+                sample.values.get(rule(d) as usize),
+            ) {
+                grid[d as usize][bucket].pairs[*split].push((f64::from(vs), f64::from(vd)));
             }
         }
     }
@@ -445,12 +533,180 @@ fn wilson_upper(hits: usize, n: usize) -> f64 {
         / (1.0 + z * z / n)
 }
 
-struct Form {
-    name: &'static str,
-    /// σ(d, bucket) in centidiscs, before inflation.
-    sigma: Box<dyn Fn(u32, usize) -> f64>,
+/// A fitted model: line (a, b) and σ = c0 + c1·e + c2·d, times `k`.
+#[derive(Clone, Copy)]
+struct Model {
     line: (f64, f64),
-    constants: Vec<f64>,
+    c: [f64; 3],
+    k: f64,
+}
+
+impl Model {
+    fn sigma(&self, d: u32, bucket: usize) -> f64 {
+        (self.k * (self.c[0] + self.c[1] * midpoint(bucket) + self.c[2] * f64::from(d))).max(1.0)
+    }
+}
+
+/// Proxy boundary errors (high, low) at `t` for one cell's pairs.
+fn errors(pairs: &[(f64, f64)], model: &Model, sigma: f64, t: f64) -> (usize, usize) {
+    let (a, b) = model.line;
+    let high = pairs
+        .iter()
+        .filter(|p| p.1 < a * p.0 + b - t * sigma)
+        .count();
+    let low = pairs
+        .iter()
+        .filter(|p| p.1 > a * p.0 + b + t * sigma)
+        .count();
+    (high, low)
+}
+
+/// Depth range and bucket range, inclusive.
+type Rect = ((u32, u32), (usize, usize));
+
+fn rect_cells(((d0, d1), (b0, b1)): Rect) -> impl Iterator<Item = (u32, usize)> {
+    (d0..=d1).flat_map(move |d| (b0..=b1).map(move |b| (d, b)))
+}
+
+/// Whether one cell passes on the given split with the model as inflated.
+fn accepted(cell: &Cell, split: usize, model: &Model, d: u32, bucket: usize) -> bool {
+    let pairs = &cell.pairs[split];
+    if pairs.len() < MIN_POSITIONS {
+        return false;
+    }
+    let sigma = model.sigma(d, bucket);
+    let (high, low) = errors(pairs, model, sigma, CHECK_T);
+    sigma >= FLOOR * spread(pairs, model.line)
+        && wilson_upper(high, pairs.len()) <= MAX_ERROR
+        && wilson_upper(low, pairs.len()) <= MAX_ERROR
+}
+
+/// The rectangle with the most cells within `allowed` whose every cell is
+/// accepted on `split` after inflating the model just enough for the σ
+/// floor over that rectangle; ties go to the smaller mean σ.
+fn best_rect(
+    grid: &[Vec<Cell>],
+    split: usize,
+    model: &Model,
+    least: u32,
+    allowed: &dyn Fn(u32, usize) -> bool,
+) -> Option<(Rect, Model)> {
+    let mut best: Option<(usize, f64, Rect, Model)> = None;
+    let depths = least.max(*DEPTHS.start())..=*DEPTHS.end();
+    for d0 in depths.clone() {
+        for d1 in d0..=*depths.end() {
+            for b0 in 0..BUCKETS.len() {
+                for b1 in b0..BUCKETS.len() {
+                    let rect = ((d0, d1), (b0, b1));
+                    if rect_cells(rect).any(|(d, b)| {
+                        !allowed(d, b) || grid[d as usize][b].pairs[split].len() < MIN_POSITIONS
+                    }) {
+                        continue;
+                    }
+                    let k = rect_cells(rect)
+                        .map(|(d, b)| {
+                            FLOOR * spread(&grid[d as usize][b].pairs[split], model.line)
+                                / Model { k: 1.0, ..*model }.sigma(d, b)
+                        })
+                        .fold(1.0f64, f64::max);
+                    let inflated = Model { k, ..*model };
+                    if !rect_cells(rect)
+                        .all(|(d, b)| accepted(&grid[d as usize][b], split, &inflated, d, b))
+                    {
+                        continue;
+                    }
+                    let count = rect_cells(rect).count();
+                    let mean = rect_cells(rect)
+                        .map(|(d, b)| inflated.sigma(d, b))
+                        .sum::<f64>()
+                        / count as f64;
+                    if best
+                        .as_ref()
+                        .is_none_or(|&(c, m, _, _)| count > c || (count == c && mean < m))
+                    {
+                        best = Some((count, mean, rect, inflated));
+                    }
+                }
+            }
+        }
+    }
+    best.map(|(_, _, rect, model)| (rect, model))
+}
+
+/// The two forms fitted on the fit split over every cell with enough pairs.
+fn forms(grid: &[Vec<Cell>]) -> Vec<(&'static str, Model)> {
+    let cells: Vec<(u32, usize)> = DEPTHS
+        .flat_map(|d| (0..BUCKETS.len()).map(move |b| (d, b)))
+        .filter(|&(d, b)| grid[d as usize][b].pairs[0].len() >= MIN_POSITIONS)
+        .collect();
+    if cells.len() < 3 {
+        return Vec::new();
+    }
+    let pooled: Vec<(f64, f64)> = cells
+        .iter()
+        .flat_map(|&(d, b)| grid[d as usize][b].pairs[0].iter().copied())
+        .collect();
+    let linear = |line: (f64, f64)| {
+        let rows: Vec<(Vec<f64>, f64, f64)> = cells
+            .iter()
+            .map(|&(d, b)| {
+                let pairs = &grid[d as usize][b].pairs[0];
+                (
+                    vec![1.0, midpoint(b), f64::from(d)],
+                    spread(pairs, line),
+                    pairs.len() as f64,
+                )
+            })
+            .collect();
+        let c = least_squares(&rows);
+        Model {
+            line,
+            c: [c[0], c[1], c[2]],
+            k: 1.0,
+        }
+    };
+    let (a, b) = regress(&pooled);
+    let mut out = vec![("a=1 b=0", linear((1.0, 0.0)))];
+    if a > 0.0 {
+        out.push(("pooled a b", linear((a, b))));
+    }
+    out
+}
+
+fn report_cells(name: &str, grid: &[Vec<Cell>], model: Option<&Model>, rule: fn(u32) -> u32) {
+    println!(
+        "\nrule {name}: per cell; spread of v_d - v_s by split (fit, selection, audit){}",
+        if model.is_some() { "; model sigma" } else { "" }
+    );
+    println!(
+        "   d  s  bucket  n_fit n_sel n_aud  sd_fit  sd_sel  sd_aud{}",
+        if model.is_some() { "   sigma" } else { "" }
+    );
+    for d in DEPTHS {
+        for (bucket, cell) in grid[d as usize].iter().enumerate() {
+            let [f, s, a] = &cell.pairs;
+            if f.is_empty() {
+                continue;
+            }
+            let unit = (1.0, 0.0);
+            print!(
+                "  {d:2} {:2}  {:2}-{:2}  {:5} {:5} {:5}  {:6.1}  {:6.1}  {:6.1}",
+                rule(d),
+                BUCKETS[bucket].0,
+                BUCKETS[bucket].1,
+                f.len(),
+                s.len(),
+                a.len(),
+                spread(f, unit),
+                spread(s, unit),
+                spread(a, unit)
+            );
+            match model {
+                Some(model) => println!("  {:6.1}", model.sigma(d, bucket)),
+                None => println!(),
+            }
+        }
+    }
 }
 
 fn fit(args: &[String]) -> Result<(), String> {
@@ -461,170 +717,132 @@ fn fit(args: &[String]) -> Result<(), String> {
     };
     let input = value("--in", "");
     if input.is_empty() {
-        return Err("usage: probcut_fit fit --in FILE [--t 150] [--min-cell 30]".into());
+        return Err("usage: probcut_fit fit --in FILE [--audit]".into());
     }
-    let t = value("--t", "150")
-        .parse::<f64>()
-        .map_err(|_| "invalid --t")?
-        / 100.0;
-    let min_cell: usize = value("--min-cell", "30")
-        .parse()
-        .map_err(|_| "invalid --min-cell")?;
-    let samples = samples(Path::new(&input))?;
-    let held = samples.iter().filter(|s| s.held).count();
+    let audit = args.iter().any(|arg| arg == "--audit");
+    let raw = samples(Path::new(&input))?;
+    let total = raw.len();
+    let samples = distinct(raw);
+    let counts = [0, 1, 2].map(|s| samples.iter().filter(|(split, _)| *split == s).count());
     println!(
-        "probcut_fit fit {input} samples {} fit {} held {held} t {t:.2} min_cell {min_cell}",
+        "probcut_fit fit {input} records {total} distinct {} fit {} selection {} audit {} min_positions {MIN_POSITIONS} floor {FLOOR} max_error {MAX_ERROR} check_t {CHECK_T}",
         samples.len(),
-        samples.len() - held
+        counts[0],
+        counts[1],
+        counts[2]
     );
-    for (name, rule) in RULES {
+    let allowed = |_: u32, b: usize| BUCKETS[b].1 >= THRESHOLD + 2 && BUCKETS[b].0 <= MAX_EMPTIES;
+    let mut chosen: Option<(usize, f64, &str, &str, Rect, Model)> = None;
+    for rule in RULES {
         let grid = cells(&samples, rule);
+        report_cells(rule.0, &grid, None, rule.1);
+        for (form, model) in forms(&grid) {
+            match best_rect(&grid, 1, &model, rule.2, &allowed) {
+                Some((rect, inflated)) => {
+                    let count = rect_cells(rect).count();
+                    let mean = rect_cells(rect)
+                        .map(|(d, b)| inflated.sigma(d, b))
+                        .sum::<f64>()
+                        / count as f64;
+                    println!(
+                        "rule {} form {form}: rectangle depths {}..={} buckets {}..={} cells {count} inflation {:.3} mean_sigma {mean:.1}",
+                        rule.0,
+                        rect.0.0,
+                        rect.0.1,
+                        BUCKETS[rect.1.0].0,
+                        BUCKETS[rect.1.1].1,
+                        inflated.k
+                    );
+                    if chosen
+                        .as_ref()
+                        .is_none_or(|c| count > c.0 || (count == c.0 && mean < c.1))
+                    {
+                        chosen = Some((count, mean, rule.0, form, rect, inflated));
+                    }
+                }
+                None => println!("rule {} form {form}: no accepted rectangle", rule.0),
+            }
+        }
+    }
+    let Some((_, _, name, form, rect, model)) = chosen else {
+        return Err("no rule and form has an accepted rectangle".into());
+    };
+    let rule = RULES.into_iter().find(|r| r.0 == name).unwrap();
+    let grid = cells(&samples, rule);
+    report_cells(name, &grid, Some(&model), rule.1);
+    let ((d0, d1), (b0, b1)) = rect;
+    let e_min = BUCKETS[b0].0.max(THRESHOLD + 2);
+    let e_max = BUCKETS[b1].1.min(MAX_EMPTIES);
+    println!(
+        "\nchosen (selection split): rule {name} form {form} a {:.4} b {:.1} inflation {:.3}\n  rectangle depths {d0}..={d1} empties {e_min}..={e_max}",
+        model.line.0, model.line.1, model.k
+    );
+    let hundredths = model.c.map(|c| (c * model.k * 100.0).round() as i64);
+    println!(
+        "  ProbCut {{ t: T, s0: {}, s1: {}, s2: {}, a_milli: {}, b: {}, d_min: {d0}, d_max: {d1}, e_min: {e_min}, e_max: {e_max} }}",
+        hundredths[0],
+        hundredths[1],
+        hundredths[2],
+        (model.line.0 * 1000.0).round() as i64,
+        model.line.1.round() as i64
+    );
+    if !audit {
+        println!("audit split not opened (pass --audit once the choice is frozen)");
+        return Ok(());
+    }
+    println!(
+        "\naudit split, frozen model, per cell: positions, sigma floor, proxy errors at t {CHECK_T} with Wilson upper bounds"
+    );
+    let mut failed = Vec::new();
+    for (d, b) in rect_cells(rect) {
+        let pairs = &grid[d as usize][b].pairs[2];
+        let sigma = model.sigma(d, b);
+        let (high, low) = errors(pairs, &model, sigma, CHECK_T);
+        let floor = sigma >= FLOOR * spread(pairs, model.line);
         println!(
-            "\nrule {name}: per cell, a=1 b=0 spread (fit / held), fitted a b, residual spread (held)"
+            "  d {d:2} bucket {:2}-{:2} n {:4} sigma {sigma:6.1} audit_sd {:6.1} floor {} high {high} ({:.1}% up {:.1}%) low {low} ({:.1}% up {:.1}%)",
+            BUCKETS[b].0,
+            BUCKETS[b].1,
+            pairs.len(),
+            spread(pairs, model.line),
+            if floor { "ok" } else { "FAIL" },
+            100.0 * high as f64 / pairs.len().max(1) as f64,
+            100.0 * wilson_upper(high, pairs.len()),
+            100.0 * low as f64 / pairs.len().max(1) as f64,
+            100.0 * wilson_upper(low, pairs.len())
         );
-        println!("   d  s  bucket   n_fit n_held   sd_fit sd_held      a        b  resid_held");
-        let mut rows = Vec::new();
-        for d in DEPTHS {
-            for (bucket, cell) in grid[d as usize].iter().enumerate() {
-                let [fit, held] = &cell.pairs;
-                if fit.len() < min_cell || held.len() < min_cell {
-                    continue;
+        if !floor {
+            failed.push((d, b));
+        }
+    }
+    if failed.is_empty() {
+        println!("audit: every cell meets the floor; rectangle unchanged");
+    } else {
+        // Shrink: the largest sub-rectangle without a failed cell, no refit.
+        let mut best: Option<(usize, Rect)> = None;
+        for e0 in d0..=d1 {
+            for e1 in e0..=d1 {
+                for c0 in b0..=b1 {
+                    for c1 in c0..=b1 {
+                        let sub = ((e0, e1), (c0, c1));
+                        let count = rect_cells(sub).count();
+                        if rect_cells(sub).all(|cell| !failed.contains(&cell))
+                            && best.is_none_or(|(c, _)| count > c)
+                        {
+                            best = Some((count, sub));
+                        }
+                    }
                 }
-                let unit = spread(fit, (1.0, 0.0));
-                let line = regress(fit);
-                println!(
-                    "  {d:2} {:2}  {:2}-{:2}  {:6} {:6}  {unit:7.1} {:7.1}  {:5.3} {:8.1}  {:7.1}",
-                    rule(d),
-                    BUCKETS[bucket].0,
-                    BUCKETS[bucket].1,
-                    fit.len(),
-                    held.len(),
-                    spread(held, (1.0, 0.0)),
-                    line.0,
-                    line.1,
-                    spread(held, line)
-                );
-                rows.push((d, bucket, line));
             }
         }
-        if name != "v1" || rows.is_empty() {
-            continue;
-        }
-        let all_fit: Vec<(f64, f64)> = rows
-            .iter()
-            .flat_map(|&(d, b, _)| grid[d as usize][b].pairs[0].iter().copied())
-            .collect();
-        let pooled = regress(&all_fit);
-        let linear = |line: (f64, f64)| {
-            let fitted: Vec<(Vec<f64>, f64, f64)> = rows
-                .iter()
-                .map(|&(d, b, _)| {
-                    let pairs = &grid[d as usize][b].pairs[0];
-                    (
-                        vec![1.0, midpoint(b), f64::from(d)],
-                        spread(pairs, line),
-                        pairs.len() as f64,
-                    )
-                })
-                .collect();
-            least_squares(&fitted)
-        };
-        let unit = linear((1.0, 0.0));
-        let scaled = linear(pooled);
-        let per_bucket: Vec<Vec<f64>> = (0..BUCKETS.len())
-            .map(|bucket| {
-                let fitted: Vec<(Vec<f64>, f64, f64)> = rows
-                    .iter()
-                    .filter(|row| row.1 == bucket)
-                    .map(|&(d, b, _)| {
-                        let pairs = &grid[d as usize][b].pairs[0];
-                        (
-                            vec![1.0, f64::from(d)],
-                            spread(pairs, (1.0, 0.0)),
-                            pairs.len() as f64,
-                        )
-                    })
-                    .collect();
-                if fitted.len() < 2 {
-                    vec![0.0, 0.0]
-                } else {
-                    least_squares(&fitted)
-                }
-            })
-            .collect();
-        let forms = [
-            Form {
-                name: "linear a=1 b=0 (S0 + S1*e + S2*d)",
-                sigma: Box::new({
-                    let c = unit.clone();
-                    move |d, b| c[0] + c[1] * midpoint(b) + c[2] * f64::from(d)
-                }),
-                line: (1.0, 0.0),
-                constants: unit,
-            },
-            Form {
-                name: "linear, pooled a b (S0 + S1*e + S2*d)",
-                sigma: Box::new({
-                    let c = scaled.clone();
-                    move |d, b| c[0] + c[1] * midpoint(b) + c[2] * f64::from(d)
-                }),
-                line: pooled,
-                constants: scaled,
-            },
-            Form {
-                name: "per bucket a=1 b=0 (S0_k + S2_k*d)",
-                sigma: Box::new({
-                    let c = per_bucket.clone();
-                    move |d, b| c[b][0] + c[b][1] * f64::from(d)
-                }),
-                line: (1.0, 0.0),
-                constants: per_bucket.concat(),
-            },
-        ];
-        for form in forms {
-            // Inflate until model σ >= 95% of held-out σ in every supported cell.
-            let k = rows
-                .iter()
-                .map(|&(d, b, _)| {
-                    0.95 * spread(&grid[d as usize][b].pairs[1], form.line)
-                        / (form.sigma)(d, b).max(1.0)
-                })
-                .fold(1.0f64, f64::max);
-            let (mut high, mut low, mut n, mut sigma_sum, mut worst) = (0, 0, 0, 0.0, 0.0f64);
-            for &(d, b, _) in &rows {
-                let sigma = k * (form.sigma)(d, b).max(1.0);
-                let held = &grid[d as usize][b].pairs[1];
-                let (a, c) = form.line;
-                let h = held
-                    .iter()
-                    .filter(|p| p.1 < a * p.0 + c - t * sigma)
-                    .count();
-                let l = held
-                    .iter()
-                    .filter(|p| p.1 > a * p.0 + c + t * sigma)
-                    .count();
-                worst = worst
-                    .max(wilson_upper(h, held.len()))
-                    .max(wilson_upper(l, held.len()));
-                high += h;
-                low += l;
-                n += held.len();
-                sigma_sum += sigma * held.len() as f64;
-            }
-            println!(
-                "\nform {}: a {:.4} b {:.1} inflation {k:.3} mean_sigma {:.1}\n  held boundary errors at t {t:.2}: high {high}/{n} ({:.2}%) low {low}/{n} ({:.2}%) worst cell upper95 {:.2}%\n  constants (centidiscs, inflated): {:?}",
-                form.name,
-                form.line.0,
-                form.line.1,
-                sigma_sum / n as f64,
-                100.0 * high as f64 / n as f64,
-                100.0 * low as f64 / n as f64,
-                100.0 * worst,
-                form.constants
-                    .iter()
-                    .map(|c| (c * k * 100.0).round() / 100.0)
-                    .collect::<Vec<_>>()
-            );
+        match best {
+            Some((_, ((e0, e1), (c0, c1)))) => println!(
+                "audit: {} cells fail the floor; rectangle shrinks to depths {e0}..={e1} empties {}..={}",
+                failed.len(),
+                BUCKETS[c0].0.max(THRESHOLD + 2),
+                BUCKETS[c1].1.min(MAX_EMPTIES)
+            ),
+            None => println!("audit: every cell fails; no rectangle"),
         }
     }
     Ok(())
@@ -648,8 +866,8 @@ mod tests {
     use super::*;
 
     /// Deterministic pairs `v_d = a·v_s + b + e` with e of spread `sigma`.
-    fn synthetic(a: f64, b: f64, sigma: f64, n: usize) -> Vec<(f64, f64)> {
-        let mut rng = Rng(1);
+    fn synthetic(a: f64, b: f64, sigma: f64, n: usize, seed: u64) -> Vec<(f64, f64)> {
+        let mut rng = Rng(seed);
         (0..n)
             .map(|_| {
                 let x = rng.below(4001) as f64 - 2000.0;
@@ -665,7 +883,7 @@ mod tests {
 
     #[test]
     fn regression_recovers_line_and_spread() {
-        let pairs = synthetic(0.9, 50.0, 300.0, 20_000);
+        let pairs = synthetic(0.9, 50.0, 300.0, 20_000, 1);
         let (a, b) = regress(&pairs);
         assert!((a - 0.9).abs() < 0.01, "a {a}");
         assert!((b - 50.0).abs() < 10.0, "b {b}");
@@ -699,15 +917,109 @@ mod tests {
     }
 
     #[test]
-    fn shallow_rules_keep_parity() {
-        for d in DEPTHS {
-            for (name, rule) in RULES {
+    fn shallow_rules_valid_from_their_least_depth() {
+        for (name, rule, least) in RULES {
+            for d in least..=*DEPTHS.end() {
                 let s = rule(d);
-                assert!(s >= 1 && s < d, "{name} d {d} s {s}");
-                if name == "v1" || d > 6 {
-                    assert_eq!((d - s) % 2, 0, "{name} d {d} s {s}");
+                assert!(s >= 1 && s < d && (d - s) % 2 == 0, "{name} d {d} s {s}");
+            }
+        }
+    }
+
+    #[test]
+    fn canonical_is_symmetry_invariant() {
+        let board = Board {
+            me: 0x0000_0010_3800_0000,
+            opp: 0x0000_0808_0400_0200,
+        };
+        let key = canonical(board);
+        let images = [
+            Board {
+                me: flip_vertical(board.me),
+                opp: flip_vertical(board.opp),
+            },
+            Board {
+                me: mirror_horizontal(board.me),
+                opp: mirror_horizontal(board.opp),
+            },
+            Board {
+                me: transpose(board.me),
+                opp: transpose(board.opp),
+            },
+            Board {
+                me: transpose(flip_vertical(board.me)),
+                opp: transpose(flip_vertical(board.opp)),
+            },
+        ];
+        for image in images {
+            assert_eq!(canonical(image), key);
+        }
+        assert_eq!(transpose(transpose(board.me)), board.me);
+        assert_eq!(transpose(1 << 1), 1 << 8);
+        assert_ne!(
+            canonical(Board {
+                me: board.opp,
+                opp: board.me
+            }),
+            key
+        );
+    }
+
+    #[test]
+    fn distinct_keeps_lowest_unit_and_one_split() {
+        let board = Board {
+            me: 0x0000_0010_3800_0000,
+            opp: 0x0000_0808_0400_0200,
+        };
+        let mirrored = Board {
+            me: mirror_horizontal(board.me),
+            opp: mirror_horizontal(board.opp),
+        };
+        let sample = |id, board| Sample {
+            id,
+            board,
+            empties: 50,
+            values: vec![0],
+        };
+        let kept = distinct(vec![
+            sample(7, mirrored),
+            sample(3, board),
+            sample(5, Board::START),
+        ]);
+        let ids: Vec<usize> = kept.iter().map(|(_, s)| s.id).collect();
+        assert_eq!(ids, [3, 5]);
+        assert_eq!(kept[0].0, split(canonical(board)));
+    }
+
+    #[test]
+    fn rectangle_excludes_a_noisy_cell() {
+        // Every cell has sigma 300 except depth 6 in the last bucket (900).
+        let mut grid = vec![vec![Cell::default(); BUCKETS.len()]; *DEPTHS.end() as usize + 1];
+        for d in 3..=8u32 {
+            for b in 1..BUCKETS.len() {
+                let sigma = if d == 6 && b == 4 { 900.0 } else { 300.0 };
+                for split in 0..3 {
+                    grid[d as usize][b].pairs[split] = synthetic(
+                        1.0,
+                        0.0,
+                        sigma,
+                        200,
+                        u64::from(d) * 10 + b as u64 + 100 * split as u64,
+                    );
                 }
             }
         }
+        let model = Model {
+            line: (1.0, 0.0),
+            c: [300.0, 0.0, 0.0],
+            k: 1.0,
+        };
+        let (rect, inflated) = best_rect(&grid, 1, &model, 3, &|_, _| true).expect("a rectangle");
+        assert!(
+            rect_cells(rect).all(|(d, b)| !(d == 6 && b == 4)),
+            "{rect:?}"
+        );
+        assert_eq!(rect_cells(rect).count(), 18, "{rect:?}");
+        assert!(inflated.k >= 1.0 && inflated.k < 1.1, "k {}", inflated.k);
     }
 }
