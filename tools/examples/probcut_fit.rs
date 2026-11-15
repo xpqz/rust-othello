@@ -182,6 +182,7 @@ fn unit(games: &[Vec<u8>], seed: u64, n: usize) -> (usize, Board) {
 fn measure(node: Board, depth: u32, table: &mut Table) -> (Vec<i32>, u64) {
     let config = SearchConfig {
         endgame_threshold: 0,
+        probcut: None,
         ..SearchConfig::standard()
     };
     table.clear();
@@ -1288,6 +1289,34 @@ mod tests {
         line: (1.0, 0.0),
         c: [300.0, 0.0, 0.0],
     };
+
+    /// `measure` labels are full-width whatever `standard()` selects.
+    #[test]
+    fn labels_full_width() {
+        let node = Board {
+            me: 0x2002_242e_1000_0000,
+            opp: 0x023c_1810_2840_0000,
+        };
+        let labels = |config: &SearchConfig, table: &mut Table| -> Vec<i32> {
+            table.clear();
+            let deep =
+                (1..=8).map(|d| search_tt(node, SearchLimits::depth(d), config, table).score);
+            std::iter::once(evaluate(node)).chain(deep).collect()
+        };
+        let full = SearchConfig {
+            endgame_threshold: 0,
+            probcut: None,
+            ..SearchConfig::standard()
+        };
+        let selective = SearchConfig {
+            endgame_threshold: 0,
+            ..SearchConfig::standard()
+        };
+        let mut table = Table::new(1 << 16);
+        let reference = labels(&full, &mut table);
+        assert_ne!(labels(&selective, &mut table), reference);
+        assert_eq!(measure(node, 8, &mut table).0, reference);
+    }
 
     #[test]
     fn regression_recovers_line() {

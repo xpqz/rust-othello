@@ -13,7 +13,7 @@ use othello::tt::{MAX_ENTRIES, Table};
 const ROUNDS: usize = 5;
 const MIDGAME_DEPTH: u32 = 10;
 const SOLVE_REPEATS: usize = 100;
-/// Fixed split and solve threshold, so the workload does not move with `standard()`.
+/// Fixed split and solve threshold, full width, so the workload does not move with `standard()`.
 const SPLIT_EMPTIES: u32 = 14;
 
 fn workload(
@@ -24,6 +24,7 @@ fn workload(
 ) -> (u64, f64, f64) {
     let config = SearchConfig {
         endgame_threshold: SPLIT_EMPTIES,
+        probcut: None,
         ..SearchConfig::standard()
     };
     let (mut nodes, mut search, mut clear) = (0, 0.0, 0.0);
