@@ -1,0 +1,55 @@
+commit d76aaa6e3f21fe90e6fe6fb12914eb177fbda011 changes 1
+binary sha256 e50455546311285e63ef906456c8dc7a48b1c9ff9c94394f04402f9788a86d89
+command book_coverage --time 16,18,20 --sample 10 --min 10
+Sun 15 Nov 2026 10:26:25 CET
+10:26  up 46 days, 20:18, 9 users, load averages: 2.69 4.78 4.61
+book_coverage v1 games 137548 rejected 0
+ply: positions occurring in at least [1, 2, 5, 10, 20, 50, 100] games
+  0 [1, 1, 1, 1, 1, 1, 1]
+  1 [1, 1, 1, 1, 1, 1, 1]
+  2 [3, 3, 3, 3, 3, 3, 3]
+  3 [14, 14, 14, 14, 14, 12, 10]
+  4 [60, 59, 57, 48, 40, 28, 23]
+  5 [278, 236, 159, 123, 82, 55, 40]
+  6 [825, 546, 322, 232, 163, 113, 68]
+  7 [1970, 1117, 639, 402, 266, 150, 98]
+  8 [4048, 2075, 1025, 645, 385, 193, 125]
+  9 [7432, 3387, 1448, 850, 489, 245, 153]
+ 10 [12161, 4735, 1906, 1060, 606, 275, 167]
+ 11 [18155, 6162, 2337, 1249, 687, 304, 169]
+ 12 [25648, 7671, 2714, 1394, 719, 296, 142]
+ 13 [34034, 8954, 2862, 1387, 693, 269, 130]
+ 14 [43130, 9838, 2927, 1357, 658, 237, 128]
+ 15 [52552, 10293, 2865, 1305, 585, 236, 117]
+ 16 [61637, 10567, 2712, 1225, 552, 232, 101]
+ 17 [70539, 10503, 2513, 1165, 533, 201, 86]
+ 18 [78859, 10206, 2492, 1080, 483, 169, 67]
+ 19 [86486, 9784, 2266, 978, 421, 144, 53]
+ 20 [93555, 9304, 2065, 856, 356, 114, 45]
+ 21 [99759, 8717, 1878, 730, 284, 83, 25]
+ 22 [105191, 8133, 1657, 608, 239, 70, 22]
+ 23 [109999, 7504, 1468, 545, 196, 48, 15]
+ 24 [114366, 6934, 1245, 443, 150, 41, 14]
+ 25 [118135, 6319, 1053, 353, 125, 35, 11]
+ 26 [121407, 5757, 875, 293, 88, 22, 10]
+ 27 [124213, 5165, 727, 229, 71, 16, 3]
+ 28 [126613, 4655, 594, 171, 53, 8, 2]
+ 29 [128612, 4137, 470, 130, 34, 6, 0]
+plies 0..30: [1639683, 162777, 41295, 18877, 8977, 3607, 1829]
+openings_probcut3.txt: 1024 openings, end position in WTHOR 37, in >= 5 games 9
+openings_final.txt: 512 openings, end position in WTHOR 22, in >= 5 games 5
+ply 1: positions 1, in WTHOR 1, in >= 2 games 1
+ply 2: positions 3, in WTHOR 3, in >= 2 games 3
+ply 3: positions 14, in WTHOR 14, in >= 2 games 14
+ply 4: positions 60, in WTHOR 60, in >= 2 games 59
+ply 5: positions 322, in WTHOR 278, in >= 2 games 236
+ply 6: positions 1773, in WTHOR 825, in >= 2 games 546
+timing: standard() (fitted ProbCut, threshold 18), table 4194304, cleared per leaf search and per drop-out set
+ply 10 depth 16: positions 10 leaf median 0.18s mean 0.24s; drop-out (36 children) median 1.05s mean 0.98s
+ply 10 depth 18: positions 10 leaf median 1.00s mean 1.06s; drop-out (36 children) median 3.59s mean 3.34s
+ply 10 depth 20: positions 10 leaf median 4.94s mean 5.89s; drop-out (36 children) median 19.08s mean 15.30s
+ply 20 depth 16: positions 10 leaf median 0.18s mean 0.27s; drop-out (77 children) median 1.20s mean 1.59s
+ply 20 depth 18: positions 10 leaf median 1.08s mean 1.06s; drop-out (77 children) median 6.28s mean 6.86s
+ply 20 depth 20: positions 10 leaf median 3.07s mean 3.58s; drop-out (77 children) median 18.49s mean 22.64s
+exit 0
+Sun 15 Nov 2026 17:19:58 GMT
