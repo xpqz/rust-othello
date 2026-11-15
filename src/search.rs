@@ -20,7 +20,7 @@ impl SearchConfig {
             eval: crate::pattern::evaluate,
             endgame_threshold: 18,
             ordering: true,
-            probcut: None,
+            probcut: Some(ProbCut::FITTED),
         }
     }
 }

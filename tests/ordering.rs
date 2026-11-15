@@ -194,8 +194,12 @@ fn midgame_class_order() {
         opp: 0x023c_1810_2840_0000,
     };
     let expected = [(3, 26, 583, 462), (4, 20, -309, 2987), (5, 21, 352, 8113)];
+    let full = SearchConfig {
+        probcut: None,
+        ..SearchConfig::standard()
+    };
     for (depth, best, score, nodes) in expected {
-        let result = search(board, depth, &SearchConfig::standard());
+        let result = search(board, depth, &full);
         assert_eq!(
             (result.best, result.score, result.nodes),
             (best, score, nodes),

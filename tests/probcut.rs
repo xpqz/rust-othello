@@ -483,8 +483,8 @@ fn empty_rectangle_off() {
 }
 
 #[test]
-fn standard_is_off() {
-    assert!(SearchConfig::standard().probcut.is_none());
+fn standard_is_fitted() {
+    assert_eq!(SearchConfig::standard().probcut, Some(ProbCut::FITTED));
 }
 
 #[test]

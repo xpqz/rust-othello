@@ -183,6 +183,14 @@ fn config() -> SearchConfig {
     classic_config()
 }
 
+/// The standard engine without ProbCut: these fingerprints are full-width.
+fn full() -> SearchConfig {
+    SearchConfig {
+        probcut: None,
+        ..SearchConfig::standard()
+    }
+}
+
 fn fingerprint(board: Board, config: &SearchConfig) -> (u8, i32, u64) {
     if is_terminal(board) {
         (255, terminal_score(final_score(board)), 0)
@@ -388,7 +396,7 @@ const GOLDEN_V2: [Golden; 23] = [
 
 #[test]
 fn golden_v2() {
-    let config = SearchConfig::standard();
+    let config = full();
     for golden in GOLDEN_V2 {
         let board = Board {
             me: golden.me,
@@ -414,7 +422,7 @@ const HINT_NODES: u64 = 1_406_429;
 
 #[test]
 fn fewer_nodes() {
-    let config = SearchConfig::standard();
+    let config = full();
     let nodes: u64 = GOLDEN_V2
         .iter()
         .map(|golden| {
@@ -430,7 +438,7 @@ fn fewer_nodes() {
 
 #[test]
 fn fewer_table_nodes() {
-    let config = SearchConfig::standard();
+    let config = full();
     let mut table = Table::new(1 << 20);
     let mut nodes = 0;
     for golden in GOLDEN_V2 {
@@ -652,19 +660,13 @@ fn rejects_no_move() {
     };
     let (best, score) = DEPTH_SCORES[3][7];
     assert_eq!((best, legal_moves(board.me, board.opp) & 1), (0, 1));
-    agrees(
-        board,
-        8,
-        &SearchConfig::standard(),
-        (64, score),
-        (best, score),
-    );
+    agrees(board, 8, &full(), (64, score), (best, score));
 }
 
 #[test]
 #[cfg_attr(debug_assertions, ignore = "release-only")]
 fn corpus_depths() {
-    let config = SearchConfig::standard();
+    let config = full();
     let mut table = Table::new(1 << 20);
     for (golden, row) in GOLDEN_V2.iter().zip(DEPTH_SCORES) {
         let Some(board) = mover(Board {
