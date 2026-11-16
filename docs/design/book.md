@@ -1,6 +1,6 @@
 # Opening book: Design
 
-Nov 16, 2026 · Draft, revision 3 · SKIS epic #150, design issue #152
+Nov 16, 2026 · Approved, revision 3 with amendment 1 · SKIS epic #150, design issue #152
 
 > Scope: an opening book built from the WTHOR archive and scored by our own
 > engine, consulted only when the engine chooses a move to play. Search,
@@ -263,14 +263,25 @@ Fixed now, before the pilot runs:
   trainer crate", and training and fitting pipelines live in the counted
   trainer. The trainer has 50 of its 1,200 lines left, and the builder
   needs an estimated 250–350.
-- **User decision,** required before builder GREEN: (a) raise the trainer
-  budget, which the reviewer prefers as an explicit counted decision;
-  (b) exempt book building; or (c) amend `docs/PLAN.md` to allow a tools
-  example. PLAN and the epic wording follow whichever is chosen.
+- **Decided:** user decision, 16 Nov 2026: "Trainer can have 2000 LOC."
+  The builder lives in the counted trainer, and the trainer guard is now
+  2,000 lines (`trainer/tests/budget.rs`, `docs/PLAN.md`).
 - **Reproducibility:** the asset is a pure function of the WTHOR files
   (whose hashes are in the header), N, the ply limit, D, the roots, the
-  rules above and the engine commit. The book is tied to the evaluator,
-  and a test pins the `eval.bin` hash recorded with the asset.
+  rules above and the engine commit.
+- **Not tied to the evaluator** (amendment, user decision, 16 Nov 2026):
+  - The build log and manifest header record the `eval.bin` hash the book
+    was scored with, for provenance only. No test pins it.
+  - A retrained evaluator keeps the existing book: lookup never uses the
+    evaluator, and a stored move remains the result of the deep offline
+    scoring. A stored value is then reported as the score of an older
+    model.
+  - Rebuilding after a retrain is optional, and is decided by a match
+    against the existing book, not forced by a test.
+  - The user, 16 Nov 2026: "The planned opening book depends on the
+    current evaluation weights, so every retrain of the evaluator means
+    another day-long book rebuild." The pin was the only thing forcing
+    that.
 
 ## Engine
 
@@ -453,3 +464,10 @@ Playing paths, which inherit the shipped policy once it is enabled:
 | "Lossless for its roots" does not cover re-entry | The guarantee is narrowed to connected book lines. Re-entry through stateless lookup is kept, with reduced coverage, and no latch. A leave-and-re-enter test is added. |
 | Overflow can drop gate roots | The start position and the 400 gate roots are mandatory and protected, and the build fails if they cannot fit. The coverage claim is restricted to the side to move at each root, with the other colour's first-move hits logged. A low-count frozen root test is added. |
 | Bootstrap bound wording | The bound is the 97.5th percentile of the bootstrapped projections, used as it stands. |
+
+### Amendment 1, after approval (for review with #153)
+
+| Change | Reason |
+| --- | --- |
+| The builder home is decided: the counted trainer, with a 2,000-line budget. | User decision. |
+| The `eval.bin` hash is recorded for provenance only, with no pin test; a retrain keeps the book, and rebuilding is optional. | User decision: a forced rebuild on every retrain is not wanted, and nothing in lookup depends on the evaluator. |
