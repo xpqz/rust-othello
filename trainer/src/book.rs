@@ -4,8 +4,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::RangeInclusive;
 use std::path::Path;
-use std::sync::Mutex;
-use std::time::Instant;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play, squares};
 use othello::pattern;
@@ -14,6 +15,7 @@ use othello::score::terminal_score;
 use othello::search::{ProbCut, SearchConfig, SearchLimits, search_tt};
 use othello::tt::{Table, zobrist};
 use othello_tools::journal::{self, Journal};
+use othello_tools::positions::{self, square_name};
 use othello_tools::provenance::git_commit;
 use othello_tools::sym::canonical;
 use rayon::prelude::*;
@@ -76,14 +78,12 @@ pub fn normalize(board: Board) -> (Board, bool) {
 }
 
 /// Positions after 0..`plies` - 1 placements, each counted once per game.
+/// A game with an illegal move is left out whole.
 pub fn count(games: &[Vec<u8>], plies: u32) -> BTreeMap<Key, u32> {
     let mut counts = BTreeMap::new();
     for game in games {
-        let seen: BTreeSet<Key> = line(game)
-            .into_iter()
-            .take(plies as usize)
-            .map(key)
-            .collect();
+        let Some(boards) = line(game) else { continue };
+        let seen: BTreeSet<Key> = boards.into_iter().take(plies as usize).map(key).collect();
         for k in seen {
             *counts.entry(k).or_default() += 1;
         }
@@ -91,18 +91,22 @@ pub fn count(games: &[Vec<u8>], plies: u32) -> BTreeMap<Key, u32> {
     counts
 }
 
-/// The normalized board after each number of placements, stopping at the
-/// first illegal move.
-fn line(moves: &[u8]) -> Vec<Board> {
+/// The normalized board after each number of placements, or `None` if any
+/// move is illegal. An unfinished game is valid.
+fn line(moves: &[u8]) -> Option<Vec<Board>> {
     let mut boards = vec![Board::START];
     for &square in moves {
         let current = boards[boards.len() - 1];
         if square >= 64 || legal_moves(current.me, current.opp) & (1 << square) == 0 {
-            break;
+            return None;
         }
         boards.push(normalize(play(current, square)).0);
     }
-    boards
+    Some(boards)
+}
+
+pub fn legal_game(moves: &[u8]) -> bool {
+    line(moves).is_some()
 }
 
 fn moves_where(key: Key, is_node: impl Fn(&Key) -> bool) -> Vec<Move> {
@@ -148,7 +152,7 @@ pub fn dropout(
     let node = board(key);
     let mut best: Option<(i32, u8)> = None;
     for m in partition(key, nodes).into_iter().filter(|m| !m.book) {
-        let found = -value(play(node, m.square), depth - 1, search);
+        let found = -value(play(node, m.square), depth.saturating_sub(1), search);
         if best.is_none_or(|(value, _)| found > value) {
             best = Some((found, m.square));
         }
@@ -268,17 +272,28 @@ pub fn truncate(
     mandatory: &BTreeSet<Key>,
     room: usize,
 ) -> Result<BTreeSet<Key>, String> {
-    let graph = graph(entries);
+    truncation(roots, entries, &graph(entries), counts, mandatory, room).map(|(kept, _)| kept)
+}
+
+/// `truncate`, also returning the removals in order.
+fn truncation(
+    roots: &[(Key, bool)],
+    entries: &BTreeMap<Key, Entry>,
+    graph: &Graph,
+    counts: &BTreeMap<Key, u32>,
+    mandatory: &BTreeSet<Key>,
+    room: usize,
+) -> Result<(BTreeSet<Key>, Vec<Key>), String> {
     let mut roots = roots.to_vec();
     roots.extend(mandatory.iter().map(|&k| (k, true)));
-    let mut removed = BTreeSet::new();
+    let (mut removed, mut order) = (BTreeSet::new(), Vec::new());
     loop {
-        let records = walk(&roots, entries, &graph, &removed);
+        let records = walk(&roots, entries, graph, &removed);
         if let Some(k) = mandatory.iter().find(|k| !records.contains(k)) {
             return Err(format!("mandatory {} is not a movable book node", id(*k)));
         }
         if records.len() <= room {
-            return Ok(records);
+            return Ok((records, order));
         }
         let victim = records
             .iter()
@@ -286,6 +301,7 @@ pub fn truncate(
             .min_by_key(|&&k| (counts.get(&k).copied().unwrap_or(0), zobrist(board(k))))
             .ok_or_else(|| format!("{} mandatory records exceed room {room}", records.len()))?;
         removed.insert(*victim);
+        order.push(*victim);
     }
 }
 
@@ -331,7 +347,8 @@ pub fn roots(
 ) -> Result<Vec<Vec<u8>>, String> {
     let mut pool: BTreeMap<Key, Vec<u8>> = BTreeMap::new();
     for game in games {
-        for (at, board) in line(game)
+        let Some(boards) = line(game) else { continue };
+        for (at, board) in boards
             .into_iter()
             .enumerate()
             .filter(|(at, _)| plies.contains(at))
@@ -389,6 +406,15 @@ pub fn policy() -> SearchConfig {
     }
 }
 
+/// The collection inputs a journal must match to be built: version, N,
+/// plies and the input description (data and node set).
+pub fn identity(params: &Params, input: &str) -> String {
+    format!(
+        "book v1 min {} plies {} input {input}",
+        params.min, params.plies
+    )
+}
+
 pub fn header(params: &Params, input: &str) -> String {
     let config = policy();
     let eval = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/eval.bin"))
@@ -397,11 +423,10 @@ pub fn header(params: &Params, input: &str) -> String {
             |bytes| check::hex(&Sha256::digest(bytes)),
         );
     format!(
-        "book v1 min {} plies {} depth {} table {} input {input} eval {eval} engine {} \
+        "{} depth {} table {} eval {eval} engine {} \
          threshold {} ordering {} probcut {:?} rules normalize-passes,ascending-squares,\
          clear-per-node,lower-square-ties",
-        params.min,
-        params.plies,
+        identity(params, input),
         params.depth,
         params.table,
         git_commit(),
@@ -431,27 +456,62 @@ fn run_units<U: Sync>(
     header: &str,
     unit: impl Fn(&U, &mut Search) -> String + Sync,
 ) -> Result<usize, String> {
+    if params.depth == 0 {
+        return Err("depth must be at least 1".into());
+    }
     let (journal, done) = Journal::open(path, header)?;
     let todo: Vec<_> = units.iter().filter(|(id, _)| !done.contains(id)).collect();
-    let journal = Mutex::new(journal);
-    let config = policy();
+    let (skipped, journal, config) = (units.len() - todo.len(), Mutex::new(journal), policy());
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(jobs)
         .build()
         .map_err(|error| error.to_string())?;
-    pool.install(|| {
-        todo.par_iter().try_for_each_init(
-            || Table::new(params.table),
-            |table, (id, item)| {
-                table.clear();
-                let mut search =
-                    |b: Board, d: u32| search_tt(b, SearchLimits::depth(d), &config, table).score;
-                let line = unit(item, &mut search);
-                journal.lock().unwrap().append(id, &line)
-            },
-        )
+    let (finished, stop, start) = (
+        AtomicUsize::new(skipped),
+        (Mutex::new(false), Condvar::new()),
+        Instant::now(),
+    );
+    let every = std::env::var("OTHELLO_BOOK_PROGRESS_MS")
+        .ok()
+        .and_then(|ms| ms.parse().ok());
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            let mut stopped = stop.0.lock().unwrap();
+            while !*stopped {
+                let (done, elapsed) = (
+                    finished.load(Ordering::Relaxed),
+                    start.elapsed().as_secs_f64(),
+                );
+                let rate = (done - skipped) as f64 / elapsed;
+                let eta = (units.len() - done) as f64 / rate;
+                println!(
+                    "progress units {done}/{} elapsed {elapsed:.0}s eta {eta:.0}s",
+                    units.len()
+                );
+                let wait = Duration::from_millis(every.unwrap_or(60_000));
+                stopped = stop.1.wait_timeout(stopped, wait).unwrap().0;
+            }
+        });
+        let result: Result<(), String> = pool.install(|| {
+            todo.par_iter().try_for_each_init(
+                || Table::new(params.table),
+                |table, (id, item)| {
+                    table.clear();
+                    let mut search = |b: Board, d: u32| {
+                        search_tt(b, SearchLimits::depth(d), &config, table).score
+                    };
+                    let line = unit(item, &mut search);
+                    journal.lock().unwrap().append(id, &line)?;
+                    finished.fetch_add(1, Ordering::Relaxed);
+                    Ok(())
+                },
+            )
+        });
+        *stop.0.lock().unwrap() = true;
+        stop.1.notify_all();
+        result
     })?;
-    Ok(units.len() - todo.len())
+    Ok(skipped)
 }
 
 /// Scores every node not yet in the journal: one line per node, the
@@ -481,10 +541,26 @@ pub fn score(
     Ok((done, units.len() - done))
 }
 
-fn read_drops(path: &Path) -> Result<(String, Drops), String> {
+/// The journal's drop-out results, refused unless the header matches
+/// `identity`, every node has exactly one record, and each result is that
+/// node's legal drop-out move (or none when it has none).
+fn read_drops(
+    path: &Path,
+    nodes: &BTreeMap<Key, u32>,
+    identity: &str,
+) -> Result<(String, Drops), String> {
     let (header, records) = journal::read(path)?;
+    if !header.starts_with(&format!("{identity} depth ")) {
+        return Err(journal::mismatch(identity, &header));
+    }
     let mut drops = BTreeMap::new();
     for record in records {
+        let k = parse_id(&record.id)?;
+        let outs: Vec<u8> = partition(k, nodes)
+            .iter()
+            .filter(|m| !m.book)
+            .map(|m| m.square)
+            .collect();
         let result = record.line.split(" | ").next().unwrap_or_default();
         let drop = match result.split_once(' ') {
             None if result == "none" => None,
@@ -498,7 +574,17 @@ fn read_drops(path: &Path) -> Result<(String, Drops), String> {
             )),
             None => return Err(format!("invalid record {}", record.id)),
         };
-        drops.insert(parse_id(&record.id)?, drop);
+        let valid = drop.map_or(outs.is_empty(), |(_, square)| outs.contains(&square));
+        if !nodes.contains_key(&k) || !valid || drops.insert(k, drop).is_some() {
+            return Err(format!("foreign, invalid or repeated record {}", record.id));
+        }
+    }
+    if drops.len() != nodes.len() {
+        return Err(format!(
+            "journal has {} of {} nodes",
+            drops.len(),
+            nodes.len()
+        ));
     }
     Ok((header, drops))
 }
@@ -508,13 +594,15 @@ fn read_drops(path: &Path) -> Result<(String, Drops), String> {
 pub fn build(
     nodes: &BTreeMap<Key, u32>,
     path: &Path,
+    identity: &str,
     roots: &[(Key, bool)],
     mandatory: &BTreeSet<Key>,
     room: usize,
 ) -> Result<(Vec<u8>, String), String> {
-    let (header, drops) = read_drops(path)?;
+    let (header, drops) = read_drops(path, nodes, identity)?;
     let entries = backup(nodes, &drops)?;
-    let kept = truncate(roots, &entries, nodes, mandatory, room / RECORD)?;
+    let graph = graph(&entries);
+    let (kept, removed) = truncation(roots, &entries, &graph, nodes, mandatory, room / RECORD)?;
     let mut rows: Vec<(u64, Key, u8, i32)> = kept
         .iter()
         .map(|&k| {
@@ -533,15 +621,49 @@ pub fn build(
             .map(|&(z, _, s, v)| (z, s, v))
             .collect::<Vec<_>>(),
     )?;
+    let ids: Vec<String> = roots
+        .iter()
+        .map(|&(k, e)| format!("{}:{e}", id(k)))
+        .collect();
     let mut manifest = format!(
-        "# {header}\n# nodes {} records {}\n",
+        "# {header}\n# nodes {} records {} room {room} roots {} {}\n",
         nodes.len(),
-        rows.len()
+        rows.len(),
+        roots.len(),
+        check::hex(&Sha256::digest(ids.join(" ")))
     );
+    for k in &removed {
+        manifest.push_str(&format!("# removed {} count {}\n", id(*k), nodes[k]));
+    }
+    let gone: BTreeSet<Key> = removed.into_iter().collect();
+    for &k in mandatory {
+        let reach = |engine| {
+            walk(&[(k, engine)], &entries, &graph, &gone)
+                .intersection(&kept)
+                .count()
+        };
+        let replies = moves_where(k, |child| kept.contains(child));
+        let stored = replies.iter().filter(|m| m.book && !m.passed).count();
+        let line = format!(
+            "# root {} first {} second {} replies {stored}/{}\n",
+            id(k),
+            reach(true),
+            reach(false),
+            replies.len()
+        );
+        manifest.push_str(&line);
+    }
     for (_, k, square, value) in rows {
         manifest.push_str(&format!("{} {square} {}\n", id(k), clamp(value)));
     }
     Ok((asset, manifest))
+}
+
+/// The input description: the data hash and the node set's size and hash.
+pub fn input(data: &str, nodes: &BTreeMap<Key, u32>) -> String {
+    let ids: Vec<String> = nodes.keys().map(|&k| id(k)).collect();
+    let hash = check::hex(&Sha256::digest(ids.join(" ")));
+    format!("{data} nodes {}:{}", nodes.len(), &hash[..16])
 }
 
 /// Every game's moves in file order, and a hash of the file names and bytes.
@@ -576,52 +698,81 @@ pub fn pilot(
                 .map(move |&k| (format!("{}:{d}", id(k)), (k, d)))
         })
         .collect();
+    if depths.contains(&0) {
+        return Err("depth must be at least 1".into());
+    }
     run_units(&units, params, jobs, path, header, |&(k, d), search| {
         let start = Instant::now();
         let drop = dropout(k, nodes, d, search);
         format!("{:.6} {drop:?}", start.elapsed().as_secs_f64())
     })?;
-    let mut times: BTreeMap<u32, Vec<f64>> = BTreeMap::new();
+    pilot_times(&units, path)
+}
+
+/// Saved pilot times by depth, in unit ID order, refusing foreign, repeated,
+/// missing or invalid records.
+fn pilot_times<U>(units: &[(String, U)], path: &Path) -> Result<BTreeMap<u32, Vec<f64>>, String> {
+    let expected: BTreeSet<&str> = units.iter().map(|(id, _)| id.as_str()).collect();
+    let mut saved = BTreeMap::new();
     for record in journal::read(path)?.1 {
-        let depth = record.id.rsplit(':').next().and_then(|d| d.parse().ok());
-        let time = record.line.split(' ').next().and_then(|t| t.parse().ok());
-        if let (Some(depth), Some(time)) = (depth, time) {
-            times.entry(depth).or_default().push(time);
+        let time: f64 = record
+            .line
+            .split(' ')
+            .next()
+            .and_then(|t| t.parse().ok())
+            .unwrap_or(-1.0);
+        let fresh = expected.contains(record.id.as_str()) && time.is_finite() && time >= 0.0;
+        if !fresh || saved.insert(record.id.clone(), time).is_some() {
+            return Err(format!(
+                "foreign, invalid or repeated pilot record {}",
+                record.id
+            ));
         }
+    }
+    if saved.len() != expected.len() {
+        return Err(format!(
+            "pilot has {} of {} units",
+            saved.len(),
+            expected.len()
+        ));
+    }
+    let mut times: BTreeMap<u32, Vec<f64>> = BTreeMap::new();
+    for (id, time) in saved {
+        let depth = id
+            .rsplit(':')
+            .next()
+            .and_then(|d| d.parse().ok())
+            .ok_or("invalid pilot id")?;
+        times.entry(depth).or_default().push(time);
     }
     Ok(times)
 }
 
-/// Writes move sequences one per line, in a8-style square names.
+/// Move sequences one per line, after a comment line.
 pub fn write_lines(lines: &[Vec<u8>], comment: &str) -> String {
-    let name = |s: &u8| format!("{}{}", (b'a' + s % 8) as char, s / 8 + 1);
-    let mut text = format!("# {comment}\n");
-    for moves in lines {
-        text.push_str(&moves.iter().map(name).collect::<Vec<_>>().join(" "));
-        text.push('\n');
-    }
-    text
+    let named = lines.iter().map(|moves| {
+        moves
+            .iter()
+            .map(|&s| square_name(s))
+            .collect::<Vec<_>>()
+            .join(" ")
+    });
+    std::iter::once(format!("# {comment}"))
+        .chain(named)
+        .map(|line| line + "\n")
+        .collect()
 }
 
-/// Reads lines written by `write_lines` into root keys with the side to move.
+/// Root keys of a file written by `write_lines`.
 pub fn read_roots(text: &str) -> Result<Vec<Key>, String> {
-    text.lines()
-        .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
-        .map(|line| {
-            let mut board = Board::START;
-            for name in line.split_whitespace() {
-                let b = name.as_bytes();
-                if b.len() != 2 || !(b'a'..=b'h').contains(&b[0]) || !(b'1'..=b'8').contains(&b[1])
-                {
-                    return Err(format!("invalid square {name}"));
-                }
-                let square = (b[1] - b'1') * 8 + b[0] - b'a';
-                if legal_moves(board.me, board.opp) & (1 << square) == 0 {
-                    return Err(format!("illegal move {name} in {line}"));
-                }
-                board = normalize(play(board, square)).0;
-            }
-            Ok(key(board))
+    let boards = positions::parse(text)?
+        .into_iter()
+        .map(|opening| line(&opening.squares));
+    boards
+        .map(|boards| {
+            boards
+                .and_then(|b| b.last().map(|&board| key(board)))
+                .ok_or("illegal root".into())
         })
         .collect()
 }

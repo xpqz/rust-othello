@@ -829,6 +829,10 @@ fn header_names_inputs() {
     assert_ne!(header, other);
 }
 
+fn identity() -> String {
+    book::identity(&TEST_PARAMS, "test")
+}
+
 const TEST_PARAMS: Params = Params {
     min: 2,
     plies: 8,
@@ -901,10 +905,24 @@ fn artifact_records() {
     let nodes = BTreeMap::from([(parent, 10), (end, 10)]);
     let dir = temp_dir("records");
     let journal = dir.join("records.journal");
-    book::score(&[parent, end], &TEST_PARAMS, 1, &journal, "header test").unwrap();
+    book::score(
+        &[parent, end],
+        &TEST_PARAMS,
+        1,
+        &journal,
+        &book::header(&TEST_PARAMS, "test"),
+    )
+    .unwrap();
     let roots = [(parent, true), (parent, false)];
-    let (asset, manifest) =
-        book::build(&nodes, &journal, &roots, &BTreeSet::from([parent]), 1 << 16).unwrap();
+    let (asset, manifest) = book::build(
+        &nodes,
+        &journal,
+        &identity(),
+        &roots,
+        &BTreeSet::from([parent]),
+        1 << 16,
+    )
+    .unwrap();
     let values: Vec<i32> = legal
         .iter()
         .map(|&s| -policy_value(play(node, s), 1))
@@ -939,11 +957,20 @@ fn artifact_truncation_keeps_parent() {
         .collect();
     let dir = temp_dir("truncation");
     let journal = dir.join("truncation.journal");
-    book::score(&keys, &TEST_PARAMS, 2, &journal, "header test").unwrap();
+    book::score(
+        &keys,
+        &TEST_PARAMS,
+        2,
+        &journal,
+        &book::header(&TEST_PARAMS, "test"),
+    )
+    .unwrap();
     let roots = [(START, true)];
     let mandatory = BTreeSet::from([START]);
-    let (full, full_manifest) = book::build(&nodes, &journal, &roots, &mandatory, 1 << 16).unwrap();
-    let (cut, cut_manifest) = book::build(&nodes, &journal, &roots, &mandatory, 11).unwrap();
+    let (full, full_manifest) =
+        book::build(&nodes, &journal, &identity(), &roots, &mandatory, 1 << 16).unwrap();
+    let (cut, cut_manifest) =
+        book::build(&nodes, &journal, &identity(), &roots, &mandatory, 11).unwrap();
     let start = othello::tt::zobrist(Board::START);
     let kept: Vec<_> = records(&full)
         .into_iter()
@@ -967,11 +994,19 @@ fn build_with(
     jobs: usize,
 ) -> (Vec<String>, Vec<u8>, String) {
     let journal = dir.join(format!("{name}.journal"));
-    book::score(nodes, &TEST_PARAMS, jobs, &journal, "header test").unwrap();
+    book::score(
+        nodes,
+        &TEST_PARAMS,
+        jobs,
+        &journal,
+        &book::header(&TEST_PARAMS, "test"),
+    )
+    .unwrap();
     let node_map: BTreeMap<Key, u32> = nodes.iter().map(|&k| (k, 10)).collect();
     let (asset, manifest) = book::build(
         &node_map,
         &journal,
+        &identity(),
         &[(START, true), (START, false)],
         &BTreeSet::from([START]),
         1 << 16,
@@ -1152,7 +1187,11 @@ fn score_resume() {
     // The resumed journals build exactly the full journal's asset.
     let roots = [(START, true), (START, false)];
     let mandatory = BTreeSet::from([START]);
-    let built = |journal: &Path| book::build(&nodes, journal, &roots, &mandatory, 1 << 16).unwrap();
+    let header = othello_tools::journal::read(&full).unwrap().0;
+    let identity = header.split(" depth ").next().unwrap().to_string();
+    let built = |journal: &Path| {
+        book::build(&nodes, journal, &identity, &roots, &mandatory, 1 << 16).unwrap()
+    };
     assert_eq!(built(&killed), built(&full));
     assert_eq!(built(&torn), built(&full));
 
@@ -1222,4 +1261,331 @@ fn roots_file_round_trip() {
     assert_eq!(book::read_roots(&text).unwrap(), keys);
     assert!(book::read_roots("f5 f5\n").is_err());
     assert!(book::read_roots("z9\n").is_err());
+}
+
+#[test]
+fn count_rejects_illegal_game() {
+    // An illegal second move leaves the whole game out; an unfinished legal
+    // game still counts.
+    assert!(!book::legal_game(&[19, 19]));
+    assert!(book::count(&[vec![19, 19]], 10).is_empty());
+    assert!(book::legal_game(&[19]));
+    assert_eq!(book::count(&[vec![19]], 10).len(), 2);
+}
+
+/// A journal with the given header and records, written directly.
+fn journal_with(dir: &Path, name: &str, header: &str, records: &[(Key, &str)]) -> PathBuf {
+    let path = dir.join(name);
+    let (mut journal, _) = othello_tools::journal::Journal::open(&path, header).unwrap();
+    for &(k, line) in records {
+        journal
+            .append(&format!("{:016x}:{:016x}", k.0, k.1), line)
+            .unwrap();
+    }
+    path
+}
+
+#[test]
+fn build_validates_journal() {
+    let dir = temp_dir("validate");
+    let header = book::header(&TEST_PARAMS, "test");
+    let one = book::key(play(Board::START, 19));
+    let only = BTreeMap::from([(START, 10)]);
+    let both = BTreeMap::from([(START, 10), (one, 10)]);
+    let roots = [(START, true)];
+    let mandatory = BTreeSet::from([START]);
+    let build = |nodes: &BTreeMap<Key, u32>, path: &Path| {
+        book::build(nodes, path, &identity(), &roots, &mandatory, 1 << 16)
+    };
+    // The reviewer's probe: a foreign header and an illegal square.
+    let foreign = journal_with(&dir, "foreign", "unrelated header", &[(START, "123 0 | ")]);
+    assert!(build(&only, &foreign).is_err());
+    let illegal = journal_with(&dir, "illegal", &header, &[(START, "123 0 | ")]);
+    assert!(build(&only, &illegal).is_err());
+    let legal = journal_with(&dir, "legal", &header, &[(START, "123 19 | ")]);
+    assert!(build(&only, &legal).is_ok());
+    let repeated = journal_with(
+        &dir,
+        "repeated",
+        &header,
+        &[(START, "123 19 | "), (START, "123 19 | ")],
+    );
+    assert!(build(&only, &repeated).is_err());
+    // A node set that differs from the journal's: missing, extra, and a
+    // result whose classification no longer holds.
+    assert!(build(&both, &legal).is_err());
+    let scored = journal_with(
+        &dir,
+        "scored",
+        &header,
+        &[(START, "none | "), (one, "5 18 | ")],
+    );
+    assert!(build(&only, &scored).is_err());
+    let one_only = journal_with(&dir, "start-none", &header, &[(START, "none | ")]);
+    assert!(build(&only, &one_only).is_err());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn build_cli_writes_nothing_on_refusal() {
+    let dir = temp_dir("build-cli");
+    std::fs::write(dir.join("games.wtb"), archive(&games(30, 3, 10, 40))).unwrap();
+    std::fs::write(dir.join("roots.txt"), "# roots\n").unwrap();
+    let journal = journal_with(
+        &dir,
+        "foreign.journal",
+        "unrelated header",
+        &[(START, "123 0 | ")],
+    );
+    let (asset, manifest) = (dir.join("book.bin"), dir.join("manifest.txt"));
+    let path = |p: &Path| p.to_str().unwrap().to_string();
+    let output = trainer(&[
+        "book".into(),
+        "build".into(),
+        path(&dir),
+        path(&journal),
+        "--min".into(),
+        "2".into(),
+        "--plies".into(),
+        "12".into(),
+        "--roots".into(),
+        path(&dir.join("roots.txt")),
+        "--asset".into(),
+        path(&asset),
+        "--manifest".into(),
+        path(&manifest),
+    ]);
+    assert!(!output.status.success());
+    assert!(!asset.exists() && !manifest.exists());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn cli_rejects_before_writing() {
+    let dir = temp_dir("reject");
+    std::fs::write(dir.join("games.wtb"), archive(&games(4, 2, 4, 8))).unwrap();
+    let journal = dir.join("never.journal");
+    let base = |command: &str| -> Vec<String> {
+        [
+            "book",
+            command,
+            dir.to_str().unwrap(),
+            journal.to_str().unwrap(),
+        ]
+        .map(String::from)
+        .to_vec()
+    };
+    let cases: [(&str, &[&str]); 12] = [
+        ("score", &["--depth", "4294967297"]),
+        ("score", &["--depth", "0"]),
+        ("score", &["--jobs", "0"]),
+        ("score", &["--min", "2", "--min", "3"]),
+        ("score", &["--foo", "1"]),
+        ("score", &["--count", "5"]),
+        ("score", &["--depth"]),
+        ("pilot", &["--depths", ""]),
+        ("pilot", &["--depths", "18,18"]),
+        ("pilot", &["--limit", "NaN"]),
+        ("build", &["--roots", "r", "--asset", "a"]),
+        ("roots", &["--seed", "-1"]),
+    ];
+    for (command, extra) in cases {
+        let mut args = base(command);
+        args.extend(extra.iter().map(|s| s.to_string()));
+        let output = trainer(&args);
+        assert!(!output.status.success(), "{command} {extra:?} accepted");
+        assert!(!journal.exists(), "{command} {extra:?} wrote its path");
+    }
+    let empty = book::score(
+        &[START],
+        &Params {
+            depth: 0,
+            ..TEST_PARAMS
+        },
+        1,
+        &journal,
+        "h",
+    );
+    assert!(empty.is_err() && !journal.exists());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn score_reports_progress() {
+    let dir = temp_dir("progress");
+    std::fs::write(dir.join("games.wtb"), archive(&games(30, 3, 10, 40))).unwrap();
+    let journal = dir.join("progress.journal");
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_othello-trainer"))
+            .args(score_args(dir.to_str().unwrap(), &journal, 4, 2))
+            .env("OTHELLO_BOOK_PROGRESS_MS", "1")
+            .output()
+            .unwrap()
+    };
+    let first = String::from_utf8(run().stdout).unwrap();
+    let total = first
+        .lines()
+        .find_map(|l| l.strip_prefix("progress units 0/"))
+        .unwrap();
+    let total: usize = total.split_whitespace().next().unwrap().parse().unwrap();
+    let summary = first.lines().position(|l| l.contains(" done ")).unwrap();
+    assert!(
+        first
+            .lines()
+            .position(|l| l.starts_with("progress "))
+            .unwrap()
+            < summary
+    );
+    let again = String::from_utf8(run().stdout).unwrap();
+    assert!(again.contains(&format!("progress units {total}/{total} ")));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn pilot_decision_from_saved_records() {
+    // Saved times decide the depth whatever their order in the journal or
+    // the worker count of the resuming run; foreign or repeated records fail.
+    let dir = temp_dir("pilot");
+    std::fs::write(dir.join("games.wtb"), archive(&games(30, 3, 10, 40))).unwrap();
+    let journal = dir.join("pilot.journal");
+    let args = |path: &Path, jobs: &str| -> Vec<String> {
+        let d = dir.to_str().unwrap();
+        [
+            "book",
+            "pilot",
+            d,
+            path.to_str().unwrap(),
+            "--min",
+            "2",
+            "--plies",
+            "12",
+            "--depths",
+            "1,2",
+            "--jobs",
+            jobs,
+        ]
+        .map(String::from)
+        .to_vec()
+    };
+    let output = trainer(&args(&journal, "1"));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let (header, records) = othello_tools::journal::read(&journal).unwrap();
+    assert!(header.contains("pilot sample 200 seed 150 depths [1, 2] threads 5 limit 36"));
+    let mut ids: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
+    ids.sort();
+    let saved = |name: &str, order: &[String]| -> PathBuf {
+        let path = dir.join(name);
+        let mut text = format!("{header}\n");
+        for id in order {
+            let at = ids.iter().position(|i| i == id).unwrap();
+            text.push_str(&format!("{id}\t{} None\n", 1.0 + at as f64));
+        }
+        std::fs::write(&path, text).unwrap();
+        path
+    };
+    let decision = |path: &Path, jobs: &str| -> Vec<String> {
+        let output = trainer(&args(path, jobs));
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .lines()
+            .filter(|l| l.starts_with("depth ") || l.starts_with("rule "))
+            .map(String::from)
+            .collect()
+    };
+    let mut reversed = ids.clone();
+    reversed.reverse();
+    let forward = decision(&saved("forward", &ids), "1");
+    assert_eq!(forward, decision(&saved("reversed", &reversed), "3"));
+    // The bound is the projection of the times in sorted-ID order.
+    let nodes = book::count(&games(30, 3, 10, 40), 12)
+        .into_iter()
+        .filter(|&(_, n)| n >= 2)
+        .count();
+    let ones: Vec<f64> = ids
+        .iter()
+        .enumerate()
+        .filter(|(_, id)| id.ends_with(":1"))
+        .map(|(at, _)| 1.0 + at as f64)
+        .collect();
+    let (mean, upper) = book::projection(&ones, nodes, 5, 150);
+    assert!(
+        forward[0].ends_with(&format!("mean {mean:.4} upper {upper:.4}")),
+        "{forward:?}"
+    );
+    let mut repeated = ids.clone();
+    repeated.push(ids[0].clone());
+    assert!(
+        !trainer(&args(&saved("repeated", &repeated), "1"))
+            .status
+            .success()
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn build_audit() {
+    // The manifest names every removal in order and the coverage per root.
+    let one = book::key(play(Board::START, 19));
+    let one_board = book::board(one);
+    let mut keys = vec![START, one];
+    keys.extend(squares(legal_moves(one_board.me, one_board.opp)).map(|s| child_key(one_board, s)));
+    keys.sort();
+    keys.dedup();
+    let nodes: BTreeMap<Key, u32> = keys
+        .iter()
+        .map(|&k| (k, if k == START { 100 } else { 5 }))
+        .collect();
+    let dir = temp_dir("audit");
+    let journal = dir.join("audit.journal");
+    book::score(
+        &keys,
+        &TEST_PARAMS,
+        1,
+        &journal,
+        &book::header(&TEST_PARAMS, "test"),
+    )
+    .unwrap();
+    let roots = [(START, true)];
+    let mandatory = BTreeSet::from([START]);
+    let (_, manifest) = book::build(&nodes, &journal, &identity(), &roots, &mandatory, 11).unwrap();
+    let mut expected: Vec<Key> = keys
+        .iter()
+        .copied()
+        .filter(|&k| k != START && k != one)
+        .collect();
+    expected.sort_by_key(|&k| othello::tt::zobrist(book::board(k)));
+    let removed: Vec<String> = expected
+        .iter()
+        .map(|k| format!("# removed {:016x}:{:016x} count 5", k.0, k.1))
+        .collect();
+    let found: Vec<&str> = manifest
+        .lines()
+        .filter(|l| l.starts_with("# removed "))
+        .collect();
+    assert_eq!(
+        found,
+        removed.iter().map(String::as_str).collect::<Vec<_>>()
+    );
+    let root = format!(
+        "# root {:016x}:{:016x} first 1 second 0 replies 0/4",
+        START.0, START.1
+    );
+    assert!(manifest.lines().any(|l| l == root), "{manifest}");
+    assert!(
+        manifest
+            .lines()
+            .next()
+            .unwrap()
+            .starts_with("# book v1 min 2 plies 8 input test depth 2")
+    );
+    std::fs::remove_dir_all(dir).unwrap();
 }
