@@ -1035,7 +1035,7 @@ a new budget and with the same discipline.
 | --- | ---: | ---: | --- |
 | Engine + playable CLI | 999 | **1,500** | `tests/budget.rs` (same metric) |
 | Tools crate | 650 | **1,300** | `tools/tests/budget.rs` |
-| Trainer crate | — | **1,200** | `trainer/tests/budget.rs` |
+| Trainer crate | — | **2,000** | `trainer/tests/budget.rs` |
 | Model assets | — | **4 MiB** total | Guard added with the first asset |
 
 - **Same metric, same rules:** formatted lines that are neither blank nor
@@ -1051,6 +1051,9 @@ a new budget and with the same discipline.
 - **`tools/examples` stays uncounted** data-generation code (decision
   045ea9b). Training and fitting pipelines live in the counted `trainer/`
   crate.
+- **Trainer budget raised:** user decision, 16 Nov 2026, for the opening
+  book builder (#150, #153): "Trainer can have 2000 LOC." The guard is now
+  2,000 (it was 1,200). The book builder lives in the counted trainer.
 
 ### Why 1,499
 
