@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play, squares};
 use othello::rng::Rng;
 use othello::score::terminal_score;
-use othello::search::{ProbCut, SearchConfig};
+use othello::search::{ProbCut, SearchConfig, SearchLimits, search_tt};
 use othello_tools::sym::canonical;
 use othello_trainer::book::{self, Entry, Key, Params};
 
@@ -109,23 +109,112 @@ fn count_once_per_game() {
     }));
 }
 
-#[test]
-fn count_plies_are_placements() {
-    // Ply limit 3 counts the start and the positions after 1 and 2 placements.
-    let list = games(1, 1, 0, 10);
-    let counts = book::count(&list, 3);
-    assert_eq!(counts.len(), 3);
+/// Independent replay: the board after each number of placements, with a
+/// forced pass applied straight after the placement that causes it.
+fn replay_oracle(moves: &[u8]) -> Vec<Board> {
     let mut board = Board::START;
-    for &square in &list[0][..2] {
-        board = book::normalize(play(board, square)).0;
-        assert!(counts.contains_key(&book::key(board)));
+    let mut boards = vec![board];
+    for &square in moves {
+        board = play(board, square);
+        if legal_moves(board.me, board.opp) == 0 && legal_moves(board.opp, board.me) != 0 {
+            board = Board {
+                me: board.opp,
+                opp: board.me,
+            };
+        }
+        boards.push(board);
     }
+    boards
+}
+
+/// A legal game that continues past a forced pass, and the number of
+/// placements after which the pass falls.
+fn pass_game() -> (Vec<u8>, usize) {
+    for seed in 1..20_000 {
+        let mut rng = Rng::new(seed);
+        let (mut board, mut moves, mut at) = (Board::START, Vec::new(), None);
+        while !is_terminal(board) {
+            if legal_moves(board.me, board.opp) == 0 {
+                at.get_or_insert(moves.len());
+                board = pass(board);
+            }
+            let legal: Vec<u8> = squares(legal_moves(board.me, board.opp)).collect();
+            let square = legal[(rng.next_u64() % legal.len() as u64) as usize];
+            moves.push(square);
+            board = play(board, square);
+            if at.is_some() && moves.len() > at.unwrap() + 2 {
+                return (moves, at.unwrap());
+            }
+        }
+    }
+    panic!("no game with a pass");
+}
+
+/// A complete random game, ending in a terminal position.
+fn full_game(seed: u64) -> Vec<u8> {
+    let (mut rng, mut board, mut moves) = (Rng::new(seed), Board::START, Vec::new());
+    while !is_terminal(board) {
+        if legal_moves(board.me, board.opp) == 0 {
+            board = pass(board);
+        }
+        let legal: Vec<u8> = squares(legal_moves(board.me, board.opp)).collect();
+        let square = legal[(rng.next_u64() % legal.len() as u64) as usize];
+        moves.push(square);
+        board = play(board, square);
+    }
+    moves
 }
 
 #[test]
-fn count_contracts_passes() {
-    // A position whose mover must pass is counted as the passed position,
-    // at the same ply, never as itself.
+fn count_plies_are_placements() {
+    // Limit P counts the positions after 0..P-1 placements.
+    let list = games(1, 1, 0, 10);
+    let oracle = replay_oracle(&list[0]);
+    let counts = book::count(&list, 3);
+    let expected: BTreeSet<Key> = oracle[..3].iter().map(|&b| canonical(b)).collect();
+    assert_eq!(counts.keys().copied().collect::<BTreeSet<_>>(), expected);
+}
+
+#[test]
+fn count_through_a_pass() {
+    let (moves, k) = pass_game();
+    let oracle = replay_oracle(&moves);
+    let passed = canonical(oracle[k]);
+    let unpassed = canonical(Board {
+        me: oracle[k].opp,
+        opp: oracle[k].me,
+    });
+    assert_eq!(
+        legal_moves(oracle[k].opp, oracle[k].me),
+        0,
+        "fixture: a pass after placement {k}"
+    );
+    let list = vec![moves.clone()];
+    // The cutoff straddles the pass: limit k excludes it, k + 1 includes it.
+    assert!(!book::count(&list, k as u32).contains_key(&passed));
+    let counts = book::count(&list, k as u32 + 1);
+    assert!(counts.contains_key(&passed) && !counts.contains_key(&unpassed));
+    assert!(counts.contains_key(&canonical(oracle[k - 1])));
+    // The pass is not a ply: the next placement enters at limit k + 2.
+    assert!(!counts.contains_key(&canonical(oracle[k + 1])));
+    assert!(book::count(&list, k as u32 + 2).contains_key(&canonical(oracle[k + 1])));
+    // An unfinished prefix counts its final recorded board.
+    let prefix = vec![moves[..k].to_vec()];
+    let counts = book::count(&prefix, 60);
+    assert!(counts.contains_key(&passed) && !counts.contains_key(&unpassed));
+    assert_eq!(counts.len(), k + 1);
+}
+
+#[test]
+fn count_terminal_final() {
+    let game = full_game(7);
+    let last = *replay_oracle(&game).last().unwrap();
+    assert!(is_terminal(last));
+    assert!(book::count(&[game], 61).contains_key(&canonical(last)));
+}
+
+#[test]
+fn normalize_contracts_passes() {
     let (board, square) = find(|board, square| needs_pass(play(board, square)));
     let child = play(board, square);
     let (normal, passed) = book::normalize(child);
@@ -245,6 +334,69 @@ fn dropout_skips_book_moves() {
     let found = book::dropout(START, &node_set([START, child]), 6, &mut recorder(&calls));
     assert_eq!(found, None);
     assert!(calls.borrow().is_empty());
+}
+
+/// The stand-in's score, as `value` must combine it: an independent oracle.
+fn stand_in_value(board: Board, depth: u32) -> i32 {
+    let score =
+        |b: Board| (b.me.count_ones() as i32 - b.opp.count_ones() as i32) * 100 + depth as i32;
+    if is_terminal(board) {
+        terminal_score(final_score(board))
+    } else if legal_moves(board.me, board.opp) == 0 {
+        -score(Board {
+            me: board.opp,
+            opp: board.me,
+        })
+    } else {
+        score(board)
+    }
+}
+
+/// Drop-out over a node whose children include `kind`, checked against the
+/// oracle: sign, post-placement depth, chosen square and calls made.
+fn dropout_fixture(kind: impl Fn(Board) -> bool) {
+    let (board, _) = find(|board, square| kind(play(board, square)));
+    let key = book::key(board);
+    let node = book::board(key);
+    let calls = RefCell::new(Vec::new());
+    let (value, square) = book::dropout(key, &node_set([key]), 9, &mut recorder(&calls)).unwrap();
+    let legal: Vec<u8> = squares(legal_moves(node.me, node.opp)).collect();
+    let values: Vec<i32> = legal
+        .iter()
+        .map(|&s| -stand_in_value(play(node, s), 8))
+        .collect();
+    let best = *values.iter().max().unwrap();
+    assert_eq!(
+        (value, square),
+        (best, legal[values.iter().position(|&v| v == best).unwrap()])
+    );
+    let expected: Vec<(Board, u32)> = legal
+        .iter()
+        .map(|&s| play(node, s))
+        .filter(|&child| !is_terminal(child))
+        .map(|child| {
+            (
+                if needs_pass(child) {
+                    pass(child)
+                } else {
+                    child
+                },
+                8,
+            )
+        })
+        .collect();
+    assert_eq!(calls.into_inner(), expected);
+    assert!(legal.iter().any(|&s| kind(play(node, s))));
+}
+
+#[test]
+fn dropout_pass_child() {
+    dropout_fixture(|child| needs_pass(child) && !is_terminal(pass(child)));
+}
+
+#[test]
+fn dropout_terminal_child() {
+    dropout_fixture(is_terminal);
 }
 
 /// Nodes: the start, its one canonical child, and every canonical child of
@@ -546,16 +698,21 @@ fn encode_records() {
 }
 
 #[test]
-fn shuffle_permutes() {
-    let mut a: Vec<u32> = (0..50).collect();
-    let mut b = a.clone();
-    book::shuffle(&mut a, 150);
-    book::shuffle(&mut b, 150);
-    assert_eq!(a, b);
-    assert_ne!(a, (0..50).collect::<Vec<_>>());
-    let mut sorted = a.clone();
-    sorted.sort();
-    assert_eq!(sorted, (0..50).collect::<Vec<_>>());
+fn shuffle_golden() {
+    // Fisher–Yates with `Rng::new(150)`, j = next_u64() % (i + 1), i falling.
+    let mut items: Vec<u32> = (0..10).collect();
+    book::shuffle(&mut items, 150);
+    assert_eq!(items, vec![0, 2, 9, 4, 3, 8, 1, 5, 6, 7]);
+}
+
+/// The registered shuffle, written out independently of the builder.
+fn fisher_yates(n: usize, seed: u64) -> Vec<usize> {
+    let (mut order, mut rng) = ((0..n).collect::<Vec<_>>(), Rng::new(seed));
+    for i in (1..n).rev() {
+        let j = (rng.next_u64() % (i as u64 + 1)) as usize;
+        order.swap(i, j);
+    }
+    order
 }
 
 #[test]
@@ -563,31 +720,62 @@ fn roots_frozen() {
     let list = games(60, 6, 8, 12);
     let counts = book::count(&list, 12);
     let nodes: BTreeMap<Key, u32> = counts.into_iter().filter(|&(_, n)| n >= 2).collect();
+    // The pool: movable node positions after 6 to 8 placements, sorted by key.
+    let mut pool = BTreeSet::new();
+    for game in &list {
+        for (ply, &board) in replay_oracle(game).iter().enumerate() {
+            let key = canonical(board);
+            if (6..=8).contains(&ply)
+                && nodes.contains_key(&key)
+                && legal_moves(board.me, board.opp) != 0
+            {
+                pool.insert(key);
+            }
+        }
+    }
+    let pool: Vec<Key> = pool.into_iter().collect();
+    let expected: Vec<Key> = fisher_yates(pool.len(), 151)
+        .into_iter()
+        .take(5)
+        .map(|i| pool[i])
+        .collect();
     let roots = book::roots(&list, &nodes, 6..=8, 5, 151).unwrap();
-    assert_eq!(roots, book::roots(&list, &nodes, 6..=8, 5, 151).unwrap());
-    let mut seen = BTreeSet::new();
+    let keys: Vec<Key> = roots
+        .iter()
+        .map(|line| canonical(*replay_oracle(line).last().unwrap()))
+        .collect();
+    assert_eq!(keys, expected);
     for line in &roots {
         assert!((6..=8).contains(&line.len()));
-        let board = line
-            .iter()
-            .fold(Board::START, |b, &s| book::normalize(play(b, s)).0);
-        assert!(legal_moves(board.me, board.opp) != 0);
-        assert!(nodes.contains_key(&book::key(board)));
-        assert!(seen.insert(book::key(board)));
+        let first = list.iter().find(|game| {
+            game.len() >= line.len()
+                && canonical(replay_oracle(&game[..line.len()])[line.len()])
+                    == canonical(*replay_oracle(line).last().unwrap())
+        });
+        assert_eq!(Some(&line[..]), first.map(|game| &game[..line.len()]));
     }
-    assert!(book::roots(&list, &nodes, 6..=8, 10_000, 151).is_err());
+    assert!(book::roots(&list, &nodes, 6..=8, pool.len() + 1, 151).is_err());
 }
 
 #[test]
 fn projection_and_rule() {
+    // 10,000 resamples of 4 draws (index next_u64() % 4, one Rng(150)), the
+    // upper bound at sorted[ceil(0.975 * 10,000) - 1].
     let times = [1.0, 2.0, 3.0, 10.0];
     let (mean, upper) = book::projection(&times, 1000, 5, 150);
-    assert!((mean - 4.0 * 1000.0 / 5.0 / 3600.0).abs() < 1e-9);
-    assert!(upper >= mean);
-    assert_eq!((mean, upper), book::projection(&times, 1000, 5, 150));
+    assert_eq!(mean, 0.2222222222222222);
+    assert_eq!(upper, 0.4444444444444444);
     assert_eq!(
         book::depth_rule(&[(18, 10.0), (19, 30.0), (20, 40.0)], 36.0),
         Some(19)
+    );
+    assert_eq!(
+        book::depth_rule(&[(18, 10.0), (19, 36.0), (20, 36.1)], 36.0),
+        Some(19)
+    );
+    assert_eq!(
+        book::depth_rule(&[(18, 1.0), (19, 2.0), (20, 3.0)], 36.0),
+        Some(20)
     );
     assert_eq!(
         book::depth_rule(&[(18, 37.0), (19, 50.0), (20, 90.0)], 36.0),
@@ -640,24 +828,146 @@ fn header_names_inputs() {
     assert_ne!(header, other);
 }
 
-/// Scores every node of a small archive at depth 2 and builds the asset.
+const TEST_PARAMS: Params = Params {
+    min: 2,
+    plies: 8,
+    depth: 2,
+    table: 1 << 12,
+};
+
+/// Independent oracle for a child's value under the scoring policy, with a
+/// fresh table per search.
+fn policy_value(board: Board, depth: u32) -> i32 {
+    if is_terminal(board) {
+        terminal_score(final_score(board))
+    } else if legal_moves(board.me, board.opp) == 0 {
+        -policy_value(
+            Board {
+                me: board.opp,
+                opp: board.me,
+            },
+            depth,
+        )
+    } else {
+        let mut table = othello::tt::Table::new(1 << 12);
+        search_tt(
+            board,
+            SearchLimits::depth(depth),
+            &book::policy(),
+            &mut table,
+        )
+        .score
+    }
+}
+
+/// Decoded asset records: (zobrist, square, value).
+fn records(asset: &[u8]) -> Vec<(u64, u8, i16)> {
+    asset
+        .as_chunks::<11>()
+        .0
+        .iter()
+        .map(|r| {
+            let key = u64::from_le_bytes(r[..8].try_into().unwrap());
+            (key, r[8], i16::from_le_bytes([r[9], r[10]]))
+        })
+        .collect()
+}
+
+fn manifest_line(key: Key, square: u8, value: i16) -> String {
+    format!("{:016x}:{:016x} {square} {value}", key.0, key.1)
+}
+
+fn manifest_records(manifest: &str) -> Vec<&str> {
+    manifest
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .collect()
+}
+
+#[test]
+fn artifact_records() {
+    // A node with a terminal child: the terminal node is in the input but
+    // never emitted; the node's record matches an independent computation.
+    let (board, _) = find(|board, square| is_terminal(play(board, square)));
+    let parent = book::key(board);
+    let node = book::board(parent);
+    let legal: Vec<u8> = squares(legal_moves(node.me, node.opp)).collect();
+    let end = legal
+        .iter()
+        .map(|&s| book::key(play(node, s)))
+        .find(|&k| is_terminal(book::board(k)))
+        .unwrap();
+    let nodes = BTreeMap::from([(parent, 10), (end, 10)]);
+    let dir = temp_dir("records");
+    let journal = dir.join("records.journal");
+    book::score(&[parent, end], &TEST_PARAMS, 1, &journal, "header test").unwrap();
+    let roots = [(parent, true), (parent, false)];
+    let (asset, manifest) =
+        book::build(&nodes, &journal, &roots, &BTreeSet::from([parent]), 1 << 16).unwrap();
+    let values: Vec<i32> = legal
+        .iter()
+        .map(|&s| -policy_value(play(node, s), 1))
+        .collect();
+    let best = *values.iter().max().unwrap();
+    let square = legal[values.iter().position(|&v| v == best).unwrap()];
+    let value = best.clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+    assert_eq!(
+        records(&asset),
+        vec![(othello::tt::zobrist(node), square, value)]
+    );
+    assert_eq!(
+        manifest_records(&manifest),
+        vec![manifest_line(parent, square, value)]
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn artifact_truncation_keeps_parent() {
+    // Truncating to the start record keeps exactly the start's full-book
+    // record; its children are gone from asset and manifest.
+    let one = book::key(play(Board::START, 19));
+    let one_board = book::board(one);
+    let mut keys = vec![START, one];
+    keys.extend(squares(legal_moves(one_board.me, one_board.opp)).map(|s| child_key(one_board, s)));
+    keys.sort();
+    keys.dedup();
+    let nodes: BTreeMap<Key, u32> = keys
+        .iter()
+        .map(|&k| (k, if k == START { 100 } else { 5 }))
+        .collect();
+    let dir = temp_dir("truncation");
+    let journal = dir.join("truncation.journal");
+    book::score(&keys, &TEST_PARAMS, 2, &journal, "header test").unwrap();
+    let roots = [(START, true)];
+    let mandatory = BTreeSet::from([START]);
+    let (full, full_manifest) = book::build(&nodes, &journal, &roots, &mandatory, 1 << 16).unwrap();
+    let (cut, cut_manifest) = book::build(&nodes, &journal, &roots, &mandatory, 11).unwrap();
+    let start = othello::tt::zobrist(Board::START);
+    let kept: Vec<_> = records(&full)
+        .into_iter()
+        .filter(|r| r.0 == start)
+        .collect();
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0].1, 19);
+    assert!(records(&full).len() > 1);
+    assert_eq!(records(&cut), kept);
+    let line = manifest_line(START, kept[0].1, kept[0].2);
+    assert!(manifest_records(&full_manifest).contains(&line.as_str()));
+    assert_eq!(manifest_records(&cut_manifest), vec![line.as_str()]);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Scores every node of a small game set at depth 2 and builds the asset.
 fn build_with(
     dir: &Path,
     name: &str,
     nodes: &[Key],
     jobs: usize,
 ) -> (Vec<String>, Vec<u8>, String) {
-    let params = Params {
-        min: 2,
-        plies: 8,
-        depth: 2,
-        table: 1 << 12,
-    };
     let journal = dir.join(format!("{name}.journal"));
-    book::score(nodes, &params, jobs, &journal, "header test").unwrap();
-    let list = games(30, 3, 6, 10);
-    let all = book::count(&list, params.plies);
-    let node_map: BTreeMap<Key, u32> = all.into_iter().filter(|&(_, n)| n >= params.min).collect();
+    book::score(nodes, &TEST_PARAMS, jobs, &journal, "header test").unwrap();
+    let node_map: BTreeMap<Key, u32> = nodes.iter().map(|&k| (k, 10)).collect();
     let (asset, manifest) = book::build(
         &node_map,
         &journal,
@@ -684,73 +994,173 @@ fn score_deterministic() {
     let one = build_with(&dir, "one", &nodes, 1);
     assert_eq!(one, build_with(&dir, "three", &nodes, 3));
     assert_eq!(one, build_with(&dir, "reversed", &reversed, 2));
-    assert_eq!(one.1.len() % 11, 0);
+    assert!(!one.1.is_empty());
+    let manifest: Vec<String> = records(&one.1)
+        .iter()
+        .map(|&(zobrist, square, value)| {
+            let key = *nodes
+                .iter()
+                .find(|&&k| othello::tt::zobrist(book::board(k)) == zobrist)
+                .unwrap();
+            manifest_line(key, square, value)
+        })
+        .collect();
     assert_eq!(
-        one.2.lines().filter(|l| !l.starts_with('#')).count(),
-        one.1.len() / 11
+        manifest_records(&one.2),
+        manifest.iter().map(String::as_str).collect::<Vec<_>>()
     );
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Kills its child on drop, so a failed assertion never leaves one running.
+struct Running(std::process::Child);
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+fn score_args(dir: &str, journal: &Path, depth: u32, jobs: usize) -> Vec<String> {
+    let depth = depth.to_string();
+    let jobs = jobs.to_string();
+    [
+        "book",
+        "score",
+        dir,
+        journal.to_str().unwrap(),
+        "--min",
+        "2",
+        "--plies",
+        "12",
+        "--depth",
+        &depth,
+        "--jobs",
+        &jobs,
+    ]
+    .map(String::from)
+    .to_vec()
+}
+
+/// "done D scored S" from the score command's summary line.
+fn progress(output: &std::process::Output) -> (usize, usize) {
+    let text = String::from_utf8_lossy(&output.stdout);
+    let line = text
+        .lines()
+        .find(|line| line.contains(" done "))
+        .expect("summary line");
+    let field = |name: &str| -> usize {
+        let at = line.split_whitespace().position(|w| w == name).unwrap();
+        line.split_whitespace()
+            .nth(at + 1)
+            .unwrap()
+            .parse()
+            .unwrap()
+    };
+    (field("done"), field("scored"))
 }
 
 #[test]
 fn score_resume() {
     let dir = temp_dir("resume");
-    std::fs::write(dir.join("games.wtb"), archive(&games(30, 3, 10, 40))).unwrap();
+    let list = games(30, 3, 10, 40);
+    std::fs::write(dir.join("games.wtb"), archive(&list)).unwrap();
     let dir_arg = dir.to_str().unwrap();
-    let args = |journal: &str, jobs: &str| -> Vec<String> {
-        [
-            "book", "score", dir_arg, journal, "--min", "2", "--plies", "12", "--depth", "6",
-            "--jobs", jobs,
-        ]
-        .map(String::from)
-        .to_vec()
-    };
+    let killed = dir.join("killed.journal");
+    let nodes: BTreeMap<Key, u32> = book::count(&list, 12)
+        .into_iter()
+        .filter(|&(_, n)| n >= 2)
+        .collect();
+    // Deepen until the kill lands while units remain, so it always
+    // interrupts real work, in debug and release alike.
+    let mut chosen = None;
+    for depth in [6, 8, 10, 12] {
+        let _ = std::fs::remove_file(&killed);
+        let mut child = Running(
+            Command::new(env!("CARGO_BIN_EXE_othello-trainer"))
+                .args(score_args(dir_arg, &killed, depth, 1))
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let start = Instant::now();
+        while othello_tools::journal::read(&killed).map_or(true, |(_, r)| r.is_empty()) {
+            assert!(
+                start.elapsed() < Duration::from_secs(120),
+                "no journal line before timeout"
+            );
+            sleep(Duration::from_millis(1));
+        }
+        child.0.kill().unwrap();
+        let signalled = child.0.wait().unwrap().signal() == Some(9);
+        if signalled && sorted_lines(&killed).len() < nodes.len() {
+            chosen = Some(depth);
+            break;
+        }
+    }
+    let depth = chosen.expect("every depth finished before the kill");
+    let partial = std::fs::read(&killed).unwrap();
+    let done = sorted_lines(&killed).len();
+
     let full = dir.join("full.journal");
-    let output = trainer(&args(full.to_str().unwrap(), "1"));
+    let output = trainer(&score_args(dir_arg, &full, depth, 1));
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
     let expected = sorted_lines(&full);
-    assert!(expected.len() > 3);
+    assert_eq!(expected.len(), nodes.len());
+    assert!(done < expected.len());
 
-    let killed = dir.join("killed.journal");
-    let mut child = Command::new(env!("CARGO_BIN_EXE_othello-trainer"))
-        .args(args(killed.to_str().unwrap(), "1"))
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    let start = Instant::now();
-    loop {
-        if let Ok((_, records)) = othello_tools::journal::read(&killed)
-            && !records.is_empty()
-        {
-            break;
-        }
-        assert!(
-            start.elapsed() < Duration::from_secs(60),
-            "no journal line before timeout"
-        );
-        sleep(Duration::from_millis(5));
-    }
-    let _ = child.kill();
-    assert_eq!(child.wait().unwrap().signal(), Some(9));
-    assert!(sorted_lines(&killed).len() < expected.len());
-    let output = trainer(&args(killed.to_str().unwrap(), "3"));
+    // Resume: completed units are skipped, and the file only grows.
+    let output = trainer(&score_args(dir_arg, &killed, depth, 3));
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    assert_eq!(progress(&output), (done, expected.len() - done));
+    let resumed = std::fs::read(&killed).unwrap();
+    let complete = partial.len() - partial.iter().rev().take_while(|&&b| b != b'\n').count();
+    assert_eq!(&resumed[..complete], &partial[..complete]);
     assert_eq!(sorted_lines(&killed), expected);
 
-    let mut changed = args(full.to_str().unwrap(), "1");
-    changed[9] = "5".into();
-    let output = trainer(&changed);
+    // A torn last record is dropped and redone.
+    let torn = dir.join("torn.journal");
+    let text = std::fs::read(&full).unwrap();
+    let cut = text[..text.len() - 1]
+        .iter()
+        .rposition(|&b| b == b'\n')
+        .unwrap()
+        + 1;
+    let mut bytes = text[..cut].to_vec();
+    bytes.extend_from_slice(&text[cut..cut + (text.len() - cut) / 2]);
+    std::fs::write(&torn, bytes).unwrap();
+    let output = trainer(&score_args(dir_arg, &torn, depth, 2));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(progress(&output), (expected.len() - 1, 1));
+    assert_eq!(sorted_lines(&torn), expected);
+
+    // The resumed journals build exactly the full journal's asset.
+    let roots = [(START, true), (START, false)];
+    let mandatory = BTreeSet::from([START]);
+    let built = |journal: &Path| book::build(&nodes, journal, &roots, &mandatory, 1 << 16).unwrap();
+    assert_eq!(built(&killed), built(&full));
+    assert_eq!(built(&torn), built(&full));
+
+    // A changed input is refused on the header, and the journal is untouched.
+    let before = std::fs::read(&full).unwrap();
+    let output = trainer(&score_args(dir_arg, &full, depth + 1, 1));
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("header"));
+    assert_eq!(std::fs::read(&full).unwrap(), before);
     std::fs::remove_dir_all(dir).unwrap();
 }
 

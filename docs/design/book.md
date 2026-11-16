@@ -1,6 +1,6 @@
 # Opening book: Design
 
-Nov 16, 2026 · Approved, revision 3 with amendment 1 · SKIS epic #150, design issue #152
+Nov 16, 2026 · Approved, revision 3 with amendments 1 and 2 · SKIS epic #150, design issue #152
 
 > Scope: an opening book built from the WTHOR archive and scored by our own
 > engine, consulted only when the engine chooses a move to play. Search,
@@ -83,33 +83,41 @@ estimates, not benchmarks.
 
 ### Nodes, moves and the partition
 
-- **Nodes:** canonical positions at plies 0–29 that occur in at least
-  `N = 10` WTHOR games. The builder replays each game and counts the
-  position after every move, including a finished game's final position,
-  once per game per position. That gives about 18,877 nodes; the
-  builder's own count is logged. N and the ply limit are fixed now.
+- **Ply** counts placements only; a pass is not a ply.
+- **Forced passes are contracted.** `normalize(b)` replaces a board whose
+  mover has no legal move, while the opponent has one, by the passed
+  board. Every counted position and every child key is normalized, so a
+  node is always a board with a legal move, or a terminal board. There
+  are no pass nodes.
+- **Nodes:** canonical normalized positions after 0–29 placements that
+  occur in at least `N = 10` WTHOR games.
+  - The builder replays each game's recorded moves and counts the
+    position after every placement, including the final recorded board,
+    whether the game finished or not. Each position counts once per
+    game.
+  - That gives about 18,877 nodes; the builder's own count is logged.
+  - N and the ply limit are fixed now.
 - **Partition of a node's legal moves.** Every legal square s of node p,
-  in its canonical frame, falls into exactly one class:
-  - **book move:** the canonical child `play(p, s)` is a node, whether or
-    not any game played s from p. A transposition reached another way
-    still counts.
-  - **drop-out move:** the child is not a node.
+  in its canonical frame, falls into exactly one class, by the canonical
+  key of `normalize(play(p, s))`:
+  - **book move:** that key is a node, whether or not any game played s
+    from p. A transposition reached another way still counts.
+  - **drop-out move:** that key is not a node.
+- **Passing moves.** A move is `passed` when `play(p, s)` needed the
+  pass. The same side then moves again in the child, so a passing book
+  move is worth +v(child), the two sign changes cancelling. It is worth
+  −v(child) otherwise.
 - Several squares can reach the same canonical child, for example on
   symmetric boards. Each square is still listed once, with its own label.
-- **No legal move, but the opponent can move:** the node has one pass
-  move. The passed position is a node or not, like any other child, and
-  passing keeps the sign rule (−value of the child).
-- **Neither side can move (terminal):** the value is
+- **Terminal nodes** (neither side can move): the value is
   `terminal_score(final_score(board))`, as in the engine, which awards
-  empty squares to the winner. The node has no moves.
-- **Pass and terminal nodes are internal only.** They take part in
-  scoring and reachability, where a walk traverses a forced pass to the
-  movable child, but they are never emitted as records. The asset holds
-  only boards with a legal move, and only squares below 64.
-- **Colour:** a node's key is the board alone, with no colour. The two
-  reachability walks below carry the engine's colour as explicit state,
-  flipping it on every move including passes. Colour is never inferred
-  from disc count.
+  empty squares to the winner. Such a node has no moves, needs no
+  drop-out search, and is never emitted as a record.
+- **Colour:** a node's key is the board alone, with no colour. The
+  reachability walks carry the engine's role as explicit state. It flips
+  on every placement and flips back across a contracted pass, so after a
+  passing move the same side is to move. Colour is never inferred from
+  disc count.
 
 ### Values
 
@@ -123,27 +131,27 @@ All values are centidiscs from the side to move.
     called on a board with a legal move, as `root_setup` requires.
 - **Drop-out value** `x(p)`: the drop-out moves are taken in ascending
   canonical square order.
-  - A placement on square s consumes a ply, so its value is
-    `−value(child, D − 1)`.
-  - A pass node's single pass move consumes none, so its value is
-    `−value(pass(p), D)`.
+  - Each move's value is `−value(play(p, s), D − 1)`, using the
+    unnormalized child, so a forced pass inside it is handled by the
+    helper at the same depth.
   - The table is cleared once, before p's first drop-out search, and kept
     warm across p's drop-out moves.
   - `x(p)` is the maximum of these values, taking the lower square on
     ties.
 - If p has no drop-out moves, `x(p)` is absent.
-- **Backed-up value**: `v(p) = max(x(p), max over book moves s of
-  −v(child(p, s)))`. A pass move counts as a book or drop-out move by its
-  child, the passed position.
-- **Book move**: the move attaining `v(p)`. Ties go to the lower canonical
-  square, then to a book move over a drop-out move.
-- A node has at least one move unless it is terminal, so the maximum is
+- **Backed-up value**: `v(p) = max(x(p), max over book moves s of the
+  move's value)`, where a book move is worth +v(child) if passed and
+  −v(child) otherwise.
+- **Book move**: the move attaining `v(p)`, with ties going to the lower
+  canonical square. A square is either a book or a drop-out move, so no
+  further tie rule is needed.
+- A non-terminal node has at least one legal move, so the maximum is
   never taken over an empty set.
 - **This is the book's own scoring algorithm.** A node whose moves are all
   drop-outs gets the maximum over its children searched one by one with a
   warm table. That is not claimed to equal `search_tt(p, D)`.
-- **Order:** nodes are backed up in descending order of disc count. A pass
-  keeps the disc count, so a passing node comes after its passed child.
+- **Order:** every book edge adds a disc, so nodes are backed up in
+  descending order of disc count.
 
 ### Scoring search and determinism
 
@@ -278,6 +286,14 @@ Fixed now, before the pilot runs:
     model.
   - Rebuilding after a retrain is optional, and is decided by a match
     against the existing book, not forced by a test.
+  - The stored value is an offline score from the evaluator recorded in
+    the manifest header. After a retrain it is not presented as an
+    evaluation by the new model.
+  - The build inputs (journal, header and manifest) are kept so that an
+    old artifact can be reproduced.
+  - Serving a completed book and continuing a scoring job are separate.
+    A scoring journal still refuses to resume under different scoring
+    inputs, including a different `eval.bin` hash, through its header.
   - The user, 16 Nov 2026: "The planned opening book depends on the
     current evaluation weights, so every retrain of the evaluator means
     another day-long book rebuild." The pin was the only thing forcing
@@ -471,3 +487,11 @@ Playing paths, which inherit the shipped policy once it is enabled:
 | --- | --- |
 | The builder home is decided: the counted trainer, with a 2,000-line budget. | User decision. |
 | The `eval.bin` hash is recorded for provenance only, with no pin test; a retrain keeps the book, and rebuilding is optional. | User decision: a forced rebuild on every retrain is not wanted, and nothing in lookup depends on the evaluator. |
+
+### Amendment 2, from the #153 RED review
+
+| Change | Reason |
+| --- | --- |
+| Ply counts placements only. Forced passes are contracted by `normalize`, so there are no pass nodes. A passing book move is worth +v(child), and the walk's role flips back across the pass. | Accepted in the #153 RED review; the implementation instructions above now state it. |
+| The second tie rule is removed; ties go to the lower square. | It could never apply. |
+| An old book's values are offline scores, not new-model evaluations. Build inputs are kept, and journal resumption still checks the full header. | #153 RED review, on amendment 1. |
