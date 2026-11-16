@@ -1,6 +1,6 @@
 # Opening book: Design
 
-Nov 16, 2026 · Draft, revision 2 · SKIS epic #150, design issue #152
+Nov 16, 2026 · Draft, revision 3 · SKIS epic #150, design issue #152
 
 > Scope: an opening book built from the WTHOR archive and scored by our own
 > engine, consulted only when the engine chooses a move to play. Search,
@@ -8,8 +8,8 @@ Nov 16, 2026 · Draft, revision 2 · SKIS epic #150, design issue #152
 > `docs/PLAN.md` stays the source of truth for budgets, statistics and
 > process. The evidence is `tools/examples/book_coverage.rs` and its log
 > `docs/tuning/book_coverage.log` (`d76aaa6`). Two decisions belong to the
-> user and are marked **User decision**. Revision 2 answers the first
-> review; [Review response](#review-response) maps each finding to its change.
+> user and are marked **User decision**. Revisions 2 and 3 answer the
+> first two reviews; [Review response](#review-response) maps each finding to its change.
 
 ## Why, and what the book can and cannot buy
 
@@ -99,9 +99,13 @@ estimates, not benchmarks.
 - **No legal move, but the opponent can move:** the node has one pass
   move. The passed position is a node or not, like any other child, and
   passing keeps the sign rule (−value of the child).
-- **Neither side can move (terminal):** the value is the exact final
-  score, `terminal_score` of the disc difference, and the node has no
-  moves.
+- **Neither side can move (terminal):** the value is
+  `terminal_score(final_score(board))`, as in the engine, which awards
+  empty squares to the winner. The node has no moves.
+- **Pass and terminal nodes are internal only.** They take part in
+  scoring and reachability, where a walk traverses a forced pass to the
+  movable child, but they are never emitted as records. The asset holds
+  only boards with a legal move, and only squares below 64.
 - **Colour:** a node's key is the board alone, with no colour. The two
   reachability walks below carry the engine's colour as explicit state,
   flipping it on every move including passes. Colour is never inferred
@@ -111,15 +115,26 @@ estimates, not benchmarks.
 
 All values are centidiscs from the side to move.
 
-- **Drop-out value** `x(p)`: the drop-out moves are searched in ascending
-  canonical square order. Each child gets one `search_tt` at fixed depth
-  `D − 1`. The table is cleared once, before p's first drop-out search,
-  and kept warm across p's drop-out moves. `x(p)` is the maximum of minus
-  those scores, taking the lower square on ties.
+- **Child value helper** `value(b, d)`, defined for any board:
+  - if b is terminal: `terminal_score(final_score(b))`;
+  - if b has no legal move: `−value(pass(b), d)`, because a pass consumes
+    no ply, matching `negamax`;
+  - otherwise: `search_tt(b, depth d).score`. `search_tt` is only ever
+    called on a board with a legal move, as `root_setup` requires.
+- **Drop-out value** `x(p)`: the drop-out moves are taken in ascending
+  canonical square order.
+  - A placement on square s consumes a ply, so its value is
+    `−value(child, D − 1)`.
+  - A pass node's single pass move consumes none, so its value is
+    `−value(pass(p), D)`.
+  - The table is cleared once, before p's first drop-out search, and kept
+    warm across p's drop-out moves.
+  - `x(p)` is the maximum of these values, taking the lower square on
+    ties.
 - If p has no drop-out moves, `x(p)` is absent.
 - **Backed-up value**: `v(p) = max(x(p), max over book moves s of
   −v(child(p, s)))`. A pass move counts as a book or drop-out move by its
-  child, with the drop-out search on the passed position.
+  child, the passed position.
 - **Book move**: the move attaining `v(p)`. Ties go to the lower canonical
   square, then to a book move over a drop-out move.
 - A node has at least one move unless it is terminal, so the maximum is
@@ -160,9 +175,12 @@ Fixed now, before the pilot runs:
   take about 0 s.
 - **Resumable:** the pilot is journalled per (node, depth) unit,
   interruptible and restartable.
-- **Projection** per D: (mean pilot node time) × (node count) ÷ 5 threads,
-  plus a 95% upper bound from a bootstrap over the sampled node times
-  (10,000 resamples, seed 150).
+- **Projection** per D: the projected run time is (mean node time) ×
+  (node count) ÷ 5 threads.
+  - Its upper bound is the 97.5th percentile of that projection over
+    10,000 bootstrap resamples of the sampled node times (seed 150): the
+    upper end of a two-sided 95% percentile interval.
+  - The bound is used as it stands, not added to the point estimate.
 - **Rule:**
   - D is the largest of {18, 19, 20} whose upper bound is at most 36
     hours.
@@ -183,8 +201,11 @@ Fixed now, before the pilot runs:
   `bench/openings_book.txt`, holding each root's move sequence from a
   WTHOR game.
 - **No replacements:** no root is ever replaced because of an outcome.
-- **Every root is a node by construction,** so the book covers the
-  first move of every gate game for both colours.
+- **Every root is a node by construction, and roots are protected from
+  overflow** (below). The shipped book therefore answers at every root
+  for the side to move there.
+- **The other colour's first move,** after the opponent's reply, is not
+  guaranteed. Its hit and miss counts are logged on the final artifact.
 
 ### Asset, pruning and overflow
 
@@ -196,17 +217,29 @@ Fixed now, before the pilot runs:
   move as a canonical square (u8), and `v(p)` clamped to i16. That is at
   most 16,325 records. All 18,877 nodes would need 207,647 bytes, so
   pruning is required.
-- **Reachability (lossless for its roots):** the roots are the start
-  position, with the engine as Black and as White, plus each of the 400
-  gate roots with the engine to move and with the opponent to move. From
-  each root, at engine-to-move nodes the walk follows the book move only;
-  at opponent nodes it follows every book move. Stored positions are the
-  engine-to-move nodes reached. On that set the stored book is exactly
-  the full book for play from those roots.
+- **Reachability (lossless along connected book lines):**
+  - **Roots:** the start position, with the engine as Black and as White,
+    plus each of the 400 gate roots, with the engine to move and with the
+    opponent to move.
+  - **Walk:** from each root, at engine-to-move nodes the walk follows the
+    book move only; at opponent nodes it follows every book move. It
+    traverses forced passes and stops at drop-out moves.
+  - **Stored:** the engine-to-move nodes reached that have a legal move.
+  - **Guarantee:** while a game stays on a connected book line from a
+    root, the stored book answers exactly as the full book would.
+- **Re-entry:** lookup is stateless, so after the game leaves the book
+  (a search move, or an opponent move outside the node set), any later
+  position that is stored is answered again. Re-entry coverage is reduced
+  by pruning, by choice. There is no "out of book" latch.
 - **Overflow (a deliberate truncation, not a guarantee):** if the
   reachable set is still too large, nodes are removed in ascending
   (WTHOR count, zobrist key) order, and reachability is recomputed after
-  each removal, until the set fits. Stored records keep their
+  each removal, until the set fits.
+  - The start position and the 400 gate roots are mandatory and never
+    removed.
+  - If the mandatory records alone cannot fit, the build fails, and the
+    design returns for review. That would take 401 records, about 4.4 KB,
+    against 179,576 bytes, so it is not expected. Stored records keep their
   pre-truncation move and value. They are the full book's
   recommendations, and the engine leaves the book where a position is
   missing. No re-backup is done.
@@ -318,6 +351,8 @@ Playing paths, which inherit the shipped policy once it is enabled:
 - An empty book, an asset length that is not a multiple of 11 and i16
   value bounds are handled.
 - A board with no legal move, and a terminal board, bypass the book.
+- **Re-entry:** a game leaves the book through a search move, then
+  reaches a stored position, and the book answers again.
 
 **`play`:**
 - With `book: false`, it equals `search_tt` exactly.
@@ -345,9 +380,14 @@ Playing paths, which inherit the shipped policy once it is enabled:
 - Two squares reaching the same canonical child both appear.
 
 **Passes, terminals and colour:**
-- Fixtures for a forced pass (sign and order), double no-move
-  (terminal value), and colour carried through a pass in the
-  reachability walk.
+- A pass parent: sign, drop-out depth D and backup order.
+- A legal placement that produces an out-of-book forced-pass child: the
+  value helper passes at the same depth and never calls `search_tt`
+  without a legal move.
+- A placement that produces a terminal child, valued by
+  `terminal_score(final_score)` with empty squares awarded to the winner.
+- Colour carried through a pass in the reachability walk.
+- Pass and terminal nodes are never emitted.
 
 **Values:**
 - Backup on a hand-built DAG with transpositions.
@@ -357,6 +397,8 @@ Playing paths, which inherit the shipped policy once it is enabled:
 **Pruning:**
 - Reachability keeps exactly the reachable union for the declared roots.
 - Overflow removes in (count, key) order, with reachability recomputed.
+- A low-count frozen root survives overflow.
+- The build fails when the mandatory records cannot fit.
 - Truncated records keep their pre-truncation move and value.
 
 **Determinism:**
@@ -396,3 +438,12 @@ Playing paths, which inherit the shipped policy once it is enabled:
 | Symmetry test impossible on symmetric positions | Transform ties go to the smallest k. Exact inverse tested on an asymmetric fixture; legality, value and stabiliser orbit tested on symmetric fixtures, including the start. |
 | Builder home and budget | Remains an explicit user decision before builder GREEN, with the reviewer's preference recorded. |
 | Non-blocking | Duplicate-key check and a board-bearing manifest; fixture tests for malformed data and bypasses; the sizing replay's boundary clarified; gate clock details deferred to the gate's pre-registration. |
+
+### Second review, of `be755f9`
+
+| Finding | Change |
+| --- | --- |
+| Scoring no-move children calls an incompatible root API | A child value helper over any board: terminal score, pass at the same depth, and `search_tt` only when a legal move exists. A pass parent's drop-out is at depth D. Terminal values use `terminal_score(final_score(board))`. Pass and terminal nodes are internal and never emitted. Fixtures added for out-of-book forced-pass and terminal children. |
+| "Lossless for its roots" does not cover re-entry | The guarantee is narrowed to connected book lines. Re-entry through stateless lookup is kept, with reduced coverage, and no latch. A leave-and-re-enter test is added. |
+| Overflow can drop gate roots | The start position and the 400 gate roots are mandatory and protected, and the build fails if they cannot fit. The coverage claim is restricted to the side to move at each root, with the other colour's first-move hits logged. A low-count frozen root test is added. |
+| Bootstrap bound wording | The bound is the 97.5th percentile of the bootstrapped projections, used as it stands. |
