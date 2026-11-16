@@ -1,0 +1,6 @@
+commit 71b478b5f40dbabbbaa5dbbc5ec91f848f75b492 changes 1
+binary sha256 44fcf701a7878cc31068f6fa1fd49d46290040e0b930be1573ffbabc11ac6597
+command othello-trainer book roots data/wthor bench/openings_book.txt --min 10 --plies 30 --count 400 --seed 151
+Mon 16 Nov 2026 15:32:22 GMT
+roots 400 nodes 18877
+exit 0
