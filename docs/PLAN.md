@@ -1035,7 +1035,7 @@ a new budget and with the same discipline.
 | --- | ---: | ---: | --- |
 | Engine + playable CLI | 999 | **1,500** | `tests/budget.rs` (same metric) |
 | Tools crate | 650 | **1,300** | `tools/tests/budget.rs` |
-| Trainer crate | — | **2,000** | `trainer/tests/budget.rs` |
+| Trainer crate | — | **2,100** | `trainer/tests/budget.rs` |
 | Model assets | — | **4 MiB** total | Guard added with the first asset |
 
 - **Same metric, same rules:** formatted lines that are neither blank nor
@@ -1054,6 +1054,9 @@ a new budget and with the same discipline.
 - **Trainer budget raised:** user decision, 16 Nov 2026, for the opening
   book builder (#150, #153): "Trainer can have 2000 LOC." The guard is now
   2,000 (it was 1,200). The book builder lives in the counted trainer.
+  Raised again, user decision, 16 Nov 2026, after the #153 GREEN review's
+  validation fixes: "You can raise the trainer LOC budget, but keep the
+  core engine tight." The guard is now 2,100; the engine stays at 1,500.
 
 ### Why 1,499
 
