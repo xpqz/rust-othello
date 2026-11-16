@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play, squares};
 use othello::pattern;
 use othello::rng::Rng;
-use othello::score::terminal_score;
+use othello::score::{EVAL_BOUND, terminal_score};
 use othello::search::{ProbCut, SearchConfig, SearchLimits, search_tt};
 use othello::tt::{Table, zobrist};
 use othello_tools::journal::{self, Journal};
@@ -31,6 +31,7 @@ pub type Drops = BTreeMap<Key, Option<(i32, u8)>>;
 
 const RECORD: usize = 11;
 const RESAMPLES: usize = 10_000;
+const RULES: &str = "normalize-passes,ascending-squares,clear-per-node,lower-square-ties";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Move {
@@ -424,8 +425,7 @@ pub fn header(params: &Params, input: &str) -> String {
         );
     format!(
         "{} depth {} table {} eval {eval} engine {} \
-         threshold {} ordering {} probcut {:?} rules normalize-passes,ascending-squares,\
-         clear-per-node,lower-square-ties",
+         threshold {} ordering {} probcut {:?} rules {RULES}",
         identity(params, input),
         params.depth,
         params.table,
@@ -474,22 +474,29 @@ fn run_units<U: Sync>(
     let every = std::env::var("OTHELLO_BOOK_PROGRESS_MS")
         .ok()
         .and_then(|ms| ms.parse().ok());
+    let report = || {
+        let (done, elapsed) = (
+            finished.load(Ordering::Relaxed),
+            start.elapsed().as_secs_f64(),
+        );
+        let eta = (units.len() - done) as f64 * elapsed / (done - skipped) as f64;
+        println!(
+            "progress units {done}/{} elapsed {elapsed:.0}s eta {eta:.0}s",
+            units.len()
+        );
+    };
+    report();
     std::thread::scope(|scope| {
         scope.spawn(|| {
-            let mut stopped = stop.0.lock().unwrap();
-            while !*stopped {
-                let (done, elapsed) = (
-                    finished.load(Ordering::Relaxed),
-                    start.elapsed().as_secs_f64(),
-                );
-                let rate = (done - skipped) as f64 / elapsed;
-                let eta = (units.len() - done) as f64 / rate;
-                println!(
-                    "progress units {done}/{} elapsed {elapsed:.0}s eta {eta:.0}s",
-                    units.len()
-                );
-                let wait = Duration::from_millis(every.unwrap_or(60_000));
-                stopped = stop.1.wait_timeout(stopped, wait).unwrap().0;
+            let wait = Duration::from_millis(every.unwrap_or(60_000));
+            let running = |stopped: &mut bool| !*stopped;
+            while !*stop
+                .1
+                .wait_timeout_while(stop.0.lock().unwrap(), wait, running)
+                .unwrap()
+                .0
+            {
+                report();
             }
         });
         let result: Result<(), String> = pool.install(|| {
@@ -541,6 +548,36 @@ pub fn score(
     Ok((done, units.len() - done))
 }
 
+/// Whether a scoring header's tail after the identity is well formed: any
+/// evaluator and engine, as long as each field has its type and range.
+fn provenance(tail: &str) -> bool {
+    let Some((fields, rules)) = tail.split_once(" rules ") else {
+        return false;
+    };
+    let Some((fields, probcut)) = fields.split_once(" probcut ") else {
+        return false;
+    };
+    let words: Vec<&str> = fields.split(' ').collect();
+    let names = ["depth", "table", "eval", "engine", "threshold", "ordering"];
+    let number = |at: usize, max: u64| {
+        words[at]
+            .parse::<u64>()
+            .is_ok_and(|n| (1..=max).contains(&n))
+    };
+    words.len() == 13
+        && words[0].is_empty()
+        && (1..12).step_by(2).all(|at| words[at] == names[at / 2])
+        && number(2, 60)
+        && number(4, u32::MAX.into())
+        && words[6].len() == 64
+        && words[6].bytes().all(|b| b.is_ascii_hexdigit())
+        && !words[8].is_empty()
+        && number(10, 64)
+        && ["true", "false"].contains(&words[12])
+        && (probcut == "None" || probcut.starts_with("Some(ProbCut {") && probcut.ends_with("})"))
+        && rules == RULES
+}
+
 /// The journal's drop-out results, refused unless the header matches
 /// `identity`, every node has exactly one record, and each result is that
 /// node's legal drop-out move (or none when it has none).
@@ -550,7 +587,7 @@ fn read_drops(
     identity: &str,
 ) -> Result<(String, Drops), String> {
     let (header, records) = journal::read(path)?;
-    if !header.starts_with(&format!("{identity} depth ")) {
+    if !header.strip_prefix(identity).is_some_and(provenance) {
         return Err(journal::mismatch(identity, &header));
     }
     let mut drops = BTreeMap::new();
@@ -574,7 +611,9 @@ fn read_drops(
             )),
             None => return Err(format!("invalid record {}", record.id)),
         };
-        let valid = drop.map_or(outs.is_empty(), |(_, square)| outs.contains(&square));
+        let valid = drop.map_or(outs.is_empty(), |(value, square)| {
+            outs.contains(&square) && (-EVAL_BOUND..=EVAL_BOUND).contains(&value)
+        });
         if !nodes.contains_key(&k) || !valid || drops.insert(k, drop).is_some() {
             return Err(format!("foreign, invalid or repeated record {}", record.id));
         }

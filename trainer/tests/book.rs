@@ -1589,3 +1589,119 @@ fn build_audit() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn build_refuses_out_of_domain_scores() {
+    // Saved values must lie within the engine's score range: refused with
+    // an error, never a panic, at both i32 extremes and just past the bound.
+    let dir = temp_dir("domain");
+    let header = book::header(&TEST_PARAMS, "test");
+    let one = book::key(play(Board::START, 19));
+    let one_board = book::board(one);
+    let drop = squares(legal_moves(one_board.me, one_board.opp))
+        .next()
+        .unwrap();
+    let nodes = BTreeMap::from([(START, 10), (one, 10)]);
+    let build = |value: i64| {
+        let line = format!("{value} {drop} | ");
+        let path = journal_with(
+            &dir,
+            &format!("v{value}"),
+            &header,
+            &[(START, "none | "), (one, &line)],
+        );
+        book::build(
+            &nodes,
+            &path,
+            &identity(),
+            &[(START, true)],
+            &BTreeSet::from([START]),
+            1 << 16,
+        )
+    };
+    for bad in [i32::MIN as i64, i32::MAX as i64, -6401, 6401] {
+        assert!(build(bad).is_err(), "{bad} accepted");
+    }
+    for good in [-6400, 6400] {
+        assert!(build(good).is_ok(), "{good} refused");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn build_checks_provenance() {
+    // The header after the identity must be well formed; an older evaluator
+    // and engine are accepted as they are.
+    let dir = temp_dir("provenance");
+    let only = BTreeMap::from([(START, 10)]);
+    let made = std::cell::Cell::new(0);
+    let build = |header: &str| {
+        made.set(made.get() + 1);
+        let path = journal_with(
+            &dir,
+            &format!("h{}", made.get()),
+            header,
+            &[(START, "123 19 | ")],
+        );
+        book::build(
+            &only,
+            &path,
+            &identity(),
+            &[(START, true)],
+            &BTreeSet::from([START]),
+            1 << 16,
+        )
+    };
+    let current = book::header(&TEST_PARAMS, "test");
+    assert!(build(&current).is_ok());
+    let eval = current
+        .split(" eval ")
+        .nth(1)
+        .unwrap()
+        .split(' ')
+        .next()
+        .unwrap();
+    let engine = current
+        .split(" engine ")
+        .nth(1)
+        .unwrap()
+        .split(' ')
+        .next()
+        .unwrap();
+    let old = current
+        .replace(eval, &"ab".repeat(32))
+        .replace(engine, "0123abc")
+        .replace(" depth 2 ", " depth 18 ");
+    assert!(build(&old).is_ok());
+    let id = identity();
+    assert!(build(&format!("{id} depth not-a-depth")).is_err());
+    for broken in [
+        current.replace(" depth 2 ", " depth 0 "),
+        current.replace(eval, "missing"),
+        current.replace(" ordering true ", " ordering maybe "),
+        current.replace(" rules ", " rule "),
+        current.replace(" threshold 18 ", " "),
+    ] {
+        assert!(build(&broken).is_err(), "{broken}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn progress_without_work() {
+    // A completed journal still reports its first snapshot, T/T, every time.
+    let dir = temp_dir("zero-work");
+    std::fs::write(dir.join("games.wtb"), archive(&games(4, 2, 4, 8))).unwrap();
+    let journal = dir.join("done.journal");
+    let args = score_args(dir.to_str().unwrap(), &journal, 1, 1);
+    assert!(trainer(&args).status.success());
+    let total = sorted_lines(&journal).len();
+    for _ in 0..20 {
+        let text = String::from_utf8(trainer(&args).stdout).unwrap();
+        assert!(
+            text.contains(&format!("progress units {total}/{total} ")),
+            "{text}"
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
