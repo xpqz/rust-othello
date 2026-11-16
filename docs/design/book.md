@@ -410,7 +410,8 @@ Playing paths, which inherit the shipped policy once it is enabled:
 - Two squares reaching the same canonical child both appear.
 
 **Passes, terminals and colour:**
-- A pass parent: sign, drop-out depth D and backup order.
+- A contracted passing book move: worth +v(child), with the same side to
+  move after it.
 - A legal placement that produces an out-of-book forced-pass child: the
   value helper passes at the same depth and never calls `search_tt`
   without a legal move.
