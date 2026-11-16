@@ -1,0 +1,8 @@
+# commit eac232d33c90d27ccba6eb85baf09147522cc17f binary sha256 5a903c40fd43b7afd01121da5cf2c332824e758f49ab7072cd7973be6bb8af2e host Mac14,9 ncpu 10 start 2026-11-16T17:30:06Z load { 2.70 2.16 3.37 }
+# command: othello-trainer book pilot data/wthor run/pilot.journal --jobs 5
+games 137548 rejected 0 nodes 18877
+depth 18 units 200 hours on 5 threads mean 10.4946 upper 11.8973
+depth 19 units 200 hours on 5 threads mean 19.3276 upper 21.9647
+depth 20 units 200 hours on 5 threads mean 43.0049 upper 48.9609
+rule limit 36 hours: depth Some(19)
+exit 0 end 2026-11-16T18:16:56Z
