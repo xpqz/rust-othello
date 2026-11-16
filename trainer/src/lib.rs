@@ -1,3 +1,4 @@
+pub mod book;
 pub mod check;
 pub mod fit;
 pub mod label;

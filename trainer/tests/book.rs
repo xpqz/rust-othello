@@ -142,8 +142,10 @@ fn pass_game() -> (Vec<u8>, usize) {
             let square = legal[(rng.next_u64() % legal.len() as u64) as usize];
             moves.push(square);
             board = play(board, square);
-            if at.is_some() && moves.len() > at.unwrap() + 2 {
-                return (moves, at.unwrap());
+            if let Some(k) = at
+                && moves.len() > k + 2
+            {
+                return (moves, k);
             }
         }
     }
@@ -401,7 +403,7 @@ fn dropout_terminal_child() {
 
 /// Nodes: the start, its one canonical child, and every canonical child of
 /// that, with hand-set drop-out results.
-fn small_book() -> (BTreeMap<Key, u32>, BTreeMap<Key, Option<(i32, u8)>>) {
+fn small_book() -> (BTreeMap<Key, u32>, book::Drops) {
     let one = book::key(play(Board::START, 19));
     let one_board = book::board(one);
     let twos: BTreeSet<Key> = squares(legal_moves(one_board.me, one_board.opp))
@@ -484,7 +486,6 @@ fn backup_ties() {
     );
     // A book move on the lowest square ties a drop-out on a higher square.
     drops.insert(one, Some((0, legal[1])));
-    let mut nodes = nodes;
     let low = kids[0];
     nodes.insert(low, 10);
     let low_board = book::board(low);
@@ -1202,4 +1203,23 @@ fn sorted_lines(path: &Path) -> Vec<String> {
         .collect();
     lines.sort();
     lines
+}
+
+#[test]
+fn roots_file_round_trip() {
+    let list = games(60, 6, 8, 12);
+    let nodes: BTreeMap<Key, u32> = book::count(&list, 12)
+        .into_iter()
+        .filter(|&(_, n)| n >= 2)
+        .collect();
+    let roots = book::roots(&list, &nodes, 6..=8, 5, 151).unwrap();
+    let text = book::write_lines(&roots, "test roots");
+    assert!(text.starts_with("# test roots\n"));
+    let keys: Vec<Key> = roots
+        .iter()
+        .map(|line| canonical(*replay_oracle(line).last().unwrap()))
+        .collect();
+    assert_eq!(book::read_roots(&text).unwrap(), keys);
+    assert!(book::read_roots("f5 f5\n").is_err());
+    assert!(book::read_roots("z9\n").is_err());
 }

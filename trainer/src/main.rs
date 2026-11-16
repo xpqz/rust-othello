@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use othello_trainer::book::{self, Params};
 use othello_trainer::check::{self, Summary};
 use othello_trainer::fit;
 use othello_trainer::label;
@@ -13,7 +14,8 @@ fn main() {
         Some("label") => label_command(&args[1..]),
         Some("fit") => fit_command(&args[1..]),
         Some("inspect") => inspect_command(&args[1..]),
-        _ => Err("usage: othello-trainer check|label|fit|inspect".into()),
+        Some("book") => book_command(&args[1..]),
+        _ => Err("usage: othello-trainer check|label|fit|inspect|book".into()),
     };
     if let Err(message) = result {
         eprintln!("{message}");
@@ -112,6 +114,132 @@ fn inspect_command(args: &[String]) -> Result<(), String> {
         }
     }
     print!("{}", fit::inspect_path(&root, family, stage, count)?);
+    Ok(())
+}
+
+/// `book score|roots|pilot|build <wthor dir> <path> [options]`.
+fn book_command(args: &[String]) -> Result<(), String> {
+    let usage = "usage: book score|roots|pilot|build <dir> <path> [options]";
+    let (command, dir, path) = match args {
+        [command, dir, path, ..] => (command.as_str(), PathBuf::from(dir), PathBuf::from(path)),
+        _ => return Err(usage.into()),
+    };
+    let mut params = Params {
+        min: 10,
+        plies: 30,
+        depth: 20,
+        table: othello::tt::MAX_ENTRIES,
+    };
+    let (mut jobs, mut count, mut seed, mut room) = (1, 400, 151, 179_576);
+    let (mut depths, mut limit) = (vec![18, 19, 20], 36.0);
+    let (mut roots, mut asset, mut manifest) = (None, None, None);
+    let mut rest = args[3..].iter();
+    while let Some(flag) = rest.next() {
+        let value = rest.next().ok_or_else(|| format!("{flag} needs a value"))?;
+        let parse = |what: &str| -> Result<usize, String> {
+            value.parse().map_err(|_| format!("invalid {what}"))
+        };
+        match flag.as_str() {
+            "--min" => params.min = parse(flag)? as u32,
+            "--plies" => params.plies = parse(flag)? as u32,
+            "--depth" => params.depth = parse(flag)? as u32,
+            "--table" => params.table = parse(flag)?,
+            "--jobs" => jobs = parse(flag)?.max(1),
+            "--count" => count = parse(flag)?,
+            "--seed" => seed = parse(flag)? as u64,
+            "--room" => room = parse(flag)?,
+            "--limit" => limit = value.parse().map_err(|_| "invalid --limit")?,
+            "--depths" => {
+                depths = value
+                    .split(',')
+                    .map(|d| d.parse().map_err(|_| "invalid --depths"))
+                    .collect::<Result<_, _>>()?
+            }
+            "--roots" => roots = Some(PathBuf::from(value)),
+            "--asset" => asset = Some(PathBuf::from(value)),
+            "--manifest" => manifest = Some(PathBuf::from(value)),
+            _ => return Err(format!("unknown option {flag}")),
+        }
+    }
+    let start = std::time::Instant::now();
+    let (games, input) = book::read_games(&dir)?;
+    let nodes: std::collections::BTreeMap<_, _> = book::count(&games, params.plies)
+        .into_iter()
+        .filter(|&(_, n)| n >= params.min)
+        .collect();
+    let write = |path: &PathBuf, bytes: &[u8]| {
+        std::fs::write(path, bytes).map_err(|error| format!("{}: {error}", path.display()))
+    };
+    match command {
+        "score" => {
+            let keys: Vec<_> = nodes.keys().copied().collect();
+            let header = book::header(&params, &input);
+            let (done, scored) = book::score(&keys, &params, jobs, &path, &header)?;
+            println!(
+                "nodes {} done {done} scored {scored} elapsed {:.1}s",
+                keys.len(),
+                start.elapsed().as_secs_f64()
+            );
+        }
+        "roots" => {
+            let lines = book::roots(&games, &nodes, 6..=8, count, seed)?;
+            let comment = format!(
+                "book gate roots: {count} of the movable nodes after 6-8 placements, seed {seed}, min {} input {input}",
+                params.min
+            );
+            write(&path, book::write_lines(&lines, &comment).as_bytes())?;
+            println!("roots {} nodes {}", lines.len(), nodes.len());
+        }
+        "pilot" => {
+            let mut sample: Vec<_> = nodes.keys().copied().collect();
+            book::shuffle(&mut sample, seed);
+            sample.truncate(count);
+            let header = format!(
+                "{} pilot sample {count} seed {seed} depths {depths:?}",
+                book::header(&Params { depth: 0, ..params }, &input)
+            );
+            let times = book::pilot(&sample, &nodes, &params, &depths, jobs, &path, &header)?;
+            let mut bounds = Vec::new();
+            for (&depth, times) in &times {
+                let (mean, upper) = book::projection(times, nodes.len(), jobs, seed);
+                println!(
+                    "depth {depth} units {} projected hours mean {mean:.2} upper {upper:.2}",
+                    times.len()
+                );
+                if times.len() == sample.len() {
+                    bounds.push((depth, upper));
+                }
+            }
+            println!(
+                "nodes {} rule limit {limit} hours: depth {:?}",
+                nodes.len(),
+                book::depth_rule(&bounds, limit)
+            );
+        }
+        "build" => {
+            let path_roots = roots.ok_or("--roots is required")?;
+            let text = std::fs::read_to_string(&path_roots)
+                .map_err(|error| format!("{}: {error}", path_roots.display()))?;
+            let first = book::key(othello::board::Board::START);
+            let mut mandatory: std::collections::BTreeSet<_> =
+                book::read_roots(&text)?.into_iter().collect();
+            mandatory.insert(first);
+            let roots: Vec<_> = mandatory
+                .iter()
+                .flat_map(|&k| [(k, true), (k, false)])
+                .collect();
+            let (bytes, text) = book::build(&nodes, &path, &roots, &mandatory, room)?;
+            write(&asset.ok_or("--asset is required")?, &bytes)?;
+            write(&manifest.ok_or("--manifest is required")?, text.as_bytes())?;
+            println!(
+                "nodes {} records {} bytes {}",
+                nodes.len(),
+                bytes.len() / 11,
+                bytes.len()
+            );
+        }
+        _ => return Err(usage.into()),
+    }
     Ok(())
 }
 
