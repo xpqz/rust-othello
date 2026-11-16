@@ -194,7 +194,10 @@ Fixed now, before the pilot runs:
   positions. It is a conditional gate: neither games from the standard
   start nor a frequency-weighted human opening distribution.
 - **Roots:** 400 positions drawn uniformly without replacement, by a
-  seeded shuffle (seed 151), from the node-set positions at plies 6–8.
+  seeded shuffle (seed 151), from the node-set positions at plies 6–8
+  that have a legal move. Pass and terminal nodes are internal and are
+  never roots. The condition is checked again when the roots and the
+  artifact are frozen.
   The pool is 232 + 402 + 645 = 1,279 positions in the sizing count; the
   builder's exact pool is logged.
 - **Committed in the builder issue,** before any scoring:
@@ -398,6 +401,9 @@ Playing paths, which inherit the shipped policy once it is enabled:
 - Reachability keeps exactly the reachable union for the declared roots.
 - Overflow removes in (count, key) order, with reachability recomputed.
 - A low-count frozen root survives overflow.
+- After a removal, a retained parent keeps its stored move even when
+  that move's child was removed. The walk stops there, and the removed
+  child is never emitted.
 - The build fails when the mandatory records cannot fit.
 - Truncated records keep their pre-truncation move and value.
 
