@@ -358,13 +358,16 @@ record was scored under.
   `extend R {R} round {r} phase {a|b}` and these SHA-256 digests, each with
   its count:
   - `base`: the base journal's records, in canonical form;
-  - `prior`: all earlier phase journals' records, in canonical form;
+  - `prior`: all earlier phase journals, in phase order, each as a line
+    `r{r}{a|b}` followed by its records in canonical form;
   - `roots`: the 802 walk roots (the existing root-set hash);
   - `units`: the sorted unit IDs;
   - `context`: the sorted IDs of the context snapshot.
 
-  Finally, `extender {commit}` records the commit that built the extending
-  binary.
+  Finally, `extender {commit}` records the source commit the extending
+  binary was compiled from, fixed at compile time, not read from a
+  checkout at run time. #158 runs from a pinned worktree and binary, as
+  #154 did.
 - **Canonical form** of a journal's records: records sorted by ID, each as
   `id<TAB>line`, joined by newlines. Parallel append order therefore does
   not affect any digest.
@@ -401,7 +404,9 @@ record was scored under.
 - **Logged per round:** departures, `|A_r|`, `|B_r|`, same-phase peer edges,
   A units with a book move into the earlier node set, previous departures
   that now choose a book move, records, and the per-root coverage totals.
-- With R = 0 the build is byte-identical to the #154 asset and manifest.
+- With R = 0 the build is byte-identical to the #154 asset and manifest:
+  the `rounds` header line applies only to builds with R > 0. The test
+  compares bytes directly.
 
 #### Sizing (guesses, not bounds)
 
@@ -413,7 +418,9 @@ record was scored under.
   engine records as round 1's departures, three rounds give about 9,300
   against a room of 16,325. This is a guess. Overflow and the fixed R rule
   handle any excess, and R is not changed after looking at results.
-- **Time:** #154 averaged about 2 s of thread time per depth-18 search,
+- **Time:** the #154 scoring run at D = 19 searches each drop-out at
+  depth 18. Its 72,553 s on 5 threads over 182,337 such searches, including
+  table clearing and job overhead, average about 2 s of thread time each,
   under shared load. An extension node needs about 10 searches, so a phase
   of about 1,840 units takes about 2 h on 5 threads, and three rounds
   about 12 h, if later phases are of similar size.
