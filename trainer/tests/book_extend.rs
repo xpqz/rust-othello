@@ -1,4 +1,4 @@
-//! Extension rounds (design amendment 3, issue #157).
+//! Extension rounds (design amendment 3).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::os::unix::process::ExitStatusExt;
@@ -13,6 +13,7 @@ use othello::score::{EVAL_BOUND, terminal_score};
 use othello::search::{SearchLimits, search_tt};
 use othello_tools::journal::{self, Journal};
 use othello_trainer::book::{self, Entry, Extension, Key, Params};
+use sha2::{Digest, Sha256};
 
 const START: Key = (Board::START.me, Board::START.opp);
 
@@ -371,7 +372,7 @@ fn remaining_transposed_squares() {
 }
 
 #[test]
-fn reclassified_backup_through_child() {
+fn backup_through_child() {
     // The old best drop-out square becomes a book move; backup then takes
     // −v(child) when it beats the runner-up, and the runner-up otherwise.
     let one = book::key(play(Board::START, 19));
@@ -467,7 +468,7 @@ fn phase_a_units() {
 }
 
 #[test]
-fn phase_a_transposition_and_terminal() {
+fn phase_a_transpositions() {
     // Two departures reaching one child give one unit.
     let ((p1, s1), (p2, s2), child) = transposition();
     let nodes = node_set([p1, p2]);
@@ -488,7 +489,7 @@ fn phase_a_transposition_and_terminal() {
 }
 
 #[test]
-fn phase_a_after_pass() {
+fn phase_a_passes() {
     // The unit is the normalized (passed) child.
     let (parent, square) = find(|board, square| {
         let child = play(board, square);
@@ -541,7 +542,7 @@ fn phase_b_selection() {
 }
 
 #[test]
-fn phase_b_pass_and_terminal() {
+fn phase_b_passes() {
     // A selected move needing a pass gives the normalized child.
     let (c, square) = find(|board, square| {
         let child = play(board, square);
@@ -563,7 +564,7 @@ fn phase_b_pass_and_terminal() {
 // ---- Phase scoring --------------------------------------------------------
 
 #[test]
-fn score_in_peer_edges() {
+fn score_in_peers() {
     // c1 and c2 are both units, and c2 is a child of c1: under the phase
     // context that move is a book move, so c1's record has no token for it.
     let ((p1, s1), c1, (p2, s2), c2) = peer();
@@ -748,7 +749,7 @@ fn unit_ids(path: &Path) -> Vec<Key> {
 }
 
 #[test]
-fn extend_rounds_follow_the_phases() {
+fn extend_follows_phases() {
     let base = base("rounds", PARAMS.depth);
     let ext = base.dir.join("ext");
     extend_api(&base, &ext, 2, 2).unwrap();
@@ -771,25 +772,60 @@ fn extend_rounds_follow_the_phases() {
     std::fs::remove_dir_all(&base.dir).unwrap();
 }
 
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// `{count}:{sha256}` of `text`.
+fn digest(count: usize, text: &str) -> String {
+    format!("{count}:{}", hex(&Sha256::digest(text.as_bytes())))
+}
+
+fn head_commit() -> String {
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .unwrap();
+    String::from_utf8(output.stdout).unwrap().trim().to_string()
+}
+
 #[test]
-fn extend_headers_bind_inputs() {
+fn extend_binds_inputs() {
+    // Every phase header is the base header plus the registered fields, each
+    // digest computed here from the sorted logical records.
     let base = base("headers", PARAMS.depth);
     let ext = base.dir.join("ext");
-    extend_api(&base, &ext, 2, 1).unwrap();
+    extend_api(&base, &ext, 2, 2).unwrap();
     let base_header = journal::read(&base.journal).unwrap().0;
-    for (index, path) in phases(&ext, 2).iter().enumerate() {
-        let header = journal::read(path).unwrap().0;
+    let base_lines = sorted_lines(&base.journal);
+    let roots: Vec<String> = walk_roots()
+        .iter()
+        .map(|&(k, e)| format!("{}:{e}", id(k)))
+        .collect();
+    let paths = phases(&ext, 2);
+    let (mut prior, mut prior_count) = (String::new(), 0);
+    for (index, path) in paths.iter().enumerate() {
         let (round, phase) = (index / 2 + 1, ["a", "b"][index % 2]);
-        assert!(header.starts_with(&base_header), "{header}");
-        assert!(header.contains(&format!("extend R 2 round {round} phase {phase}")));
-        for field in ["base", "prior", "roots", "units", "context"] {
-            assert!(header.contains(&format!(" {field} ")), "{field}: {header}");
-        }
-        let commit = header.rsplit(" extender ").next().unwrap();
-        assert!(
-            commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()),
-            "{header}"
+        let lines = sorted_lines(path);
+        let units: Vec<String> = unit_ids(path).iter().map(|&k| id(k)).collect();
+        let (before, _) = state(&base, &paths[..index]);
+        let mut context: Vec<String> = before.keys().map(|&k| id(k)).collect();
+        context.extend(units.iter().cloned());
+        context.sort();
+        let expected = format!(
+            "{base_header} extend R 2 round {round} phase {phase} base {} prior {} \
+             roots {} units {} context {} extender {}",
+            digest(base_lines.len(), &base_lines.join("\n")),
+            digest(prior_count, &prior),
+            digest(roots.len(), &roots.join(" ")),
+            digest(units.len(), &units.join("\n")),
+            digest(context.len(), &context.join("\n")),
+            head_commit(),
         );
+        assert_eq!(journal::read(path).unwrap().0, expected);
+        prior.push_str(&format!("r{round}{phase}\n{}\n", lines.join("\n")));
+        prior_count += lines.len();
     }
     std::fs::remove_dir_all(&base.dir).unwrap();
 }
@@ -823,7 +859,7 @@ fn extend_deterministic() {
 }
 
 #[test]
-fn build_rounds_zero_is_legacy() {
+fn build_zero_rounds() {
     let base = base("legacy", PARAMS.depth);
     let ext = base.dir.join("ext");
     let legacy = book::build(
@@ -921,7 +957,108 @@ fn extend_empty_rounds() {
 }
 
 #[test]
-fn extend_refuses_changed_inputs() {
+fn extend_empty_b() {
+    // A non-empty A whose unit selects a book move: B has no units, its
+    // journal is written empty, and the round is complete.
+    let (p, square) = find(|board, square| {
+        let (c, _) = book::normalize(play(board, square));
+        squares(legal_moves(board.me, board.opp)).all(|s| !is_terminal(play(board, s)))
+            && !is_terminal(c)
+            && legal_moves(c.me, c.opp) != 0
+            && squares(legal_moves(c.me, c.opp)).all(|s| {
+                let child = book::normalize(play(c, s)).0;
+                !is_terminal(child)
+            })
+    });
+    let c = child_key(book::board(p), square);
+    let mut nodes = node_set([p]);
+    nodes.extend(node_set(
+        legal(c).into_iter().map(|s| child_key(book::board(c), s)),
+    ));
+    assert!(!nodes.contains_key(&c));
+    let dir = temp_dir("emptyb");
+    let base = dir.join("base.journal");
+    let header = book::header(&PARAMS, "test");
+    let (mut journal, _) = Journal::open(&base, &header).unwrap();
+    for &k in nodes.keys() {
+        let n = token_count(k, &nodes);
+        let node = book::board(k);
+        // At p, the move to c is worth 500 and every other drop-out 0.
+        let tokens: Vec<i32> = legal(k)
+            .into_iter()
+            .filter(|&s| !nodes.contains_key(&child_key(node, s)))
+            .filter(|&s| !is_terminal(play(node, s)))
+            .map(|s| {
+                let to_c = k == p && child_key(node, s) == c;
+                match (to_c, needs_pass(play(node, s))) {
+                    (true, true) => 500,
+                    (true, false) => -500,
+                    _ => 0,
+                }
+            })
+            .collect();
+        assert_eq!(tokens.len(), n);
+        let values = expected_values(k, &nodes, &tokens);
+        journal
+            .append(&id(k), &line_of(best_of(&values), &tokens))
+            .unwrap();
+    }
+    drop(journal);
+    let ext = dir.join("ext");
+    let identity = book::identity(&PARAMS, "test");
+    let run = || {
+        book::extend(
+            &nodes,
+            &base,
+            &identity,
+            &[(p, true)],
+            &Extension {
+                dir: &ext,
+                rounds: 1,
+            },
+            &PARAMS,
+            1,
+        )
+    };
+    run().unwrap();
+    assert_eq!(unit_ids(&ext.join("r1a.journal")), vec![c]);
+    let (b_header, b_records) = journal::read(&ext.join("r1b.journal")).unwrap();
+    assert!(b_records.is_empty());
+    assert!(b_header.contains(" units 0:"), "{b_header}");
+    let built = book::build_extended(
+        &nodes,
+        &base,
+        &identity,
+        &[(p, true)],
+        &BTreeSet::from([p]),
+        1 << 16,
+        &Extension {
+            dir: &ext,
+            rounds: 1,
+        },
+    )
+    .unwrap();
+    assert!(
+        built.1.contains("# rounds requested 1 completed 1\n"),
+        "{}",
+        built.1
+    );
+    // Resuming a complete round with an empty B changes nothing.
+    let before: Vec<Vec<u8>> = phases(&ext, 1)
+        .iter()
+        .map(|p| std::fs::read(p).unwrap())
+        .collect();
+    run().unwrap();
+    let after: Vec<Vec<u8>> = phases(&ext, 1)
+        .iter()
+        .map(|p| std::fs::read(p).unwrap())
+        .collect();
+    assert_eq!(before, after);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn refuses_changed_inputs() {
     let base = base("refuse", PARAMS.depth);
     let ext = base.dir.join("ext");
     extend_api(&base, &ext, 2, 2).unwrap();
@@ -958,122 +1095,161 @@ fn extend_refuses_changed_inputs() {
     std::fs::remove_dir_all(&base.dir).unwrap();
 }
 
-/// Copies the base and its complete extension into `name`, applies `edit`
-/// to one phase journal, and expects the next run to refuse before work.
-fn refuse_edit(
-    name: &str,
-    phase: &str,
-    edit: impl Fn(&str, Vec<(String, String)>) -> (String, Vec<(String, String)>),
-) {
-    let base = base(name, PARAMS.depth);
-    let ext = base.dir.join("ext");
-    extend_api(&base, &ext, 1, 2).unwrap();
-    let path = ext.join(format!("r1{phase}.journal"));
-    let (header, records) = journal::read(&path).unwrap();
-    let records: Vec<(String, String)> = records.into_iter().map(|r| (r.id, r.line)).collect();
-    let (header, records) = edit(&header, records);
-    std::fs::remove_file(&path).unwrap();
-    let (mut journal, _) = Journal::open(&path, &header).unwrap();
-    for (id, line) in &records {
+fn rewrite(path: &Path, header: &str, records: &[(String, String)]) {
+    std::fs::remove_file(path).unwrap();
+    let (mut journal, _) = Journal::open(path, header).unwrap();
+    for (id, line) in records {
         journal.append(id, line).unwrap();
     }
-    drop(journal);
-    let before: Vec<Vec<u8>> = phases(&ext, 1)
-        .iter()
-        .map(|p| std::fs::read(p).unwrap())
-        .collect();
-    assert!(extend_api(&base, &ext, 1, 1).is_err(), "{name} accepted");
-    assert!(build_extended_err(&base, &ext), "{name} built");
-    let after: Vec<Vec<u8>> = phases(&ext, 1)
-        .iter()
-        .map(|p| std::fs::read(p).unwrap())
-        .collect();
-    assert_eq!(before, after, "{name} changed a journal");
+}
+
+fn read_all(path: &Path) -> (String, Vec<(String, String)>) {
+    let (header, records) = journal::read(path).unwrap();
+    (
+        header,
+        records.into_iter().map(|r| (r.id, r.line)).collect(),
+    )
+}
+
+/// A copy of `line` with one token moved by one so that it still decodes
+/// under `context` to the same `best`: a valid record with other content.
+fn nudged(key: Key, context: &BTreeMap<Key, u32>, line: &str) -> Option<String> {
+    let (best, tokens) = line.split_once(" | ")?;
+    let tokens: Vec<i32> = tokens.split(' ').filter_map(|t| t.parse().ok()).collect();
+    for i in 0..tokens.len() {
+        for delta in [1, -1] {
+            let mut changed = tokens.clone();
+            changed[i] += delta;
+            let text: Vec<String> = changed.iter().map(i32::to_string).collect();
+            let candidate = format!("{best} | {}", text.join(" "));
+            if book::decode(key, context, &candidate).is_ok() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+/// Runs two rounds, applies `edit` to the base, the directory and the node
+/// set, then expects both a resumed run and a build to refuse with every
+/// file unchanged.
+fn refused_after(name: &str, edit: impl FnOnce(&Base, &Path)) {
+    let base = base(name, PARAMS.depth);
+    let ext = base.dir.join("ext");
+    extend_api(&base, &ext, 2, 2).unwrap();
+    edit(&base, &ext);
+    let files = || -> Vec<Vec<u8>> {
+        std::iter::once(base.journal.clone())
+            .chain(phases(&ext, 2))
+            .map(|p| std::fs::read(p).unwrap_or_default())
+            .collect()
+    };
+    let before = files();
+    assert!(
+        extend_api(&base, &ext, 2, 1).is_err(),
+        "{name}: resume accepted"
+    );
+    assert!(
+        book::build_extended(
+            &base.nodes,
+            &base.journal,
+            &identity(&base),
+            &walk_roots(),
+            &BTreeSet::from([START]),
+            1 << 16,
+            &Extension {
+                dir: &ext,
+                rounds: 2
+            },
+        )
+        .is_err(),
+        "{name}: build accepted"
+    );
+    assert_eq!(files(), before, "{name}: a file changed");
     std::fs::remove_dir_all(&base.dir).unwrap();
 }
 
-fn build_extended_err(base: &Base, ext: &Path) -> bool {
-    book::build_extended(
-        &base.nodes,
-        &base.journal,
-        &identity(base),
-        &walk_roots(),
-        &BTreeSet::from([START]),
-        1 << 16,
-        &Extension {
-            dir: ext,
-            rounds: 1,
-        },
-    )
-    .is_err()
-}
-
 #[test]
-fn extend_refuses_changed_record() {
-    refuse_edit("record", "a", |header, mut records| {
-        // One token changed: the record no longer decodes to its `best`,
-        // or decodes to a different value set; either way it is refused.
-        let (_, line) = &mut records[0];
-        let (best, tokens) = line.split_once(" | ").unwrap();
-        let mut tokens: Vec<i32> = tokens.split(' ').map(|t| t.parse().unwrap()).collect();
-        tokens[0] -= 10_000;
-        *line = format!(
-            "{best} | {}",
-            tokens
-                .iter()
-                .map(i32::to_string)
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
-        (header.to_string(), records)
+fn refuses_changed_score() {
+    // A valid, still-decodable change to one round 1 A score, with the later
+    // phases present: the prior digest no longer matches.
+    refused_after("score", |base, ext| {
+        let path = ext.join("r1a.journal");
+        let (header, mut records) = read_all(&path);
+        let mut context = base.nodes.clone();
+        context.extend(unit_ids(&path).into_iter().map(|k| (k, 0)));
+        let at = records
+            .iter()
+            .position(|(i, l)| nudged(key_of(i), &context, l).is_some())
+            .expect("no nudgeable record");
+        records[at].1 = nudged(key_of(&records[at].0), &context, &records[at].1).unwrap();
+        rewrite(&path, &header, &records);
     });
 }
 
 #[test]
-fn extend_refuses_foreign_unit() {
-    refuse_edit("foreign", "a", |header, mut records| {
+fn refuses_changed_base() {
+    // The same for a base record: the base digest no longer matches.
+    refused_after("basescore", |base, _| {
+        let (header, mut records) = read_all(&base.journal);
+        let at = records
+            .iter()
+            .position(|(i, l)| nudged(key_of(i), &base.nodes, l).is_some())
+            .expect("no nudgeable record");
+        records[at].1 = nudged(key_of(&records[at].0), &base.nodes, &records[at].1).unwrap();
+        rewrite(&base.journal, &header, &records);
+    });
+}
+
+#[test]
+fn refuses_foreign_unit() {
+    refused_after("foreign", |_, ext| {
+        let path = ext.join("r1a.journal");
+        let (header, mut records) = read_all(&path);
         records.push((id(START), "none | ".into()));
-        (header.to_string(), records)
+        rewrite(&path, &header, &records);
     });
 }
 
 #[test]
-fn extend_refuses_duplicate_unit() {
-    refuse_edit("duplicate", "b", |header, mut records| {
-        let first = records[0].clone();
-        records.push(first);
-        (header.to_string(), records)
+fn refuses_duplicate_unit() {
+    refused_after("duplicate", |_, ext| {
+        let path = ext.join("r1b.journal");
+        let (header, mut records) = read_all(&path);
+        records.push(records[0].clone());
+        rewrite(&path, &header, &records);
     });
 }
 
 #[test]
-fn extend_refuses_changed_header() {
-    refuse_edit("header", "b", |header, records| {
-        (header.replace(" units ", " units 0"), records)
+fn refuses_changed_header() {
+    refused_after("header", |_, ext| {
+        let path = ext.join("r1b.journal");
+        let (header, records) = read_all(&path);
+        let at = header.find(" units ").unwrap() + " units ".len();
+        let changed = format!("{}9{}", &header[..at], &header[at + 1..]);
+        rewrite(&path, &changed, &records);
     });
 }
 
-#[test]
-fn extend_refuses_other_policy() {
-    // A base scored under a different policy field refuses to start, and no
-    // phase journal is created.
-    let base = base("policy", PARAMS.depth);
-    let (header, records) = journal::read(&base.journal).unwrap();
-    assert!(header.contains(" threshold 18 "));
-    std::fs::remove_file(&base.journal).unwrap();
-    let (mut journal, _) = Journal::open(
-        &base.journal,
-        &header.replace(" threshold 18 ", " threshold 17 "),
+fn key_of(text: &str) -> Key {
+    let (me, opp) = text.split_once(':').unwrap();
+    (
+        u64::from_str_radix(me, 16).unwrap(),
+        u64::from_str_radix(opp, 16).unwrap(),
     )
-    .unwrap();
-    for record in &records {
-        journal.append(&record.id, &record.line).unwrap();
+}
+
+/// A fresh base with one header field replaced (or none), then one run
+/// with `params`: refused before any phase journal exists, or accepted.
+fn policy_case(name: &str, field: Option<(&str, &str)>, params: Params) -> bool {
+    let base = base(name, PARAMS.depth);
+    if let Some((from, to)) = field {
+        let (header, records) = read_all(&base.journal);
+        assert!(header.contains(from), "{from} not in {header}");
+        rewrite(&base.journal, &header.replacen(from, to, 1), &records);
     }
-    drop(journal);
     let ext = base.dir.join("ext");
-    assert!(extend_api(&base, &ext, 1, 1).is_err());
-    assert!(!ext.join("r1a.journal").exists());
-    // A different depth from the base is refused the same way.
     let result = book::extend(
         &base.nodes,
         &base.journal,
@@ -1083,15 +1259,51 @@ fn extend_refuses_other_policy() {
             dir: &ext,
             rounds: 1,
         },
-        &params(PARAMS.depth + 1),
+        &params,
         1,
     );
-    assert!(result.is_err());
+    let created = ext.join("r1a.journal").exists();
     std::fs::remove_dir_all(&base.dir).unwrap();
+    assert_eq!(result.is_err(), !created, "{name}: {result:?}");
+    result.is_err()
 }
 
 #[test]
-fn overflow_removes_extension_nodes_first() {
+fn refuses_other_policy() {
+    // Each case changes one input on an otherwise valid base.
+    assert!(!policy_case("control", None, PARAMS));
+    assert!(policy_case(
+        "threshold",
+        Some((" threshold 18 ", " threshold 17 ")),
+        PARAMS
+    ));
+    let eval = {
+        let header = book::header(&PARAMS, "test");
+        let at = header.find(" eval ").unwrap() + " eval ".len();
+        header[at..at + 64].to_string()
+    };
+    let other = if eval.starts_with('0') { "1" } else { "0" }.repeat(64);
+    assert!(policy_case("eval", Some((&eval, &other)), PARAMS));
+    assert!(policy_case(
+        "depth",
+        None,
+        Params {
+            depth: PARAMS.depth + 1,
+            ..PARAMS
+        }
+    ));
+    assert!(policy_case(
+        "table",
+        None,
+        Params {
+            table: PARAMS.table / 2,
+            ..PARAMS
+        }
+    ));
+}
+
+#[test]
+fn overflow_extension_first() {
     let base = base("overflow", PARAMS.depth);
     let ext = base.dir.join("ext");
     extend_api(&base, &ext, 2, 2).unwrap();
@@ -1223,90 +1435,98 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
+/// Spawns `args`, waits until `ready` holds, then kills it. True when the
+/// kill was a SIGKILL of a still-running process.
+fn kill_when(args: &[String], ready: impl Fn() -> bool) -> bool {
+    let mut child = Running(
+        Command::new(env!("CARGO_BIN_EXE_othello-trainer"))
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap(),
+    );
+    let start = Instant::now();
+    while !ready() {
+        if child.0.try_wait().unwrap().is_some() {
+            return false;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(600),
+            "kill point not reached"
+        );
+        sleep(Duration::from_millis(1));
+    }
+    child.0.kill().unwrap();
+    child.0.wait().unwrap().signal() == Some(9)
+}
+
+fn count(path: &Path) -> usize {
+    journal::read(path).map_or(0, |(_, r)| r.len())
+}
+
 #[test]
-fn extend_resume_after_kill() {
-    // Deepen until a kill lands inside phase A of round 1, as in
-    // `score_resume`; then compare the resumed run with an uninterrupted one.
+fn extend_resume_kill() {
+    // Live SIGKILLs inside round 1 A and inside round 1 B, deepening until
+    // both land with the phase incomplete; then resume with other jobs.
     let mut chosen = None;
     for depth in [4, 6, 8, 10] {
         let base = base(&format!("kill{depth}"), depth);
-        let killed = base.dir.join("killed");
-        let mut child = Running(
-            Command::new(env!("CARGO_BIN_EXE_othello-trainer"))
-                .args(extend_args(&base, &killed, 2, depth, 1))
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .unwrap(),
+        let full = base.dir.join("full");
+        let output = trainer(&extend_args(&base, &full, 2, depth, 1));
+        assert!(output.status.success(), "{}", stderr(&output));
+        let (a_total, b_total) = (
+            count(&full.join("r1a.journal")),
+            count(&full.join("r1b.journal")),
         );
-        let r1a = killed.join("r1a.journal");
-        let start = Instant::now();
-        while journal::read(&r1a).map_or(true, |(_, r)| r.is_empty()) {
-            assert!(
-                child.0.try_wait().unwrap().is_none(),
-                "extend exited before its first A record"
-            );
-            assert!(
-                start.elapsed() < Duration::from_secs(300),
-                "no A record before timeout"
-            );
-            sleep(Duration::from_millis(1));
-        }
-        child.0.kill().unwrap();
-        let signalled = child.0.wait().unwrap().signal() == Some(9);
-        let b_started = killed.join("r1b.journal").exists();
-        if signalled && !b_started {
+        let in_a = base.dir.join("in_a");
+        let a_ok = a_total >= 2
+            && kill_when(&extend_args(&base, &in_a, 2, depth, 1), || {
+                count(&in_a.join("r1a.journal")) >= 1
+            })
+            && count(&in_a.join("r1a.journal")) < a_total;
+        let in_b = base.dir.join("in_b");
+        let b_ok = b_total >= 2
+            && kill_when(&extend_args(&base, &in_b, 2, depth, 1), || {
+                count(&in_b.join("r1b.journal")) >= 1
+            })
+            && count(&in_b.join("r1b.journal")) < b_total
+            && !in_b.join("r2a.journal").exists();
+        if a_ok && b_ok {
             chosen = Some((base, depth));
             break;
         }
         std::fs::remove_dir_all(&base.dir).unwrap();
     }
-    let (base, depth) = chosen.expect("phase A finished before every kill");
-    let killed = base.dir.join("killed");
+    let (base, depth) = chosen.expect("no depth gave kills inside both A and B");
     let full = base.dir.join("full");
-    let output = trainer(&extend_args(&base, &full, 2, depth, 1));
-    assert!(output.status.success(), "{}", stderr(&output));
     let expected: Vec<Vec<String>> = phases(&full, 2).iter().map(|p| sorted_lines(p)).collect();
-    assert!(sorted_lines(&killed.join("r1a.journal")).len() < expected[0].len());
 
-    // Inside A: resume with other jobs.
-    let output = trainer(&extend_args(&base, &killed, 2, depth, 3));
-    assert!(output.status.success(), "{}", stderr(&output));
-    let got: Vec<Vec<String>> = phases(&killed, 2).iter().map(|p| sorted_lines(p)).collect();
-    assert_eq!(got, expected);
-
-    // Between A and B, and inside B (half of round 1 B, torn last line).
+    // Replay fixtures, not live kills: the boundary after A, and a torn
+    // round 1 B record.
     let between = base.dir.join("between");
     copy_dir(&full, &between);
     for path in phases(&between, 2).iter().skip(1) {
         std::fs::remove_file(path).unwrap();
     }
-    let inside = base.dir.join("inside");
-    copy_dir(&full, &inside);
-    for path in phases(&inside, 2).iter().skip(2) {
+    let torn = base.dir.join("torn");
+    copy_dir(&full, &torn);
+    for path in phases(&torn, 2).iter().skip(2) {
         std::fs::remove_file(path).unwrap();
     }
-    let r1b = inside.join("r1b.journal");
+    let r1b = torn.join("r1b.journal");
     let text = std::fs::read(&r1b).unwrap();
-    let lines: Vec<usize> = text
+    let ends: Vec<usize> = text
         .iter()
         .enumerate()
         .filter(|&(_, &b)| b == b'\n')
         .map(|(i, _)| i)
         .collect();
-    assert!(lines.len() >= 3, "round 1 B too small");
-    let cut = lines[lines.len() / 2] + 1;
+    let cut = ends[ends.len() / 2] + 1;
     let mut bytes = text[..cut].to_vec();
-    bytes.extend_from_slice(&text[cut..cut + (lines[lines.len() / 2 + 1] - cut) / 2]);
+    bytes.extend_from_slice(&text[cut..cut + (ends[ends.len() / 2 + 1] - cut) / 2]);
     std::fs::write(&r1b, bytes).unwrap();
-    for dir in [&between, &inside] {
-        let output = trainer(&extend_args(&base, dir, 2, depth, 2));
-        assert!(output.status.success(), "{}", stderr(&output));
-        let got: Vec<Vec<String>> = phases(dir, 2).iter().map(|p| sorted_lines(p)).collect();
-        assert_eq!(got, expected, "{}", dir.display());
-    }
 
-    // Every resumed directory builds the uninterrupted bytes.
     let built = |dir: &Path, out: &str| {
         let output = trainer(&build_args(&base, dir, 2, out));
         assert!(output.status.success(), "{}", stderr(&output));
@@ -1316,18 +1536,19 @@ fn extend_resume_after_kill() {
         )
     };
     let reference = built(&full, "full");
-    for (dir, out) in [
-        (&killed, "killed"),
-        (&between, "between"),
-        (&inside, "inside"),
-    ] {
-        assert_eq!(built(dir, out), reference, "{out}");
+    for name in ["in_a", "in_b", "between", "torn"] {
+        let dir = base.dir.join(name);
+        let output = trainer(&extend_args(&base, &dir, 2, depth, 3));
+        assert!(output.status.success(), "{name}: {}", stderr(&output));
+        let got: Vec<Vec<String>> = phases(&dir, 2).iter().map(|p| sorted_lines(p)).collect();
+        assert_eq!(got, expected, "{name}");
+        assert_eq!(built(&dir, name), reference, "{name}");
     }
     std::fs::remove_dir_all(&base.dir).unwrap();
 }
 
 #[test]
-fn extend_cli_rejects_options() {
+fn extend_cli_options() {
     // Each refusal names its option, before any input is read.
     let refused = |args: &[&str], want: &str| {
         let mut all = vec!["book", "extend", "missing-dir", "missing.journal"];
