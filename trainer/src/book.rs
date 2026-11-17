@@ -815,3 +815,80 @@ pub fn read_roots(text: &str) -> Result<Vec<Key>, String> {
         })
         .collect()
 }
+
+/// Extension rounds (amendment 3): the phase journal directory and R.
+pub struct Extension<'a> {
+    pub dir: &'a Path,
+    pub rounds: u32,
+}
+
+/// Parent values of a journal record's drop-out squares under `context`.
+pub fn decode(
+    _key: Key,
+    _context: &BTreeMap<Key, u32>,
+    _line: &str,
+) -> Result<Vec<(u8, i32)>, String> {
+    unimplemented!("#157")
+}
+
+/// `x(p)` over the decoded squares that are still drop-outs in `nodes`.
+pub fn remaining(
+    _key: Key,
+    _values: &[(u8, i32)],
+    _nodes: &BTreeMap<Key, u32>,
+) -> Option<(i32, u8)> {
+    unimplemented!("#157")
+}
+
+/// Untruncated walk records whose backed-up move is a drop-out.
+pub fn departures(_roots: &[(Key, bool)], _entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
+    unimplemented!("#157")
+}
+
+/// Phase A units of the departures.
+pub fn phase_a(_departures: &[Key], _entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
+    unimplemented!("#157")
+}
+
+/// Phase B units of the A units, from the post-A backup.
+pub fn phase_b(_units: &[Key], _entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
+    unimplemented!("#157")
+}
+
+/// `score`, partitioned against `context` instead of the units.
+pub fn score_in(
+    _units: &[Key],
+    _context: &BTreeMap<Key, u32>,
+    _params: &Params,
+    _jobs: usize,
+    _path: &Path,
+    _header: &str,
+) -> Result<(usize, usize), String> {
+    unimplemented!("#157")
+}
+
+/// Runs or resumes the extension rounds over the base journal.
+pub fn extend(
+    _nodes: &BTreeMap<Key, u32>,
+    _base: &Path,
+    _identity: &str,
+    _roots: &[(Key, bool)],
+    _extension: &Extension,
+    _params: &Params,
+    _jobs: usize,
+) -> Result<String, String> {
+    unimplemented!("#157")
+}
+
+/// `build` over the base journal and the complete extension rounds.
+pub fn build_extended(
+    _nodes: &BTreeMap<Key, u32>,
+    _base: &Path,
+    _identity: &str,
+    _roots: &[(Key, bool)],
+    _mandatory: &BTreeSet<Key>,
+    _room: usize,
+    _extension: &Extension,
+) -> Result<(Vec<u8>, String), String> {
+    unimplemented!("#157")
+}
