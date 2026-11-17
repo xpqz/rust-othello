@@ -265,88 +265,164 @@ Fixed now, before the pilot runs:
   the same key. The manifest lets anyone verify legality, which
   `book.bin` alone cannot show.
 
-### Extension rounds (amendment 3)
+### Extension rounds (amendment 3, revision 2)
 
 - **Why:** in the #154 book, 1,843 of 3,771 stored records choose a
   drop-out move, and 187 of the 214 gate roots with one reachable record
   choose a drop-out at the root itself. Each such choice ends the connected
   book prefix. Extension scores the positions the book's own choices lead
-  to, so that a connected line continues past them.
+  to, so that a connected line can continue past them. Coverage is not
+  promised to grow monotonically: backup can change choices.
 - **Extension nodes:** boards added to the node set with WTHOR count 0.
   They are canonical and normalized like every node, and the partition,
   values, backup, walk and overflow rules apply to them unchanged. Since
   the partition is by node-set membership, adding a node can turn an
   existing drop-out move into a book move.
-- **Departures** of a book state: the stored records (engine-to-move nodes
-  reached by the walk from the 802 declared roots) whose book move is a
-  drop-out, in ascending key order. A departure's child is
-  `c = normalize(play(p, s))`. Opponent drop-outs are not extended.
-- **Round r, for r = 1..R,** from the book state after round r − 1 (round 0
-  is the #154 book):
-  - **Phase A:** the set `A_r` is the departure children that are neither
-    nodes nor terminal. Each is scored as a node (all its legal moves are
-    drop-outs unless one transposes into the node set), then added.
-  - **Phase B:** for each `c` in `A_r`, in key order, `r*(c)` is its best
-    drop-out (lower square on ties) as scored in phase A, whoever moves
-    at `c` (after a contracted pass that is the engine), and
-    `e = normalize(play(c, r*(c)))`. The set `B_r` is those `e` that are
-    neither nodes nor terminal. Each is scored as a node, then added.
-  - The backup and walk are then recomputed over the enlarged node set,
-    which gives the book state after round r.
-  - A round with no departures, or with `A_r` empty, ends the extension
-    early.
-- **Registered: R = 3.** D = 19 and the scoring policy are unchanged.
-  Nothing is changed automatically after a round; per-round results are
-  logged.
-- **Values after reclassification:** journals keep every drop-out score,
-  labelled by its position in ascending square order under the node set
-  in force when that phase was scored. When a later phase adds a node
-  that is the child of a scored square, that square becomes a book move:
-  its journal score is ignored, and the move is worth ±v(child) as for any
-  book move. `x(p)` is the maximum over the squares that remain drop-outs.
-  No search is repeated.
-- **Validation:** each journal is checked against the node set in force
-  when it was scored: base nodes for the #154 journal, then base plus all
-  earlier phases. A record outside its phase's set, or a missing one, fails
-  the build.
+- **Terms:** "key order" means ascending canonical `(me, opp)` pairs. A
+  *book state* over a node set `M` is the backup over `M` (below) and its
+  **untruncated** walk from the 802 declared walk roots, with no overflow
+  removal. Truncation happens only when the final asset is emitted, and the
+  full scored node set is kept separate from the emitted records.
 
-#### Interruptible and resumable
+#### Rounds and phases
+
+Round r, for r = 1..R, starts from the node set `M_{r−1}` (`M_0` is the
+#154 node set) and its book state.
+
+- **Phase A.**
+  - *Departures:* the walk's engine-to-move records whose backed-up move is
+    a drop-out.
+  - *Units* `A_r`: the distinct keys of `normalize(play(p, s))` over the
+    departures, excluding terminal boards, sorted in key order. None is in
+    `M_{r−1}`, by the partition.
+  - *Context:* the immutable snapshot `C = M_{r−1} ∪ A_r`. Every unit is
+    scored exactly as in #154, partitioned against `C`, so a move from one
+    A node to another A node (a same-phase peer) is a book move and is not
+    searched. The snapshot is fixed before any unit runs, so job order and
+    worker count cannot change membership or the search sequence.
+  - After A is complete, `M = C`, and the backup over `M` is recomputed.
+- **Phase B.**
+  - For each `c` in `A_r`, in key order: `m(c)` is `c`'s backed-up best move
+    in the **post-A backup**, book or drop-out, with the existing value and
+    lower-square tie rule. This is the move the scored book selects at `c`,
+    whoever moves there: after a contracted pass that is the engine, and
+    the next child need not be the engine's turn. Every non-terminal A
+    unit has a legal move, so `m(c)` exists.
+  - *Units* `B_r`: the distinct keys of `normalize(play(c, m(c)))` that are
+    neither in `M` nor terminal, in key order. When `m(c)` is a book move,
+    its child is already in `M` and `c` contributes no B unit.
+  - *Context:* `M ∪ B_r`, scored and fixed as in phase A.
+  - B is formed from every A unit, not only those still reached after the
+    post-A backup. This keeps B a function of A's results alone.
+  - After B is complete, `M_r = M ∪ B_r`, and the backup and walk give the
+    book state after round r.
+- **Registered: R = 3.** D = 19, the table and the scoring policy are those
+  recorded in the #154 header, and nothing is changed automatically after a
+  round. A round whose `A_r` is empty is complete with no change. Its empty
+  phase journals are written, and every later round is then also empty.
+
+#### Per-square values from a journal
+
+Every journal, the #154 one included, keeps its existing record format:
+`best | t1 t2 …`, where `best` is `value square` or `none`, and the tokens
+are the raw search results in call order. The decoder below turns a
+record into one parent value per drop-out square, given the context the
+record was scored under.
+
+- The drop-out squares are the node's legal squares whose normalized child
+  key is not in that context, in ascending order. For each such square
+  `s`, with `b = play(p, s)` unnormalized:
+  - `b` terminal: the parent value is `−terminal_score(final_score(b))`,
+    and no token is consumed;
+  - `b` has no legal move but is not terminal: one token `t` is consumed,
+    the search of `pass(b)`, and the parent value is `+t`;
+  - otherwise: one token `t` is consumed, and the parent value is `−t`.
+- The record is valid only if every token parses as an integer within
+  ±`EVAL_BOUND`, the tokens are consumed exactly with none left over, and
+  `best` equals the maximum of the decoded values with the lower square on
+  ties (or `none` exactly when there is no drop-out square).
+- **Reclassification:** in a later, larger node set, each decoded square
+  whose child key is now a node becomes a book move. Its decoded value is
+  ignored and the move backs up through the child as ±v(child). `x(p)` is
+  the maximum of the decoded values of the squares that remain drop-outs,
+  with the lower square on ties, and is absent if none remain. Several
+  squares transposing to the same new child are each reclassified. No
+  journal is rewritten and no search is repeated.
+
+#### Journals, identity and resumption
 
 - Each phase is one scoring job with its own journal, `r{r}a.journal` and
-  `r{r}b.journal`, in one directory beside the base journal. Its header is
-  the base header plus `extend round r phase a|b R` and the SHA-256 of the
-  base journal. Resuming checks the header exactly, as for scoring.
-- A phase's key set is a pure function of the base journal, the roots and
-  the completed earlier phases. Re-running the same command recomputes it,
-  skips the units already journalled, scores the rest and moves on to the
-  next phase. A SIGKILL at any point loses at most the units in progress,
-  and the resumed run gives identical journals and asset bytes.
-- A phase starts only after the previous one is complete. Units within a
-  phase are independent, as in scoring.
+  `r{r}b.journal`, in a directory given on the command line.
+- **Header** of a phase journal: the base header (policy fields, D, table,
+  `eval.bin` hash, base engine commit, rules), then
+  `extend R {R} round {r} phase {a|b}` and these SHA-256 digests, each with
+  its count:
+  - `base`: the base journal's records, in canonical form;
+  - `prior`: all earlier phase journals' records, in canonical form;
+  - `roots`: the 802 walk roots (the existing root-set hash);
+  - `units`: the sorted unit IDs;
+  - `context`: the sorted IDs of the context snapshot.
 
-#### Asset
+  Finally, `extender {commit}` records the commit that built the extending
+  binary.
+- **Canonical form** of a journal's records: records sorted by ID, each as
+  `id<TAB>line`, joined by newlines. Parallel append order therefore does
+  not affect any digest.
+- **Policy check:** before any work, the extender confirms that its own
+  scoring policy fields, D, table, rules and `eval.bin` hash equal those in
+  the base header, and refuses otherwise. A new evaluator cannot be mixed
+  into this registered run.
+- **Resumption:** re-running the same command validates, in order, the
+  base journal, then each existing phase journal against its recomputed
+  header. A mismatch refuses: changed roots, a changed earlier phase, or a
+  different unit or context set. Every existing record is then checked by
+  the decoder against its phase context, and the extender refuses foreign or
+  duplicate units. A torn final line is discarded, as in #153's `Journal`.
+  Only then are the missing units scored. A phase starts only after the
+  previous one is complete.
+- A SIGKILL at any point loses at most the units in progress. The logical
+  records (sorted), the asset and the manifest are identical after any
+  interruption, worker count or job order. Raw append order need not be.
 
-- The build reads the base journal and the extension journals up to the
-  last complete round, then prunes and writes as before. Extension nodes
-  have count 0, so they are the first removed on overflow, in key order.
-  The mandatory roots stay protected.
-- **Logged per round:** departures, `|A_r|`, `|B_r|`, how many departures
-  of the previous state now choose a book move, records, and the per-root
-  coverage totals. With R = 0 the build is byte-identical to the #154
-  asset.
-- **Size estimate:** at most about 1,843 engine records per round, so
-  about 9,300 after three rounds, against a room of 16,325.
+#### Build
 
-#### Cost
+- `book build` takes the extension directory and the requested R. It uses
+  the base journal and every complete round up to R; a round is complete
+  when both phase journals hold exactly their units. A partial or absent
+  phase after the last complete round is ignored for the build, and the
+  manifest records it.
+- The manifest header states `rounds requested {R} completed {k}`, and the
+  partial phase and its unit count if there is one. Partial work is never
+  presented as a round.
+- Pruning and overflow are unchanged: removal in ascending
+  `(count, zobrist(canonical board))` order with reachability recomputed.
+  Extension nodes have count 0, so they go first. The mandatory roots stay
+  protected.
+- **Logged per round:** departures, `|A_r|`, `|B_r|`, same-phase peer edges,
+  A units with a book move into the earlier node set, previous departures
+  that now choose a book move, records, and the per-root coverage totals.
+- With R = 0 the build is byte-identical to the #154 asset and manifest.
 
-- #154 averaged about 2 s of thread time per depth-18 search, under shared
-  load. An extension node needs about 10 searches, so one phase of about
-  1,843 nodes takes about 2 h on 5 threads, and one round about 4 h.
-  Three rounds take about 12 h. These are estimates, not bounds.
-- Trainer code: an estimated 60–120 lines. The trainer has 65 lines left
-  under its 2,100 guard, so the guard is raised under the user's standing
+#### Sizing (guesses, not bounds)
+
+- The reviewer's probe of the frozen data: 1,843 departures give 1,839
+  distinct A1 units, none terminal. 56 of them have a legal reply into the
+  base node set, and 4 A1 edges lead to another A1 unit.
+- **Records:** later departures can grow, and backup changes can make
+  unretained base nodes reachable. If each round adds about as many
+  engine records as round 1's departures, three rounds give about 9,300
+  against a room of 16,325. This is a guess. Overflow and the fixed R rule
+  handle any excess, and R is not changed after looking at results.
+- **Time:** #154 averaged about 2 s of thread time per depth-18 search,
+  under shared load. An extension node needs about 10 searches, so a phase
+  of about 1,840 units takes about 2 h on 5 threads, and three rounds
+  about 12 h, if later phases are of similar size.
+- **Code:** an estimated 60–120 trainer lines, against 65 left under the
+  2,100 guard. Raising the guard is planned under the user's standing
   permission ("You can raise the trainer LOC budget, but keep the core
-  engine tight"). The engine is unaffected.
+  engine tight"). It will be done in #157 with `trainer/tests/budget.rs`,
+  `AGENTS.md` and `docs/PLAN.md` kept consistent at one chosen ceiling.
+  It is not done yet. The engine budget is unchanged.
 
 ### Builder home and reproducibility
 
@@ -524,18 +600,34 @@ Playing paths, which inherit the shipped policy once it is enabled:
 - Duplicate keys for distinct boards fail the build.
 
 **Extension (amendment 3, in #157):**
-- Departures: only reachable stored records whose book move is a drop-out,
-  in key order, on a hand-built DAG.
-- Phase A and B sets: terminal children and children already in the node
-  set are skipped and not rescored; `r*` takes the lower square on ties.
-- Reclassification: a base node whose drop-out child becomes an extension
-  node ignores that square's journal score and backs up through the child.
-- Validation per phase's node set: a foreign or missing record fails.
-- R = 0 builds the #154 asset byte-identically.
-- Kill-and-resume inside a phase and between phases, and one worker versus
-  several, give identical journals and asset bytes.
-- Overflow removes extension nodes first, in key order, and keeps the
-  mandatory roots.
+- Departures: only walk records whose backed-up move is a drop-out, from
+  the untruncated walk, in key order, on a hand-built DAG.
+- Phase contexts: a same-phase peer edge is a book move and is not
+  searched. Labels, journals' logical records and the build are identical
+  under reversed unit order and one versus several workers.
+- Phase B selection from the post-A backup: an existing book move beats
+  the best drop-out (no B unit); all moves are book moves; tied values go
+  to the lower square; a pass on the A edge or on the B edge, with the
+  roles that follow.
+- Terminal children and children already in the node set are never units.
+- Decoder: terminal and forced-pass children interspersed in a token
+  vector; missing, extra, non-integer and out-of-range tokens refused; a
+  `best` that disagrees with the decoded vector refused.
+- Reclassification: the old best square promoted to a book move, so a
+  different runner-up becomes `x(p)`; every drop-out becomes a book move,
+  so `x(p)` is absent; two squares transposing to the same new child; the
+  value backs up through the new child, not only the old aggregate's
+  removal.
+- Identity: changed roots, a changed earlier phase, or changed unit or
+  context sets refuse to resume; a different policy or `eval.bin` hash
+  refuses to start; foreign and duplicate units refused; a torn tail
+  discarded.
+- Kills inside A, inside B and between them; a valid empty B; an empty
+  A_r ending the rounds; a partial final round ignored by build and stated
+  in the manifest.
+- R = 0 builds the #154 asset and manifest byte-identically.
+- Overflow removes extension nodes first, in `(count, zobrist)` order, and
+  keeps the mandatory roots.
 
 ## Issues
 
@@ -598,6 +690,16 @@ Playing paths, which inherit the shipped policy once it is enabled:
 
 | Change | Reason |
 | --- | --- |
-| Extension rounds R = 3 of phase A (departure children) and phase B (the engine position after the opponent's best reply), scored with the unchanged policy at D = 19, one resumable journal per phase. | The #154 book's own choices end its connected prefix in half its stored records. User decision, 17 Nov 2026: "yes, draft the A+B amendment. It must be interruptible." |
+| Extension rounds R = 3 of phase A (departure children) and phase B (the child of each A unit's backed-up best move), scored with the #154 policy at D = 19, one resumable journal per phase. | The #154 book's own choices end its connected prefix in half its stored records. User decision, 17 Nov 2026: "yes, draft the A+B amendment. It must be interruptible." |
 | Extension nodes join the node set with count 0; reclassified drop-out squares back up through the new child without rescoring. | Keeps one partition and one backup rule. |
-| Trainer guard raised for the extension code. | The user's standing permission; the engine is untouched. |
+| Trainer guard to be raised in #157 for the extension code. | The user's standing permission; the engine is untouched. |
+
+### Review of amendment 3, `4fae9b8`
+
+| Finding | Change |
+| --- | --- |
+| Phase context and units conflated | Each phase has a sorted unit set and an immutable context snapshot (previous nodes plus that phase's units), fixed before any unit runs. Same-phase peer edges are book moves. Departures come from the untruncated walk; truncation only at emission. |
+| Best drop-out is not the best reply | B takes each A unit's backed-up best move from the completed post-A backup, book or drop-out, with the existing tie rule. A book move contributes no unit. Roles after passes are stated mechanically. No monotonic coverage promised. |
+| Journal tokens are raw search results | A decoder over the original context: ascending drop-out squares, terminal children without a token, forced-pass children +t, others −t, exact token count, domain check, `best` cross-checked. Every reclassified square is removed and `x(p)` recomputed. |
+| Resume identity incomplete | Headers bind the base, prior-phase, root, unit and context digests (canonical sorted records), R, round, phase and the extender commit. Policy and `eval.bin` are checked against the base before work. Early stop, empty phases, partial rounds and the manifest's requested and completed rounds are defined. |
+| Non-blocking | Sizes stated as guesses with their assumptions; the overflow key named as `(count, zobrist(canonical board))`; the guard raise described as planned, not done. |
