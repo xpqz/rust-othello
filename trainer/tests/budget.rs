@@ -12,7 +12,7 @@ fn trainer_budget() {
     let total = rules::count_dir(&root.join("src"));
     println!("trainer production lines: {total}");
     assert!(
-        total <= 2100,
-        "trainer production lines {total} exceed 2100"
+        total <= 2500,
+        "trainer production lines {total} exceed 2500"
     );
 }

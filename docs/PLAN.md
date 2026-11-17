@@ -1035,7 +1035,7 @@ a new budget and with the same discipline.
 | --- | ---: | ---: | --- |
 | Engine + playable CLI | 999 | **1,500** | `tests/budget.rs` (same metric) |
 | Tools crate | 650 | **1,300** | `tools/tests/budget.rs` |
-| Trainer crate | — | **2,100** | `trainer/tests/budget.rs` |
+| Trainer crate | — | **2,500** | `trainer/tests/budget.rs` |
 | Model assets | — | **4 MiB** total | Guard added with the first asset |
 
 - **Same metric, same rules:** formatted lines that are neither blank nor
@@ -1057,6 +1057,9 @@ a new budget and with the same discipline.
   Raised again, user decision, 16 Nov 2026, after the #153 GREEN review's
   validation fixes: "You can raise the trainer LOC budget, but keep the
   core engine tight." The guard is now 2,100; the engine stays at 1,500.
+  Raised again under that standing permission for the book extension
+  rounds (#157, design amendment 3): the guard is now 2,500 (the trainer
+  is at 2,457). The engine is unchanged.
 
 ### Why 1,499
 

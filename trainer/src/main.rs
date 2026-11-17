@@ -117,10 +117,10 @@ fn inspect_command(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// `book score|roots|pilot|build <wthor dir> <path> [options]`. Every
+/// `book score|roots|pilot|extend|build <wthor dir> <path> [options]`. Every
 /// option is checked before any input is read or output written.
 fn book_command(args: &[String]) -> Result<(), String> {
-    let usage = "usage: book score|roots|pilot|build <dir> <path> [options]";
+    let usage = "usage: book score|roots|pilot|extend|build <dir> <path> [options]";
     let [command, dir, path, rest @ ..] = args else {
         return Err(usage.into());
     };
@@ -128,7 +128,8 @@ fn book_command(args: &[String]) -> Result<(), String> {
         "score" => "--min --plies --depth --table --jobs",
         "roots" => "--min --plies --count --seed",
         "pilot" => "--min --plies --table --jobs --sample --seed --depths --threads --limit",
-        "build" => "--min --plies --roots --asset --manifest --room",
+        "extend" => "--min --plies --depth --table --jobs --extension --rounds --roots",
+        "build" => "--min --plies --roots --asset --manifest --room --extension --rounds",
         _ => return Err(usage.into()),
     };
     let mut given = std::collections::BTreeMap::new();
@@ -193,16 +194,34 @@ fn book_command(args: &[String]) -> Result<(), String> {
             .map(PathBuf::from)
             .ok_or(format!("{flag} is required"))
     };
+    let extension = match (given.get("--extension"), given.get("--rounds")) {
+        (None, None) if command != "extend" => None,
+        (None, _) => return Err("--extension is required".into()),
+        (Some(_), None) => return Err("--rounds is required".into()),
+        (Some(dir), Some(_)) => Some((PathBuf::from(dir), get("--rounds", 0, 0..=64)? as u32)),
+    };
+    let roots = match command.as_str() {
+        "extend" | "build" => Some(output("--roots")?),
+        _ => None,
+    };
     let outputs = if command == "build" {
-        Some((
-            output("--roots")?,
-            output("--asset")?,
-            output("--manifest")?,
-        ))
+        Some((output("--asset")?, output("--manifest")?))
     } else {
         None
     };
     let (path, start) = (PathBuf::from(path), std::time::Instant::now());
+    let walk = |roots: &PathBuf| -> Result<_, String> {
+        let text = std::fs::read_to_string(roots)
+            .map_err(|error| format!("{}: {error}", roots.display()))?;
+        let mut mandatory: std::collections::BTreeSet<_> =
+            book::read_roots(&text)?.into_iter().collect();
+        mandatory.insert(book::key(othello::board::Board::START));
+        let walk: Vec<_> = mandatory
+            .iter()
+            .flat_map(|&k| [(k, true), (k, false)])
+            .collect();
+        Ok((mandatory, walk))
+    };
     let (games, data) = book::read_games(&PathBuf::from(dir))?;
     let rejected = games.iter().filter(|game| !book::legal_game(game)).count();
     let nodes: std::collections::BTreeMap<_, _> = book::count(&games, params.plies)
@@ -259,19 +278,32 @@ fn book_command(args: &[String]) -> Result<(), String> {
                 book::depth_rule(&bounds, limit)
             );
         }
-        _ => {
-            let (roots, asset, manifest) = outputs.ok_or(usage)?;
-            let text = std::fs::read_to_string(&roots)
-                .map_err(|error| format!("{}: {error}", roots.display()))?;
-            let mut mandatory: std::collections::BTreeSet<_> =
-                book::read_roots(&text)?.into_iter().collect();
-            mandatory.insert(book::key(othello::board::Board::START));
-            let walk: Vec<_> = mandatory
-                .iter()
-                .flat_map(|&k| [(k, true), (k, false)])
-                .collect();
+        "extend" => {
+            let (_, walk) = walk(&roots.ok_or(usage)?)?;
+            let (dir, rounds) = extension.ok_or(usage)?;
+            let extension = book::Extension { dir: &dir, rounds };
             let identity = book::identity(&params, &input);
-            let (bytes, text) = book::build(&nodes, &path, &identity, &walk, &mandatory, room)?;
+            print!(
+                "{}",
+                book::extend(&nodes, &path, &identity, &walk, &extension, &params, jobs)?
+            );
+        }
+        _ => {
+            let (asset, manifest) = outputs.ok_or(usage)?;
+            let (mandatory, walk) = walk(&roots.ok_or(usage)?)?;
+            let identity = book::identity(&params, &input);
+            let (bytes, text) = match &extension {
+                Some((dir, rounds)) => {
+                    let extension = book::Extension {
+                        dir,
+                        rounds: *rounds,
+                    };
+                    book::build_extended(
+                        &nodes, &path, &identity, &walk, &mandatory, room, &extension,
+                    )?
+                }
+                None => book::build(&nodes, &path, &identity, &walk, &mandatory, room)?,
+            };
             for (file, contents) in [(&asset, &bytes[..]), (&manifest, text.as_bytes())] {
                 std::fs::write(file, contents)
                     .map_err(|error| format!("{}: {error}", file.display()))?;

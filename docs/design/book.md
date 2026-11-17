@@ -364,10 +364,13 @@ record was scored under.
   - `units`: the sorted unit IDs;
   - `context`: the sorted IDs of the context snapshot.
 
-  Finally, `extender {commit}` records the source commit the extending
-  binary was compiled from, fixed at compile time, not read from a
-  checkout at run time. #158 runs from a pinned worktree and binary, as
-  #154 did.
+  Finally, `extender {commit}` records the commit of the source checkout
+  the extending binary was built from (`git rev-parse HEAD` in that
+  checkout, as the base header's `engine` field does). A compile-time
+  commit would need a `build.rs`, which the budget guard forbids
+  (`tests/budget/rules.rs`). The guarantee therefore comes from the pin:
+  #158 runs from a detached worktree that is never moved, and logs the
+  binary's SHA-256, as #154 did.
 - **Canonical form** of a journal's records: records sorted by ID, each as
   `id<TAB>line`, joined by newlines. Parallel append order therefore does
   not affect any digest.

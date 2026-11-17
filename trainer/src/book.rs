@@ -417,6 +417,11 @@ pub fn identity(params: &Params, input: &str) -> String {
 }
 
 pub fn header(params: &Params, input: &str) -> String {
+    identity(params, input) + &tail(params)
+}
+
+/// The scoring fields after the identity, starting with a space.
+fn tail(params: &Params) -> String {
     let config = policy();
     let eval = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/eval.bin"))
         .map_or_else(
@@ -424,9 +429,8 @@ pub fn header(params: &Params, input: &str) -> String {
             |bytes| check::hex(&Sha256::digest(bytes)),
         );
     format!(
-        "{} depth {} table {} eval {eval} engine {} \
+        " depth {} table {} eval {eval} engine {} \
          threshold {} ordering {} probcut {:?} rules {RULES}",
-        identity(params, input),
         params.depth,
         params.table,
         git_commit(),
@@ -531,7 +535,20 @@ pub fn score(
     header: &str,
 ) -> Result<(usize, usize), String> {
     let set: BTreeMap<Key, u32> = nodes.iter().map(|&k| (k, 0)).collect();
-    let units: Vec<(String, Key)> = set.keys().map(|&k| (id(k), k)).collect();
+    score_in(nodes, &set, params, jobs, path, header)
+}
+
+/// `score`, partitioned against `context` instead of the units.
+pub fn score_in(
+    nodes: &[Key],
+    set: &BTreeMap<Key, u32>,
+    params: &Params,
+    jobs: usize,
+    path: &Path,
+    header: &str,
+) -> Result<(usize, usize), String> {
+    let keys: BTreeSet<Key> = nodes.iter().copied().collect();
+    let units: Vec<(String, Key)> = keys.iter().map(|&k| (id(k), k)).collect();
     let done = run_units(&units, params, jobs, path, header, |&k, search| {
         let mut scores = Vec::new();
         let mut recorded = |b: Board, d: u32| {
@@ -539,7 +556,7 @@ pub fn score(
             scores.push(found.to_string());
             found
         };
-        let result = match dropout(k, &set, params.depth, &mut recorded) {
+        let result = match dropout(k, set, params.depth, &mut recorded) {
             Some((value, square)) => format!("{value} {square}"),
             None => "none".into(),
         };
@@ -640,8 +657,28 @@ pub fn build(
 ) -> Result<(Vec<u8>, String), String> {
     let (header, drops) = read_drops(path, nodes, identity)?;
     let entries = backup(nodes, &drops)?;
-    let graph = graph(&entries);
-    let (kept, removed) = truncation(roots, &entries, &graph, nodes, mandatory, room / RECORD)?;
+    emit(
+        nodes,
+        &entries,
+        &format!("# {header}\n"),
+        roots,
+        mandatory,
+        room,
+    )
+}
+
+/// Prunes `entries` to the roots and the room, and writes the asset and its
+/// manifest after the `head` lines.
+fn emit(
+    nodes: &BTreeMap<Key, u32>,
+    entries: &BTreeMap<Key, Entry>,
+    head: &str,
+    roots: &[(Key, bool)],
+    mandatory: &BTreeSet<Key>,
+    room: usize,
+) -> Result<(Vec<u8>, String), String> {
+    let graph = graph(entries);
+    let (kept, removed) = truncation(roots, entries, &graph, nodes, mandatory, room / RECORD)?;
     let mut rows: Vec<(u64, Key, u8, i32)> = kept
         .iter()
         .map(|&k| {
@@ -665,7 +702,7 @@ pub fn build(
         .map(|&(k, e)| format!("{}:{e}", id(k)))
         .collect();
     let mut manifest = format!(
-        "# {header}\n# nodes {} records {} room {room} roots {} {}\n",
+        "{head}# nodes {} records {} room {room} roots {} {}\n",
         nodes.len(),
         rows.len(),
         roots.len(),
@@ -677,7 +714,7 @@ pub fn build(
     let gone: BTreeSet<Key> = removed.into_iter().collect();
     for &k in mandatory {
         let reach = |engine| {
-            walk(&[(k, engine)], &entries, &graph, &gone)
+            walk(&[(k, engine)], entries, &graph, &gone)
                 .intersection(&kept)
                 .count()
         };
@@ -816,79 +853,405 @@ pub fn read_roots(text: &str) -> Result<Vec<Key>, String> {
         .collect()
 }
 
-/// Extension rounds (amendment 3): the phase journal directory and R.
+/// The best of (square, value) pairs in square order: lower square on ties.
+fn best(values: impl Iterator<Item = (u8, i32)>) -> Option<(i32, u8)> {
+    values.fold(None, |best, (s, v)| {
+        if best.is_none_or(|(b, _)| v > b) {
+            Some((v, s))
+        } else {
+            best
+        }
+    })
+}
+
+/// Parent values of a record's drop-out squares under `context`: a terminal
+/// child takes no token, a child that must pass +t, any other −t. The
+/// tokens must be consumed exactly, in the score domain, and agree with the
+/// saved best result.
+pub fn decode(
+    key: Key,
+    context: &BTreeMap<Key, u32>,
+    line: &str,
+) -> Result<Vec<(u8, i32)>, String> {
+    let invalid = || format!("invalid record {}", id(key));
+    let (saved, tokens) = line.split_once(" | ").ok_or_else(invalid)?;
+    let mut tokens = tokens
+        .split(' ')
+        .filter(|t| !t.is_empty())
+        .map(|t| t.parse::<i32>().ok().filter(|v| v.abs() <= EVAL_BOUND));
+    let node = board(key);
+    let mut values = Vec::new();
+    for m in partition(key, context).into_iter().filter(|m| !m.book) {
+        let child = play(node, m.square);
+        let value = if is_terminal(child) {
+            -terminal_score(final_score(child))
+        } else {
+            let token = tokens.next().flatten().ok_or_else(invalid)?;
+            if legal_moves(child.me, child.opp) == 0 {
+                token
+            } else {
+                -token
+            }
+        };
+        values.push((m.square, value));
+    }
+    let parsed = match saved.split_once(' ') {
+        None if saved == "none" => None,
+        Some((v, s)) => Some((
+            v.parse().map_err(|_| invalid())?,
+            s.parse().map_err(|_| invalid())?,
+        )),
+        None => return Err(invalid()),
+    };
+    if tokens.next().is_some() || parsed != best(values.iter().copied()) {
+        return Err(invalid());
+    }
+    Ok(values)
+}
+
+/// `x(p)` over the decoded squares that are still drop-outs in `nodes`.
+pub fn remaining(key: Key, values: &[(u8, i32)], nodes: &BTreeMap<Key, u32>) -> Option<(i32, u8)> {
+    let node = board(key);
+    best(
+        values
+            .iter()
+            .copied()
+            .filter(|&(s, _)| !nodes.contains_key(&self::key(normalize(play(node, s)).0))),
+    )
+}
+
+/// Untruncated walk records whose backed-up move is a drop-out.
+pub fn departures(roots: &[(Key, bool)], entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
+    walk(roots, entries, &graph(entries), &BTreeSet::new())
+        .into_iter()
+        .filter(|k| !entries[k].book)
+        .collect()
+}
+
+/// The children the keys' backed-up moves lead to that are neither nodes
+/// nor terminal, sorted and distinct.
+pub fn phase_a(keys: &[Key], entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
+    let children: BTreeSet<Key> = keys
+        .iter()
+        .filter_map(|k| Some((board(*k), entries.get(k)?.square?)))
+        .map(|(node, s)| key(normalize(play(node, s)).0))
+        .filter(|k| !entries.contains_key(k) && !is_terminal(board(*k)))
+        .collect();
+    children.into_iter().collect()
+}
+
+/// Phase B units: the same rule over the A units, after the post-A backup.
+pub fn phase_b(units: &[Key], entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
+    phase_a(units, entries)
+}
+
+/// Extension rounds: the phase journal directory and the rounds requested.
 pub struct Extension<'a> {
     pub dir: &'a Path,
     pub rounds: u32,
 }
 
-/// Parent values of a journal record's drop-out squares under `context`.
-pub fn decode(
-    _key: Key,
-    _context: &BTreeMap<Key, u32>,
-    _line: &str,
-) -> Result<Vec<(u8, i32)>, String> {
-    unimplemented!("#157")
+/// Nodes with each node's decoded drop-out values.
+#[derive(Clone)]
+struct State {
+    nodes: BTreeMap<Key, u32>,
+    values: BTreeMap<Key, Vec<(u8, i32)>>,
 }
 
-/// `x(p)` over the decoded squares that are still drop-outs in `nodes`.
-pub fn remaining(
-    _key: Key,
-    _values: &[(u8, i32)],
-    _nodes: &BTreeMap<Key, u32>,
-) -> Option<(i32, u8)> {
-    unimplemented!("#157")
+impl State {
+    fn entries(&self) -> Result<BTreeMap<Key, Entry>, String> {
+        let drops: Drops = self
+            .values
+            .iter()
+            .map(|(&k, values)| (k, remaining(k, values, &self.nodes)))
+            .collect();
+        backup(&self.nodes, &drops)
+    }
+
+    /// Decodes `path` under `context`: each record a unit, at most once.
+    /// Returns its sorted logical lines and whether every unit is present.
+    fn add(
+        &mut self,
+        path: &Path,
+        units: &[Key],
+        context: &BTreeMap<Key, u32>,
+    ) -> Result<(Vec<String>, bool), String> {
+        let (_, records) = journal::read(path)?;
+        let mut lines = Vec::new();
+        for record in records {
+            let k = parse_id(&record.id)?;
+            let values = decode(k, context, &record.line)?;
+            if units.binary_search(&k).is_err() || self.values.insert(k, values).is_some() {
+                return Err(format!(
+                    "foreign or repeated unit {} in {}",
+                    record.id,
+                    path.display()
+                ));
+            }
+            lines.push(format!("{}\t{}", record.id, record.line));
+        }
+        lines.sort();
+        let complete = lines.len() == units.len();
+        if complete {
+            self.nodes = context.clone();
+        }
+        Ok((lines, complete))
+    }
 }
 
-/// Untruncated walk records whose backed-up move is a drop-out.
-pub fn departures(_roots: &[(Key, bool)], _entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
-    unimplemented!("#157")
+/// `{count}:{sha256}` of `text`.
+fn digest(count: usize, text: &str) -> String {
+    format!("{count}:{}", check::hex(&Sha256::digest(text)))
 }
 
-/// Phase A units of the departures.
-pub fn phase_a(_departures: &[Key], _entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
-    unimplemented!("#157")
+/// One round's counts, and the book after it.
+struct Round {
+    departures: Vec<Key>,
+    a: Vec<Key>,
+    b: usize,
+    peers: usize,
+    into: usize,
+    entries: BTreeMap<Key, Entry>,
 }
 
-/// Phase B units of the A units, from the post-A backup.
-pub fn phase_b(_units: &[Key], _entries: &BTreeMap<Key, Entry>) -> Vec<Key> {
-    unimplemented!("#157")
+/// The base journal decoded under the node set, its header checked against
+/// the identity and, with `params`, against this binary's scoring policy
+/// and evaluator (the engine commit may differ).
+fn load(
+    nodes: &BTreeMap<Key, u32>,
+    path: &Path,
+    identity: &str,
+    params: Option<&Params>,
+) -> Result<(String, State, String), String> {
+    let header = journal::read(path)?.0;
+    let tail = header
+        .strip_prefix(identity)
+        .filter(|tail| provenance(tail));
+    let mask = |tail: &str| -> Vec<String> {
+        let mut words: Vec<String> = tail.split(' ').map(String::from).collect();
+        words[8].clear();
+        words
+    };
+    let policy = |tail: &str| params.is_none_or(|p| mask(tail) == mask(&self::tail(p)));
+    if !tail.is_some_and(policy) {
+        return Err(journal::mismatch(identity, &header));
+    }
+    let mut state = State {
+        nodes: nodes.clone(),
+        values: BTreeMap::new(),
+    };
+    let units: Vec<Key> = nodes.keys().copied().collect();
+    let (lines, complete) = state.add(path, &units, nodes)?;
+    if !complete {
+        return Err(format!(
+            "base journal has {} of {} nodes",
+            lines.len(),
+            nodes.len()
+        ));
+    }
+    Ok((header, state, lines.join("\n")))
 }
 
-/// `score`, partitioned against `context` instead of the units.
-pub fn score_in(
-    _units: &[Key],
-    _context: &BTreeMap<Key, u32>,
-    _params: &Params,
-    _jobs: usize,
-    _path: &Path,
-    _header: &str,
-) -> Result<(usize, usize), String> {
-    unimplemented!("#157")
+/// Replays (and with `score`, runs) the extension phases in order, each
+/// header binding its inputs. Returns the state after the last complete
+/// round, the rounds, and a note on a partial phase after it.
+fn rounds(
+    nodes: &BTreeMap<Key, u32>,
+    base: &Path,
+    identity: &str,
+    roots: &[(Key, bool)],
+    extension: &Extension,
+    score: Option<(&Params, usize)>,
+) -> Result<(State, Vec<Round>, String), String> {
+    let (base_header, mut state, base_text) = load(nodes, base, identity, score.map(|s| s.0))?;
+    let roots_text: Vec<String> = roots
+        .iter()
+        .map(|&(k, e)| format!("{}:{e}", id(k)))
+        .collect();
+    let (mut prior, mut prior_count, mut done) = (String::new(), 0, Vec::new());
+    // A build reads the R its run declared; a run declares its own.
+    let declared = journal::read(&extension.dir.join("r1a.journal"))
+        .ok()
+        .and_then(|(h, _)| {
+            h.split(" extend R ")
+                .nth(1)?
+                .split(' ')
+                .next()?
+                .parse()
+                .ok()
+        });
+    let total: u32 = match score {
+        Some(_) => extension.rounds,
+        None => declared.unwrap_or(extension.rounds),
+    };
+    let mut finished = state.clone();
+    for r in 1..=extension.rounds {
+        let before = state.entries()?;
+        let departures = departures(roots, &before);
+        let mut a = Vec::new();
+        for phase in ["a", "b"] {
+            let units = if phase == "a" {
+                phase_a(&departures, &before)
+            } else {
+                phase_b(&a, &state.entries()?)
+            };
+            let mut context = state.nodes.clone();
+            context.extend(units.iter().map(|&k| (k, 0)));
+            let ids: Vec<String> = units.iter().map(|&k| id(k)).collect();
+            let all: Vec<String> = context.keys().map(|&k| id(k)).collect();
+            let header = format!(
+                "{base_header} extend R {total} round {r} phase {phase} base {} prior {} roots {} units {} context {} extender {}",
+                digest(nodes.len(), &base_text),
+                digest(prior_count, &prior),
+                digest(roots.len(), &roots_text.join(" ")),
+                digest(units.len(), &ids.join("\n")),
+                digest(context.len(), &all.join("\n")),
+                git_commit(),
+            );
+            let path = extension.dir.join(format!("r{r}{phase}.journal"));
+            if path.exists() {
+                let found = journal::read(&path)?.0;
+                if found != header {
+                    return Err(journal::mismatch(&header, &found));
+                }
+                state.clone().add(&path, &units, &context)?;
+            }
+            if let Some((params, jobs)) = score {
+                std::fs::create_dir_all(extension.dir).map_err(|error| error.to_string())?;
+                score_in(&units, &context, params, jobs, &path, &header)?;
+            } else if !path.exists() {
+                return Ok((finished, done, String::new()));
+            }
+            let (lines, complete) = state.add(&path, &units, &context)?;
+            if !complete {
+                let note = format!(
+                    "# partial round {r} phase {phase} {}/{}\n",
+                    lines.len(),
+                    units.len()
+                );
+                return Ok((finished, done, note));
+            }
+            prior.push_str(&format!("r{r}{phase}\n{}\n", lines.join("\n")));
+            prior_count += lines.len();
+            if phase == "a" {
+                a = units;
+            } else {
+                let peers = |into: &dyn Fn(&Key) -> bool| -> Vec<usize> {
+                    a.iter()
+                        .map(|&k| {
+                            moves_where(k, |c| into(c))
+                                .iter()
+                                .filter(|m| m.book)
+                                .count()
+                        })
+                        .collect()
+                };
+                let in_a = |c: &Key| a.binary_search(c).is_ok();
+                done.push(Round {
+                    peers: peers(&in_a).iter().sum(),
+                    into: peers(&|c: &Key| before.contains_key(c))
+                        .iter()
+                        .filter(|&&n| n > 0)
+                        .count(),
+                    departures: departures.clone(),
+                    a: a.clone(),
+                    b: units.len(),
+                    entries: state.entries()?,
+                });
+                finished = state.clone();
+            }
+        }
+    }
+    Ok((finished, done, String::new()))
 }
 
-/// Runs or resumes the extension rounds over the base journal.
+/// Runs or resumes the extension rounds over the base journal, returning
+/// one log line per round.
 pub fn extend(
-    _nodes: &BTreeMap<Key, u32>,
-    _base: &Path,
-    _identity: &str,
-    _roots: &[(Key, bool)],
-    _extension: &Extension,
-    _params: &Params,
-    _jobs: usize,
+    nodes: &BTreeMap<Key, u32>,
+    base: &Path,
+    identity: &str,
+    roots: &[(Key, bool)],
+    extension: &Extension,
+    params: &Params,
+    jobs: usize,
 ) -> Result<String, String> {
-    unimplemented!("#157")
+    let (_, done, _) = rounds(
+        nodes,
+        base,
+        identity,
+        roots,
+        extension,
+        Some((params, jobs)),
+    )?;
+    Ok(done
+        .iter()
+        .enumerate()
+        .map(|(r, round)| {
+            format!(
+                "round {} departures {} a {} b {}\n",
+                r + 1,
+                round.departures.len(),
+                round.a.len(),
+                round.b
+            )
+        })
+        .collect())
 }
 
-/// `build` over the base journal and the complete extension rounds.
+/// `build` over the base journal and the complete extension rounds; with
+/// no rounds, exactly `build`.
 pub fn build_extended(
-    _nodes: &BTreeMap<Key, u32>,
-    _base: &Path,
-    _identity: &str,
-    _roots: &[(Key, bool)],
-    _mandatory: &BTreeSet<Key>,
-    _room: usize,
-    _extension: &Extension,
+    nodes: &BTreeMap<Key, u32>,
+    base: &Path,
+    identity: &str,
+    roots: &[(Key, bool)],
+    mandatory: &BTreeSet<Key>,
+    room: usize,
+    extension: &Extension,
 ) -> Result<(Vec<u8>, String), String> {
-    unimplemented!("#157")
+    if extension.rounds == 0 {
+        return build(nodes, base, identity, roots, mandatory, room);
+    }
+    let (state, done, note) = rounds(nodes, base, identity, roots, extension, None)?;
+    let header = journal::read(base)?.0;
+    let mut head = format!(
+        "# {header}\n# rounds requested {} completed {}\n{note}",
+        extension.rounds,
+        done.len()
+    );
+    for (r, round) in done.iter().enumerate() {
+        let reach = |engine| -> usize {
+            let graph = graph(&round.entries);
+            mandatory
+                .iter()
+                .map(|&k| walk(&[(k, engine)], &round.entries, &graph, &BTreeSet::new()).len())
+                .sum()
+        };
+        let returned = round
+            .departures
+            .iter()
+            .filter(|k| round.entries[k].book)
+            .count();
+        head.push_str(&format!(
+            "# round {} departures {} a {} b {} peers {} into {} returned {returned} records {} first {} second {}\n",
+            r + 1,
+            round.departures.len(),
+            round.a.len(),
+            round.b,
+            round.peers,
+            round.into,
+            walk(roots, &round.entries, &graph(&round.entries), &BTreeSet::new()).len(),
+            reach(true),
+            reach(false),
+        ));
+    }
+    emit(
+        &state.nodes,
+        &state.entries()?,
+        &head,
+        roots,
+        mandatory,
+        room,
+    )
 }
