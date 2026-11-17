@@ -72,7 +72,8 @@ pub fn features(board: Board) -> [u32; INSTANCE_COUNT] {
 static OFFSETS: LazyLock<[u32; INSTANCE_COUNT]> =
     LazyLock::new(|| std::array::from_fn(|slot| instances()[slot].offset));
 
-static WEIGHTS: &[u8; 4_014_360] = include_bytes!("../assets/eval.bin");
+/// The weight file, embedded at compile time.
+pub static WEIGHTS: &[u8; 4_014_360] = include_bytes!("../assets/eval.bin");
 
 /// The file's little-endian weights decoded once: `TABLE[stage * TABLE_SLOTS + slot]`.
 static TABLE: LazyLock<Vec<i16>> = LazyLock::new(|| {

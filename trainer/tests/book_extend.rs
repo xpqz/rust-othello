@@ -781,14 +781,11 @@ fn digest(count: usize, text: &str) -> String {
     format!("{count}:{}", hex(&Sha256::digest(text.as_bytes())))
 }
 
-fn head_commit() -> String {
-    let output = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .output()
-        .unwrap();
-    String::from_utf8(output.stdout).unwrap().trim().to_string()
-}
+/// The scorer identity this test binary was compiled with, as the trainer.
+const EXTENDER: &str = match option_env!("OTHELLO_COMMIT") {
+    Some(commit) => commit,
+    None => "unknown",
+};
 
 #[test]
 fn extend_binds_inputs() {
@@ -821,7 +818,7 @@ fn extend_binds_inputs() {
             digest(roots.len(), &roots.join(" ")),
             digest(units.len(), &units.join("\n")),
             digest(context.len(), &context.join("\n")),
-            head_commit(),
+            EXTENDER,
         );
         assert_eq!(journal::read(path).unwrap().0, expected);
         prior.push_str(&format!("r{round}{phase}\n{}\n", lines.join("\n")));
@@ -1615,4 +1612,127 @@ fn extend_cli_options() {
     };
     build(&["--extension", "e"], "--rounds is required");
     build(&["--rounds", "2"], "--extension is required");
+}
+
+#[test]
+fn decode_bounds() {
+    // Every start move is an ordinary drop-out under the start alone: the
+    // endpoints decode, and anything outside ±EVAL_BOUND is an error, never
+    // a panic or a wrapped value.
+    let context = node_set([START]);
+    let line = |tokens: [i64; 4]| {
+        let values: Vec<(u8, i64)> = legal(START).into_iter().zip(tokens.map(|t| -t)).collect();
+        let (s, v) = values
+            .iter()
+            .copied()
+            .max_by_key(|&(s, v)| (v, std::cmp::Reverse(s)))
+            .unwrap();
+        let text: Vec<String> = tokens.iter().map(i64::to_string).collect();
+        format!("{v} {s} | {}", text.join(" "))
+    };
+    let bound = EVAL_BOUND as i64;
+    let ok = book::decode(START, &context, &line([bound, -bound, 0, 0])).unwrap();
+    assert_eq!(
+        ok.iter().map(|&(_, v)| v).collect::<Vec<_>>(),
+        vec![-EVAL_BOUND, EVAL_BOUND, 0, 0]
+    );
+    for bad in [
+        i32::MIN as i64,
+        i32::MAX as i64,
+        bound + 1,
+        -bound - 1,
+        i64::MAX,
+    ] {
+        for at in 0..4 {
+            let mut tokens = [0; 4];
+            tokens[at] = bad;
+            assert!(
+                book::decode(START, &context, &line(tokens)).is_err(),
+                "{bad} at {at}"
+            );
+        }
+    }
+    let min = "-2147483648 19 | -2147483648 -2147483648 -2147483648 -2147483648";
+    assert!(book::decode(START, &context, min).is_err());
+}
+
+#[test]
+fn refuses_bad_token() {
+    // An out-of-domain token in a completed phase: resume and build return
+    // errors and touch nothing.
+    refused_after("badtoken", |_, ext| {
+        let path = ext.join("r1a.journal");
+        let (header, mut records) = read_all(&path);
+        let (best, tokens) = records[0].1.split_once(" | ").unwrap();
+        let count = tokens.split(' ').filter(|t| !t.is_empty()).count();
+        assert!(count > 0);
+        let text = vec![i32::MIN.to_string(); count].join(" ");
+        records[0].1 = format!("{best} | {text}");
+        rewrite(&path, &header, &records);
+    });
+}
+
+#[test]
+fn header_embedded_model() {
+    // The evaluator identity is the model compiled into the engine, not a
+    // file read at run time.
+    let header = book::header(&PARAMS, "test");
+    let at = header.find(" eval ").unwrap() + " eval ".len();
+    let expected = hex(&Sha256::digest(othello::pattern::WEIGHTS));
+    assert_eq!(&header[at..at + 64], expected);
+}
+
+/// Rewrites one phase header's `extender` value.
+fn relabel(path: &Path, commit: &str) {
+    let (header, records) = read_all(path);
+    let at = header.rfind(" extender ").unwrap();
+    rewrite(
+        path,
+        &format!("{} extender {commit}", &header[..at]),
+        &records,
+    );
+}
+
+#[test]
+fn build_keeps_provenance() {
+    // A build replays the scorer recorded by the run; it does not depend on
+    // the builder's own identity. A resume by another scorer is refused, as
+    // are phases with inconsistent scorers.
+    let base = base("provenance", PARAMS.depth);
+    let ext = base.dir.join("ext");
+    extend_api(&base, &ext, 2, 2).unwrap();
+    let original = build_api(&base, &ext, 2, 1 << 16);
+    let other = "f".repeat(40);
+    assert_ne!(other, EXTENDER);
+    for path in phases(&ext, 2) {
+        relabel(&path, &other);
+    }
+    assert_eq!(build_api(&base, &ext, 2, 1 << 16), original);
+    let before: Vec<Vec<u8>> = phases(&ext, 2)
+        .iter()
+        .map(|p| std::fs::read(p).unwrap())
+        .collect();
+    assert!(extend_api(&base, &ext, 2, 1).is_err());
+    relabel(&ext.join("r1b.journal"), &"e".repeat(40));
+    let after: Vec<Vec<u8>> = phases(&ext, 2)
+        .iter()
+        .map(|p| std::fs::read(p).unwrap())
+        .collect();
+    assert_ne!(before, after);
+    assert!(
+        book::build_extended(
+            &base.nodes,
+            &base.journal,
+            &identity(&base),
+            &walk_roots(),
+            &BTreeSet::from([START]),
+            1 << 16,
+            &Extension {
+                dir: &ext,
+                rounds: 2
+            },
+        )
+        .is_err()
+    );
+    std::fs::remove_dir_all(&base.dir).unwrap();
 }

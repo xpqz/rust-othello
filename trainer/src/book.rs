@@ -31,6 +31,11 @@ pub type Drops = BTreeMap<Key, Option<(i32, u8)>>;
 
 const RECORD: usize = 11;
 const RESAMPLES: usize = 10_000;
+/// The scorer's source commit, supplied by the build command.
+const EXTENDER: &str = match option_env!("OTHELLO_COMMIT") {
+    Some(commit) => commit,
+    None => "unknown",
+};
 const RULES: &str = "normalize-passes,ascending-squares,clear-per-node,lower-square-ties";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -423,11 +428,7 @@ pub fn header(params: &Params, input: &str) -> String {
 /// The scoring fields after the identity, starting with a space.
 fn tail(params: &Params) -> String {
     let config = policy();
-    let eval = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/eval.bin"))
-        .map_or_else(
-            |_| "missing".into(),
-            |bytes| check::hex(&Sha256::digest(bytes)),
-        );
+    let eval = check::hex(&Sha256::digest(pattern::WEIGHTS));
     format!(
         " depth {} table {} eval {eval} engine {} \
          threshold {} ordering {} probcut {:?} rules {RULES}",
@@ -875,10 +876,11 @@ pub fn decode(
 ) -> Result<Vec<(u8, i32)>, String> {
     let invalid = || format!("invalid record {}", id(key));
     let (saved, tokens) = line.split_once(" | ").ok_or_else(invalid)?;
-    let mut tokens = tokens
-        .split(' ')
-        .filter(|t| !t.is_empty())
-        .map(|t| t.parse::<i32>().ok().filter(|v| v.abs() <= EVAL_BOUND));
+    let mut tokens = tokens.split(' ').filter(|t| !t.is_empty()).map(|t| {
+        t.parse()
+            .ok()
+            .filter(|v| (-EVAL_BOUND..=EVAL_BOUND).contains(v))
+    });
     let node = board(key);
     let mut values = Vec::new();
     for m in partition(key, context).into_iter().filter(|m| !m.book) {
@@ -1069,20 +1071,28 @@ fn rounds(
         .map(|&(k, e)| format!("{}:{e}", id(k)))
         .collect();
     let (mut prior, mut prior_count, mut done) = (String::new(), 0, Vec::new());
-    // A build reads the R its run declared; a run declares its own.
-    let declared = journal::read(&extension.dir.join("r1a.journal"))
-        .ok()
-        .and_then(|(h, _)| {
-            h.split(" extend R ")
+    // A run declares R and its own scorer; a build replays what the run
+    // recorded, so the builder's identity never enters.
+    let recorded = journal::read(&extension.dir.join("r1a.journal")).ok();
+    let field = |name: &str| -> Option<String> {
+        let (header, _) = recorded.as_ref()?;
+        Some(
+            header
+                .split(&format!(" {name} "))
                 .nth(1)?
                 .split(' ')
                 .next()?
-                .parse()
-                .ok()
-        });
-    let total: u32 = match score {
-        Some(_) => extension.rounds,
-        None => declared.unwrap_or(extension.rounds),
+                .into(),
+        )
+    };
+    let (total, extender) = match score {
+        Some(_) => (extension.rounds, EXTENDER.to_string()),
+        None => (
+            field("extend R")
+                .and_then(|r| r.parse().ok())
+                .unwrap_or(extension.rounds),
+            field("extender").unwrap_or(EXTENDER.into()),
+        ),
     };
     let mut finished = state.clone();
     for r in 1..=extension.rounds {
@@ -1100,13 +1110,12 @@ fn rounds(
             let ids: Vec<String> = units.iter().map(|&k| id(k)).collect();
             let all: Vec<String> = context.keys().map(|&k| id(k)).collect();
             let header = format!(
-                "{base_header} extend R {total} round {r} phase {phase} base {} prior {} roots {} units {} context {} extender {}",
+                "{base_header} extend R {total} round {r} phase {phase} base {} prior {} roots {} units {} context {} extender {extender}",
                 digest(nodes.len(), &base_text),
                 digest(prior_count, &prior),
                 digest(roots.len(), &roots_text.join(" ")),
                 digest(units.len(), &ids.join("\n")),
                 digest(context.len(), &all.join("\n")),
-                git_commit(),
             );
             let path = extension.dir.join(format!("r{r}{phase}.journal"));
             if path.exists() {
@@ -1234,7 +1243,7 @@ pub fn build_extended(
             .filter(|k| round.entries[k].book)
             .count();
         head.push_str(&format!(
-            "# round {} departures {} a {} b {} peers {} into {} returned {returned} records {} first {} second {}\n",
+            "# round {} departures {} a {} b {} a-peers {} into {} returned {returned} records {} first {} second {}\n",
             r + 1,
             round.departures.len(),
             round.a.len(),

@@ -364,13 +364,14 @@ record was scored under.
   - `units`: the sorted unit IDs;
   - `context`: the sorted IDs of the context snapshot.
 
-  Finally, `extender {commit}` records the commit of the source checkout
-  the extending binary was built from (`git rev-parse HEAD` in that
-  checkout, as the base header's `engine` field does). A compile-time
-  commit would need a `build.rs`, which the budget guard forbids
-  (`tests/budget/rules.rs`). The guarantee therefore comes from the pin:
-  #158 runs from a detached worktree that is never moved, and logs the
-  binary's SHA-256, as #154 did.
+  Finally, `extender {commit}` records the scorer's source commit, fixed
+  at compile time from the `OTHELLO_COMMIT` environment value of the
+  recorded build command (`unknown` when unset). A run writes its own
+  value; a resume by a binary with another value is refused. A build
+  replays the value the run recorded in `r1a` (and its R), so the
+  builder's identity never enters, and phases with inconsistent values
+  are refused. The `eval` field hashes the model compiled into the engine
+  (`pattern::WEIGHTS`), not the file on disk.
 - **Canonical form** of a journal's records: records sorted by ID, each as
   `id<TAB>line`, joined by newlines. Parallel append order therefore does
   not affect any digest.
