@@ -265,6 +265,89 @@ Fixed now, before the pilot runs:
   the same key. The manifest lets anyone verify legality, which
   `book.bin` alone cannot show.
 
+### Extension rounds (amendment 3)
+
+- **Why:** in the #154 book, 1,843 of 3,771 stored records choose a
+  drop-out move, and 187 of the 214 gate roots with one reachable record
+  choose a drop-out at the root itself. Each such choice ends the connected
+  book prefix. Extension scores the positions the book's own choices lead
+  to, so that a connected line continues past them.
+- **Extension nodes:** boards added to the node set with WTHOR count 0.
+  They are canonical and normalized like every node, and the partition,
+  values, backup, walk and overflow rules apply to them unchanged. Since
+  the partition is by node-set membership, adding a node can turn an
+  existing drop-out move into a book move.
+- **Departures** of a book state: the stored records (engine-to-move nodes
+  reached by the walk from the 802 declared roots) whose book move is a
+  drop-out, in ascending key order. A departure's child is
+  `c = normalize(play(p, s))`. Opponent drop-outs are not extended.
+- **Round r, for r = 1..R,** from the book state after round r − 1 (round 0
+  is the #154 book):
+  - **Phase A:** the set `A_r` is the departure children that are neither
+    nodes nor terminal. Each is scored as a node (all its legal moves are
+    drop-outs unless one transposes into the node set), then added.
+  - **Phase B:** for each `c` in `A_r`, in key order, `r*(c)` is its best
+    drop-out (lower square on ties) as scored in phase A, whoever moves
+    at `c` (after a contracted pass that is the engine), and
+    `e = normalize(play(c, r*(c)))`. The set `B_r` is those `e` that are
+    neither nodes nor terminal. Each is scored as a node, then added.
+  - The backup and walk are then recomputed over the enlarged node set,
+    which gives the book state after round r.
+  - A round with no departures, or with `A_r` empty, ends the extension
+    early.
+- **Registered: R = 3.** D = 19 and the scoring policy are unchanged.
+  Nothing is changed automatically after a round; per-round results are
+  logged.
+- **Values after reclassification:** journals keep every drop-out score,
+  labelled by its position in ascending square order under the node set
+  in force when that phase was scored. When a later phase adds a node
+  that is the child of a scored square, that square becomes a book move:
+  its journal score is ignored, and the move is worth ±v(child) as for any
+  book move. `x(p)` is the maximum over the squares that remain drop-outs.
+  No search is repeated.
+- **Validation:** each journal is checked against the node set in force
+  when it was scored: base nodes for the #154 journal, then base plus all
+  earlier phases. A record outside its phase's set, or a missing one, fails
+  the build.
+
+#### Interruptible and resumable
+
+- Each phase is one scoring job with its own journal, `r{r}a.journal` and
+  `r{r}b.journal`, in one directory beside the base journal. Its header is
+  the base header plus `extend round r phase a|b R` and the SHA-256 of the
+  base journal. Resuming checks the header exactly, as for scoring.
+- A phase's key set is a pure function of the base journal, the roots and
+  the completed earlier phases. Re-running the same command recomputes it,
+  skips the units already journalled, scores the rest and moves on to the
+  next phase. A SIGKILL at any point loses at most the units in progress,
+  and the resumed run gives identical journals and asset bytes.
+- A phase starts only after the previous one is complete. Units within a
+  phase are independent, as in scoring.
+
+#### Asset
+
+- The build reads the base journal and the extension journals up to the
+  last complete round, then prunes and writes as before. Extension nodes
+  have count 0, so they are the first removed on overflow, in key order.
+  The mandatory roots stay protected.
+- **Logged per round:** departures, `|A_r|`, `|B_r|`, how many departures
+  of the previous state now choose a book move, records, and the per-root
+  coverage totals. With R = 0 the build is byte-identical to the #154
+  asset.
+- **Size estimate:** at most about 1,843 engine records per round, so
+  about 9,300 after three rounds, against a room of 16,325.
+
+#### Cost
+
+- #154 averaged about 2 s of thread time per depth-18 search, under shared
+  load. An extension node needs about 10 searches, so one phase of about
+  1,843 nodes takes about 2 h on 5 threads, and one round about 4 h.
+  Three rounds take about 12 h. These are estimates, not bounds.
+- Trainer code: an estimated 60–120 lines. The trainer has 65 lines left
+  under its 2,100 guard, so the guard is raised under the user's standing
+  permission ("You can raise the trainer LOC budget, but keep the core
+  engine tight"). The engine is unaffected.
+
 ### Builder home and reproducibility
 
 - **The rule:** `docs/PLAN.md` says assets "must be reproducible from the
@@ -440,6 +523,20 @@ Playing paths, which inherit the shipped policy once it is enabled:
   identical per-node scores and identical asset and manifest bytes.
 - Duplicate keys for distinct boards fail the build.
 
+**Extension (amendment 3, in #157):**
+- Departures: only reachable stored records whose book move is a drop-out,
+  in key order, on a hand-built DAG.
+- Phase A and B sets: terminal children and children already in the node
+  set are skipped and not rescored; `r*` takes the lower square on ties.
+- Reclassification: a base node whose drop-out child becomes an extension
+  node ignores that square's journal score and backs up through the child.
+- Validation per phase's node set: a foreign or missing record fails.
+- R = 0 builds the #154 asset byte-identically.
+- Kill-and-resume inside a phase and between phases, and one worker versus
+  several, give identical journals and asset bytes.
+- Overflow removes extension nodes first, in key order, and keeps the
+  mandatory roots.
+
 ## Issues
 
 1. **Builder** (after the user decision): node set, partition, scoring
@@ -496,3 +593,11 @@ Playing paths, which inherit the shipped policy once it is enabled:
 | Ply counts placements only. Forced passes are contracted by `normalize`, so there are no pass nodes. A passing book move is worth +v(child), and the walk's role flips back across the pass. | Accepted in the #153 RED review; the implementation instructions above now state it. |
 | The second tie rule is removed; ties go to the lower square. | It could never apply. |
 | An old book's values are offline scores, not new-model evaluations. Build inputs are kept, and journal resumption still checks the full header. | #153 RED review, on amendment 1. |
+
+### Amendment 3, extension rounds (#157 builder, #158 run)
+
+| Change | Reason |
+| --- | --- |
+| Extension rounds R = 3 of phase A (departure children) and phase B (the engine position after the opponent's best reply), scored with the unchanged policy at D = 19, one resumable journal per phase. | The #154 book's own choices end its connected prefix in half its stored records. User decision, 17 Nov 2026: "yes, draft the A+B amendment. It must be interruptible." |
+| Extension nodes join the node set with count 0; reclassified drop-out squares back up through the new child without rescoring. | Keeps one partition and one backup rule. |
+| Trainer guard raised for the extension code. | The user's standing permission; the engine is untouched. |
