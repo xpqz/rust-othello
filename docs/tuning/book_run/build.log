@@ -1,0 +1,5 @@
+# commit eac232d33c90d27ccba6eb85baf09147522cc17f binary sha256 5a903c40fd43b7afd01121da5cf2c332824e758f49ab7072cd7973be6bb8af2e start 2026-11-17T14:26:28Z
+# command: othello-trainer book build data/wthor run/score.journal --roots bench/openings_book.txt --asset run/book.bin --manifest run/book_manifest.txt
+games 137548 rejected 0 nodes 18877
+records 3771 bytes 41481
+exit 0

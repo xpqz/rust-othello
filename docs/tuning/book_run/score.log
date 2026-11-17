@@ -1,0 +1,5 @@
+# commit eac232d33c90d27ccba6eb85baf09147522cc17f binary sha256 5a903c40fd43b7afd01121da5cf2c332824e758f49ab7072cd7973be6bb8af2e host Mac14,9 ncpu 10 start 2026-11-16T18:17:06Z load { 8.20 11.51 11.04 }
+# command: othello-trainer book score data/wthor run/score.journal --depth 19 --jobs 5
+games 137548 rejected 0 nodes 18877
+nodes 18877 done 0 scored 18877 elapsed 72552.9s
+exit 0 end 2026-11-17T14:26:19Z
