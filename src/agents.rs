@@ -1,6 +1,6 @@
 use crate::board::{Board, legal_moves, play, squares};
 use crate::rng::Rng;
-use crate::search::{SearchConfig, SearchLimits, allot};
+use crate::search::{ClockPolicy, SearchConfig, SearchLimits, allot};
 use crate::tt::{MAX_ENTRIES, Table};
 
 pub trait Agent {
@@ -82,6 +82,10 @@ pub fn search_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
 
 /// A search agent that allocates from the game clock once `clock` is called,
 /// and uses `limits` until then.
-pub fn clock_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
+pub fn clock_agent(
+    config: SearchConfig,
+    limits: SearchLimits,
+    _policy: &'static ClockPolicy,
+) -> SearchAgent {
     SearchAgent(config, limits, Table::new(MAX_ENTRIES), true, None)
 }

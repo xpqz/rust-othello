@@ -154,6 +154,66 @@ pub struct SearchLimits {
     pub max_nodes: u64,
     /// No iteration starts after this many ms; the exact solve ignores it.
     pub start_ms: u64,
+    /// Early exits for a settled heuristic search; the exact solve ignores them.
+    pub early: Early,
+}
+
+/// A heuristic search stops starting iterations once it is settled
+/// (`docs/design/time.md` amendment 1): the best move unchanged over the
+/// last `stable` iterations, or |score| at least `decided`, and at least
+/// `share`% (at most 100) of `start_ms` gone. Zero turns a rule off.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Early {
+    pub stable: u8,
+    pub decided: u16,
+    pub share: u8,
+}
+
+impl Early {
+    pub const OFF: Early = Early {
+        stable: 0,
+        decided: 0,
+        share: 0,
+    };
+}
+
+/// Whether a settled search stops after its completed iterations
+/// `history`, as `(best, score)` in order, `elapsed` after entry.
+pub fn stops(_elapsed: Duration, _start_ms: u64, _early: &Early, _history: &[(u8, i32)]) -> bool {
+    false
+}
+
+/// A clock allocation policy; only the registered `CLOCK_POLICIES` exist.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClockPolicy {
+    weight: (u64, u64),
+    reserve: u64,
+    cap: u64,
+    early: Early,
+    forced: bool,
+}
+
+/// The four registered variants (`docs/design/time.md` amendment 1).
+pub const CLOCK_POLICIES: [ClockPolicy; 4] = {
+    let base = ClockPolicy {
+        weight: (3, 2),
+        reserve: 4,
+        cap: 2,
+        early: Early::OFF,
+        forced: false,
+    };
+    [base, base, base, base]
+};
+
+impl ClockPolicy {
+    pub fn variant(_k: usize) -> Option<&'static ClockPolicy> {
+        None
+    }
+
+    /// Whether a clocked agent plays a lone legal move without searching.
+    pub fn forced(&self) -> bool {
+        self.forced
+    }
 }
 
 impl SearchLimits {
@@ -163,6 +223,7 @@ impl SearchLimits {
             time_ms,
             max_nodes,
             start_ms: time_ms,
+            early: Early::OFF,
         }
     }
 
@@ -172,6 +233,7 @@ impl SearchLimits {
             time_ms: NO_DEADLINE,
             max_nodes: 0,
             start_ms: NO_DEADLINE,
+            early: Early::OFF,
         }
     }
 }
@@ -202,7 +264,18 @@ pub fn allot(board: Board, remaining_ms: u64, threshold: u32) -> SearchLimits {
         time_ms,
         max_nodes: 0,
         start_ms: t.min(time_ms).max(1),
+        early: Early::OFF,
     }
+}
+
+/// `allot` under a registered policy.
+pub fn allot_with(
+    board: Board,
+    remaining_ms: u64,
+    threshold: u32,
+    _policy: &ClockPolicy,
+) -> SearchLimits {
+    allot(board, remaining_ms, threshold)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

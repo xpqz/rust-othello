@@ -10,7 +10,8 @@ use othello::book::book_move;
 use othello::rng::Rng;
 use othello::score::terminal_score;
 use othello::search::{
-    MAX_CLOCK_MS, NO_DEADLINE, SearchConfig, SearchLimits, allot, search_limited, search_tt,
+    CLOCK_POLICIES, Early, MAX_CLOCK_MS, NO_DEADLINE, SearchConfig, SearchLimits, allot,
+    search_limited, search_tt,
 };
 use othello::tt::{MAX_ENTRIES, Table};
 
@@ -46,6 +47,7 @@ fn limits(time_ms: u64, start_ms: u64, max_depth: u32) -> SearchLimits {
         time_ms,
         max_nodes: 0,
         start_ms,
+        early: Early::OFF,
     }
 }
 
@@ -230,7 +232,7 @@ fn clock_ignored_flat() {
 #[test]
 fn clock_limits_follow() {
     let flat = SearchLimits::new(64, 3000, 0);
-    let mut agent = clock_agent(SearchConfig::standard(), flat);
+    let mut agent = clock_agent(SearchConfig::standard(), flat, &CLOCK_POLICIES[0]);
     let board = line(30);
     assert_eq!(agent.limits(board).time_ms, 3000);
     let (first, second) = (allot(board, 40_000, T), allot(board, 20_000, T));
@@ -300,7 +302,7 @@ fn split() -> (Board, SearchLimits, u8, i32) {
 #[test]
 fn clock_choose_uses() {
     let (board, frozen, quick, optimum) = split();
-    let mut agent = clock_agent(SearchConfig::standard(), frozen);
+    let mut agent = clock_agent(SearchConfig::standard(), frozen, &CLOCK_POLICIES[0]);
     assert_eq!(agent.choose(board), Some(quick));
     agent.clock(100_000_000);
     let got = agent.limits(board);
@@ -326,7 +328,7 @@ fn clock_book_hit() {
         eval: forbidden,
         ..SearchConfig::standard()
     };
-    let mut agent = clock_agent(booked, SearchLimits::new(64, 3000, 0));
+    let mut agent = clock_agent(booked, SearchLimits::new(64, 3000, 0), &CLOCK_POLICIES[0]);
     agent.clock(50_000);
     let start = book_move(Board::START).unwrap().0;
     assert_eq!(agent.choose(Board::START), Some(start));

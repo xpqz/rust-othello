@@ -1,6 +1,8 @@
 use crate::baselines::{PHASE2_DEPTH, classic_config, phase2_config};
 use othello::agents::{Agent, SearchAgent, clock_agent, greedy_agent, random_agent, search_agent};
-use othello::search::{MAX_CLOCK_MS, NO_DEADLINE, ProbCut, SearchConfig, SearchLimits};
+use othello::search::{
+    CLOCK_POLICIES, MAX_CLOCK_MS, NO_DEADLINE, ProbCut, SearchConfig, SearchLimits,
+};
 
 fn unknown(name: &str) -> String {
     format!("unknown agent: {name}")
@@ -130,7 +132,7 @@ pub fn config(
 pub fn search(name: &str, nodes: u64, ordering: bool) -> Result<SearchAgent, String> {
     let (config, limits) = config(name, nodes, ordering)?;
     Ok(match clock(name)? {
-        Some(_) => clock_agent(config, limits),
+        Some(_) => clock_agent(config, limits, &CLOCK_POLICIES[0]),
         None => search_agent(config, limits),
     })
 }
