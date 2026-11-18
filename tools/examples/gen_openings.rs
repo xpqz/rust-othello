@@ -175,6 +175,18 @@ fn main() {
         "the three frozen sets and openings_probcut2.txt",
         &fresh,
     );
+    // The clock gate's set (#163): also disjoint from the book gate's roots.
+    let book = fs::read_to_string(format!("{base}/openings_book.txt")).unwrap();
+    for line in book.lines().filter(|line| !line.starts_with('#')) {
+        used.insert(end_key(line));
+    }
+    let fresh = fresh_set(&groups, &mut used);
+    write_fresh(
+        base,
+        "openings_time.txt",
+        "the three frozen sets, openings_probcut2.txt, openings_probcut3.txt and openings_book.txt",
+        &fresh,
+    );
 
     let base = concat!(env!("CARGO_MANIFEST_DIR"), "/../bench");
     let files = [

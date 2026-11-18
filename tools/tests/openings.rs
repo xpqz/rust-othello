@@ -110,3 +110,33 @@ fn gate_spread() {
     assert!(*groups.values().max().unwrap() <= 40, "{groups:?}");
     assert!(groups.len() >= 20);
 }
+
+#[test]
+fn time_disjoint() {
+    let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../bench");
+    let time = end_keys(&base.join("openings_time.txt"));
+    assert_eq!(time.len(), 1024);
+    for file in [
+        "openings_tune.txt",
+        "openings_validation.txt",
+        "openings_final.txt",
+        "openings_probcut2.txt",
+        "openings_probcut3.txt",
+        "openings_book.txt",
+    ] {
+        assert!(time.is_disjoint(&end_keys(&base.join(file))), "{file}");
+    }
+}
+
+#[test]
+fn time_spread() {
+    // The clock gate plays the first 400 openings: no group holds more than 10%.
+    let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("../bench");
+    let time = positions::load(base.join("openings_time.txt").to_str().unwrap()).unwrap();
+    let mut groups = std::collections::BTreeMap::new();
+    for opening in time.iter().take(400) {
+        *groups.entry(opening.key).or_insert(0usize) += 1;
+    }
+    assert!(*groups.values().max().unwrap() <= 40, "{groups:?}");
+    assert!(groups.len() >= 20);
+}
