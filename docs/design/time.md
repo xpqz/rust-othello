@@ -1,6 +1,6 @@
 # Time management: Design
 
-Nov 18, 2026 · Approved, revision 3; amendment 1 revision 2 (#164) for review · SKIS epic #151, design issue #160
+Nov 18, 2026 · Approved, revision 3; amendment 1 approved, revision 2 (#164) · SKIS epic #151, design issue #160
 
 > Scope: a per-game clock, from which the engine allocates the time for
 > each move. The tools match driver gets a clock control for a fair gate.
