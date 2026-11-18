@@ -1,6 +1,6 @@
 # Time management: Design
 
-Nov 18, 2026 · Approved, revision 3; amendment 1 (#164) for review · SKIS epic #151, design issue #160
+Nov 18, 2026 · Approved, revision 3; amendment 1 revision 2 (#164) for review · SKIS epic #151, design issue #160
 
 > Scope: a per-game clock, from which the engine allocates the time for
 > each move. The tools match driver gets a clock control for a fair gate.
@@ -437,18 +437,36 @@ on the clock, and `allot` hands it to later moves.
   `forced` set plays it without searching. The call is still charged, as
   every `choose` is.
 - **Settled search:** `SearchLimits` gains `early: Early`, where
-  `Early { stable, decided, share }` and `Early::OFF` turns everything
-  off. `new` and `depth` set `Early::OFF`, and the 10 test literals gain
-  it. After each completed iteration of the heuristic search, no further
-  iteration starts if both of these hold:
-  - the search is settled:
-    - **stable:** `stable > 0` and the best move has been the same in the
-      last `stable` completed iterations; or
-    - **decided:** `decided > 0` and |score| ≥ `decided` centidiscs;
-  - elapsed time is at least `share`% of `start_ms`.
-
-  The exact solve is unchanged; it already returns as soon as it
-  finishes.
+  `pub struct Early { stable: u8, decided: u16, share: u8 }` and
+  `Early::OFF` (all zero) turns it off. `new` and `depth` set
+  `Early::OFF`, and the 10 test literals gain it.
+  - **The check** runs after each completed iteration of the heuristic
+    search, depth 1 included, and before the start-cutoff check. No
+    further iteration starts if `stops(elapsed, start_ms, &early, &history)`
+    holds, where `history` lists each completed iteration's
+    `(best, score)` in order.
+  - `pub fn stops` is a pure function in `src/search.rs`. It holds when
+    the search is settled and elapsed has reached the share:
+    - **stable:** `stable > 0` and the last `stable` entries of
+      `history` all have the same best move. A different move anywhere in
+      that window means not stable, so a change of move resets the streak;
+    - **decided:** `decided > 0` and the last score satisfies
+      `|score| ≥ decided` (inclusive, for both signs);
+    - **share:** `elapsed ≥ start_ms × min(share, 100) / 100`. Here
+      `elapsed` is the `Duration` since search entry (the same instant as
+      the start cutoff), and the right side is
+      `Duration::from_millis(start_ms) * min(share, 100) / 100`, with
+      nanosecond precision and no rounding to whole milliseconds. Share 0
+      means immediately.
+  - **Exact branch:** it ignores `early`, as it ignores `start_ms`.
+- **Forced-move scope:** the shortcut applies only to a `clock_agent`
+  whose policy has `forced`, and only after its first `clock` call,
+  when its limits come from the clock. It applies at every number of
+  empties, exact positions included, since one legal move needs no value
+  for play. Before the first clock call, and in `search_agent`, nothing
+  changes.
+- **Flat play:** `Early::OFF` and no forced shortcut, so behaviour is bit
+  for bit as before.
 - **Why these:** a forced move needs no thought. A best move that keeps
   surviving deeper searches rarely changes in the next one. A decided
   score means the remaining time is better spent where the game is still
@@ -456,12 +474,26 @@ on the clock, and `allot` hands it to later moves.
 
 ### Policies and variants
 
-`pub struct ClockPolicy { weight: (u64, u64), reserve: u64, cap: u64,
-early: Early, forced: bool }` in `src/search.rs`. `allot_with(board, R,
-threshold, &policy)` uses `weight` for the midgame factor (3/2),
-`reserve` for the `+4`, and `cap` for the `2` in `min(cap·t, R/4)`, and
-sets `early`. `allot` is `allot_with` with variant 0.
-`pub const CLOCK_POLICIES: [ClockPolicy; 4]` (*my call*, fixed now):
+`pub struct ClockPolicy` in `src/search.rs` has **private fields**
+(midgame weight, reserve, cap, early exits, forced), so no other crate
+can build one. The only policies are the four in
+`pub const CLOCK_POLICIES: [ClockPolicy; 4]`, reached by
+`ClockPolicy::variant(k) -> Option<&'static ClockPolicy>`, which gives
+`None` for k > 3.
+
+- `allot_with(board, R, threshold, &policy)` uses the weight for the
+  midgame factor (3/2 in variant 0), the reserve for the `+4`, and the
+  cap for the `2` in `min(cap·t, R/4)`, and sets `early`.
+- `allot` is `allot_with` with variant 0. The existing `allot` examples
+  pin variant 0's numbers.
+- **Bounds:** across the four policies the weight is at most 2/1, the
+  reserve 4 and the cap 3. With `R ≤ 2^40` every product is at most
+  3 × 2^40 · 2, far inside `u64`.
+- **`Early`'s fields are public** (tests build them), with bounded types:
+  `stable: u8`, `decided: u16` (0 is off, so nothing is negative) and
+  `share: u8`, taken as `min(share, 100)`. The share's cutoff is at most
+  `2^40 ms × 100`, inside `Duration`. `CLOCK_POLICIES`
+  (*my call*, fixed now):
 
 | Variant | Allocation | Forced | Stable | Decided | Share |
 |---|---|---|---|---|---|
@@ -493,36 +525,70 @@ and 8 tools lines.
   `pc:80:750`: 200 pairs on `bench/openings_tune.txt`, seed `1640 + k`,
   `--jobs 4 --max-load 6`, in the pinned worktree. About 45 min each, 3 h
   in all.
-- **Pick rule:**
-  - among the variants whose equal-time condition holds against the
-    realized baseline (`20·a ≤ 21·b` in `clock_time`), pick the highest
-    score point estimate;
-  - ties within 0.005 go to the lower variant number;
-  - if none holds equal-time, pick variant 0.
+- **Pick rule** (integer half-points; a win is 2, a draw 1, over 400
+  games):
+  - **Eligible:** the variants whose equal-time condition holds against
+    the realized baseline (`20·a ≤ 21·b` in `clock_time`).
+  - **Maximum:** M, the largest half-point total among the eligible.
+  - **Pick:** the lowest-numbered eligible variant with at least M − 4
+    half-points. At 400 games, 4 half-points is exactly 0.005 of score,
+    inclusive.
+  - **None eligible:** variant 0.
+  - **Example:** scores 0.50000, 0.50375 and 0.50750 are 400, 403 and 406
+    half-points. M = 406 and the bar is 402, so variant 1 is picked.
 
   The pick and its journals are committed and reviewed before the gate.
 - **Gate:** unchanged except the candidate: `pc:80:c<C>v<pick>` against
   `pc:80:3000` on `bench/openings_time.txt`, which no tuning game touches.
-  Same rule, equal-time condition and one look.
+  Same rule, equal-time condition and one look. The 750 ms tuning only
+  selects; the 3 s gate is the result at play controls.
+- **Registration follow-through (#163):**
+  - the C pilot stays recorded under its own pinned binary (`52a20e9`);
+  - before tuning: register the new binary (after the engine and tools
+    issues), the 750 ms pilot and the four tuning commands;
+  - before the gate: register the pick;
+  - **flat-baseline check:** a node-limited match of `pc:80` against
+    `pc:80` (`--nodes 20000`, 10 pairs, fixed seed) is run with both the
+    pilot binary and the gate binary, and their journal records must be
+    identical. The headers differ only in the engine commit;
+  - every run uses `clock_time`'s accepted-pair validation and clears both
+    fixture overrides.
 
 ### Tests (RED, in the engine and tools issues)
 
 - **Engine:**
-  - `Early::OFF` from `new` and `depth`;
-  - **stable exit:** with no time limits (`start_ms` and `time_ms`
-    unlimited), `stable = 2` and `share = 0`, the search stops after the
-    first iteration whose best move equals the previous one. The depth
-    must match per-depth reference searches, and it must not stop
-    earlier;
-  - **decided exit:** a score threshold stops after the first iteration
-    reaching it, and not before;
-  - **forced move:** a clocked agent with `forced` plays the only legal
-    move without calling the evaluator (a panicking evaluator), while
-    `search_agent` with the same position searches as before;
-  - `allot_with(…, &CLOCK_POLICIES[0])` equals `allot` everywhere
-    `allot` is tested, and each variant's weight, reserve and cap give
-    the expected limits;
-  - the existing clock and search suites stay green.
+  - `Early::OFF` from `new` and `depth`.
+  - **`stops`, pure, with supplied `Duration`s:**
+    - stable: three equal moves are settled, and a different move in the
+      window is not; a streak broken and rebuilt needs `stable` new
+      entries;
+    - decided: |score| = `decided` stops for +`decided` and −`decided`,
+      and `decided` − 1 does not;
+    - share 25 with `start_ms` 1,000: 249,999,999 ns does not stop and
+      250 ms does; share 0 stops at once; a share above 100 acts as
+      100.
+  - **In search, with no time limits** (`start_ms` and `time_ms`
+    unlimited, share 0):
+    - stable 2 stops after the first iteration whose best move equals
+      the previous one, matching per-depth reference searches, and not
+      before;
+    - a decided threshold stops after the first iteration reaching it.
+  - **Exact branch:** a multi-move solve with `early` set (stable 1,
+    share 0) still solves exactly.
+  - **Forced move:**
+    - a clocked agent whose policy has `forced`, after `clock`, plays the
+      only legal move without calling the evaluator (a panicking
+      evaluator), in the midgame and at exact empties;
+    - before its first `clock` call, and in a `search_agent`, it searches
+      as before.
+  - **Policies:**
+    - `ClockPolicy::variant(0..=3)` gives the table and `variant(4)` is
+      `None`;
+    - variant 0's `allot_with` equals `allot` on all existing `allot`
+      examples;
+    - each other variant's weight, reserve and cap give the expected
+      limits on one example each.
+  - The existing clock and search suites stay green.
 - **Tools:**
   - the `c<ms>v<k>` grammar, with refusals of `v4`, `v` and `vx`;
   - `search("pc:80:c50000v2")` follows clock updates with variant 2's
@@ -555,3 +621,12 @@ and 8 tools lines.
 | Sleep test cannot show which deadline the search uses (polls every 1,024 nodes) | Two extreme-value tests: `time_ms` 50 with `start_ms` unlimited must abort, and `start_ms` 50 with `time_ms` unlimited must stop admitting iterations with the last one complete (node count equals a plain `depth(d)` search). Swapping the checks makes either run forever (test timeout). The agent test uses a heuristic position and `SearchAgent::limits` to tell fixed limits from two different clock updates. |
 | Clock range and overflow | `MAX_CLOCK_MS = 2^40`. `allot` clamps its input, so it is overflow-free for every `u64`. The grammar refuses larger clocks, tested at the boundary through the CLI. The exact deadline is "at most R/2" (R = 15 gives 4 ms). |
 | Live and resumed load decisions | The load is rounded to the journal's three decimals before any comparison, live and on replay, for `time` and `clock`. A 6.0004/6.0006 threshold test runs across resume. Void totals are labelled observed log events, not unique attempts. The equal-time tolerance is reported as one-sided, with the paired difference. |
+
+### Amendment 1 review, of `5227333`
+
+| Finding | Change |
+|---|---|
+| Ambiguous 0.005 tie rule | Integer half-points: take the eligible maximum M, pick the lowest variant at or above M − 4 (exactly 0.005 at 400 games); variant 0 if none is eligible; near-tie example (400/403/406 gives 1). |
+| Early-exit time condition untested | A pure `stops` defines settled (stable window, decided inclusive for both signs) and the share cutoff on the `Duration` since search entry at nanosecond precision, with share capped at 100. Tests at 249,999,999 ns and 250 ms, a streak reset, both score signs, share 0 and above 100; in-search exits with no time limits; the exact branch ignores `early`; the forced move's scope (clocked, after the first `clock`, every number of empties) and its absence before it and in `search_agent`. |
+| Policy arithmetic domain | `ClockPolicy` has private fields; only the four `CLOCK_POLICIES`, via `variant(k)`. Stated bounds (weight ≤ 2/1, reserve 4, cap 3, R ≤ 2^40). `Early` uses `u8`/`u16` fields with share capped at 100. Variant 0 is pinned by the existing `allot` examples. |
+| Registration follow-through | The C pilot stays under its binary; the new binary, 750 ms pilot and four tuning commands are registered before tuning, the pick before the gate; a node-limited flat-baseline check shows identical records across the pilot and gate binaries; validation and clean environment for every run. |
