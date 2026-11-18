@@ -1,7 +1,7 @@
 use crate::baselines::{PHASE2_DEPTH, classic_config, phase2_config};
 use othello::agents::{Agent, SearchAgent, clock_agent, greedy_agent, random_agent, search_agent};
 use othello::search::{
-    CLOCK_POLICIES, MAX_CLOCK_MS, NO_DEADLINE, ProbCut, SearchConfig, SearchLimits,
+    CLOCK_POLICIES, ClockPolicy, MAX_CLOCK_MS, NO_DEADLINE, ProbCut, SearchConfig, SearchLimits,
 };
 
 fn unknown(name: &str) -> String {
@@ -14,15 +14,31 @@ fn book(name: &str) -> (&str, bool) {
         .map_or((name, false), |base| (base, true))
 }
 
-/// A time field: per-move ms, or `c<ms>`, a game clock in 1..=`MAX_CLOCK_MS`.
-fn time_field(name: &str, text: &str) -> Result<u64, String> {
-    match text.strip_prefix('c') {
-        Some(clock) => clock
-            .parse()
+/// A `c<ms>[v<k>]` field: a game clock in 1..=`MAX_CLOCK_MS` and a
+/// registered clock policy variant, 0 by default.
+fn clock_field(text: &str) -> Option<(u64, usize)> {
+    let clock = text.strip_prefix('c')?;
+    let (ms, k) = clock.split_once('v').unwrap_or((clock, "0"));
+    let ms = ms
+        .parse()
+        .ok()
+        .filter(|ms| (1..=MAX_CLOCK_MS).contains(ms))?;
+    Some((
+        ms,
+        k.parse()
             .ok()
-            .filter(|ms| (1..=MAX_CLOCK_MS).contains(ms))
-            .ok_or_else(|| unknown(name)),
-        None => text.parse().map_err(|_| unknown(name)),
+            .filter(|&k| ClockPolicy::variant(k).is_some())?,
+    ))
+}
+
+/// A time field: per-move ms, or a clock field.
+fn time_field(name: &str, text: &str) -> Result<u64, String> {
+    if text.starts_with('c') {
+        clock_field(text)
+            .map(|(ms, _)| ms)
+            .ok_or_else(|| unknown(name))
+    } else {
+        text.parse().map_err(|_| unknown(name))
     }
 }
 
@@ -81,14 +97,17 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
 
 /// The game clock in ms of a `c<ms>` time field, if the name has one.
 pub fn clock(name: &str) -> Result<Option<u64>, String> {
+    Ok(clock_spec(name)?.map(|(ms, _)| ms))
+}
+
+fn clock_spec(name: &str) -> Result<Option<(u64, usize)>, String> {
     parse_name(name)?;
-    let field = book(name).0.split(':').skip(1).last();
-    Ok(field.and_then(|f| f.strip_prefix('c')?.parse().ok()))
+    Ok(book(name).0.split(':').skip(1).last().and_then(clock_field))
 }
 
 /// The clock policy variant of a `c<ms>v<k>` field; 0 without one.
-pub fn policy(_name: &str) -> Result<usize, String> {
-    Ok(0)
+pub fn policy(name: &str) -> Result<usize, String> {
+    Ok(clock_spec(name)?.map_or(0, |(_, k)| k))
 }
 
 pub fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
@@ -137,7 +156,7 @@ pub fn config(
 pub fn search(name: &str, nodes: u64, ordering: bool) -> Result<SearchAgent, String> {
     let (config, limits) = config(name, nodes, ordering)?;
     Ok(match clock(name)? {
-        Some(_) => clock_agent(config, limits, &CLOCK_POLICIES[0]),
+        Some(_) => clock_agent(config, limits, &CLOCK_POLICIES[policy(name)?]),
         None => search_agent(config, limits),
     })
 }
