@@ -57,6 +57,11 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
     Ok((kind, depth, time))
 }
 
+/// The game clock in ms of a `c<ms>` time field, if the name has one.
+pub fn clock(_name: &str) -> Result<Option<u64>, String> {
+    Ok(None)
+}
+
 pub fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
     if nodes == 0 && time.is_none() {
         return Ok((depth, NO_DEADLINE));

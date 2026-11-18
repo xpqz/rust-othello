@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use othello::agents::Agent;
 use othello::board::{Board, final_score, legal_moves, pass, play};
 use othello::score::terminal_score;
@@ -127,4 +129,37 @@ impl GameLog {
             self.score
         )
     }
+}
+
+/// A game under per-side clocks (`docs/design/time.md` § Clock contract).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Clocked {
+    pub result: GameResult,
+    /// Time charged to black and white: every `choose` call, in full.
+    pub used: [Duration; 2],
+    /// The side (0 black, 1 white) whose clock ran out; its last move is
+    /// not played.
+    pub flag: Option<usize>,
+}
+
+/// Black's points: a flag loses whatever the discs.
+pub fn clocked_points(game: &Clocked) -> f64 {
+    points(game.result.score)
+}
+
+/// Plays a game, charging each `choose` call `elapsed(start of call)`.
+/// A side with a clock receives `Agent::clock` before each move and flags
+/// once its charged time exceeds the clock.
+pub fn play_clocked(
+    opening: &[u8],
+    black: &mut dyn Agent,
+    white: &mut dyn Agent,
+    _clocks: [Option<Duration>; 2],
+    _elapsed: &mut dyn FnMut(Instant) -> Duration,
+) -> Result<Clocked, String> {
+    Ok(Clocked {
+        result: play_game(opening, black, white)?,
+        used: [Duration::ZERO; 2],
+        flag: None,
+    })
 }

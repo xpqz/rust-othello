@@ -23,7 +23,7 @@ strength target. Everything else in this plan still applies.
 | Constraint | Target | How it is enforced |
 | --- | --- | --- |
 | Implementation size | **Hard ceiling: 1,500 LOC for the engine + playable CLI, excluding tests** (Phase 2; 999 in release 1.0.0) | `tests/budget.rs` counts formatted non-comment lines in the `othello` package's production targets |
-| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,300-line budget (650 in release 1.0.0); the trainer is a separate crate with a 1,200-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
+| Size scope | Engine library and playable CLI in `src/`, plus `build.rs`, `include!`, and `#[path]` sources | Experiment tooling lives in `tools/` with a separate 1,400-line budget (650 in release 1.0.0); the trainer is a separate crate with a 1,200-line budget; tests, `bench/` data, examples, and benchmark data are not engine production source |
 | Early feasibility | A complete playable vertical slice with actual counts by the end of Phase 2 | Phase 2 gate records formatted LOC and cuts scope before Phase 3 if needed |
 | Dependencies | `std` only for the engine | Engine `Cargo.toml` has no dependencies, guarded by a test; the tools crate may path-depend on the engine; the trainer may use external crates and depends on the engine and tools crates |
 | Safety | No `unsafe` in library or binary | `#![forbid(unsafe_code)]` in both `src/lib.rs` and `src/main.rs` |
@@ -39,7 +39,7 @@ comments are documentation, not code. `scripts/check.sh` runs `cargo fmt
 `.rustfmt.toml` so formatting cannot compress code. The budget test counts the
 source as written; a bare `cargo test` is not a substitute for the formatted
 check. `tests/`, `tools/`, `bench/`, examples, and benchmark data are not engine
-production source. The tools crate has its own 1,300-line budget and the
+production source. The tools crate has its own 1,400-line budget and the
 trainer crate its own 1,200-line budget. Model
 assets have their own budget; see [Phase 2 — Strengthening](#phase-2--strengthening-post-10).
 
@@ -405,7 +405,7 @@ scripts/
 This table records the 1.0.0 allocation. Phase 2 issues state their own
 per-module estimates within the 1,499 ceiling.
 
-The tools crate has a separate budget (650 in release 1.0.0, 1,300 in Phase 2).
+The tools crate has a separate budget (650 in release 1.0.0, 1,400 in Phase 2, raised from 1,300 for #151).
 The trainer crate has a separate 1,200-line budget. Their code is not part of
 the engine claim and does not consume the engine headroom.
 
@@ -495,7 +495,7 @@ special hooks.
     rejects implementation hidden in `include!`, `#[path]`, `build.rs`
     generation, or test-only files. It also rejects `rustfmt.toml` and
     `.rustfmt.toml`, and asserts that the engine `Cargo.toml` has no dependency
-    table. `tools/tests/budget.rs` enforces the tools 1,300-line budget over
+    table. `tools/tests/budget.rs` enforces the tools 1,400-line budget over
     `tools/src`; committed one-off data-generation scripts in `tools/examples`
     are outside that budget. `trainer/tests/budget.rs` enforces the trainer
     1,200-line budget with the same metric and anti-evasion rules.
@@ -1034,7 +1034,7 @@ a new budget and with the same discipline.
 | Item | 1.0.0 | Phase 2 | Enforced by |
 | --- | ---: | ---: | --- |
 | Engine + playable CLI | 999 | **1,500** | `tests/budget.rs` (same metric) |
-| Tools crate | 650 | **1,300** | `tools/tests/budget.rs` |
+| Tools crate | 650 | **1,400** | `tools/tests/budget.rs` |
 | Trainer crate | — | **2,500** | `trainer/tests/budget.rs` |
 | Model assets | — | **4 MiB** total | Guard added with the first asset |
 
@@ -1060,6 +1060,11 @@ a new budget and with the same discipline.
   Raised again under that standing permission for the book extension
   rounds (#157, design amendment 3): the guard is now 2,500 (the trainer
   is at 2,457). The engine is unchanged.
+- **Tools, raised for the game clock:** user decision, 18 Nov 2026, for
+  epic #151 (`docs/design/time.md`): "Raise tools budget", chosen over
+  cutting existing tools code or moving the match driver to the trainer.
+  The guard is now 1,400 (it was 1,300; the tools were at 1,292). The
+  ceiling was proposed in the approved design.
 
 ### Why 1,499
 
