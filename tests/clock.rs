@@ -1,6 +1,8 @@
-use std::sync::mpsc::channel;
+use std::env;
+use std::io::Read;
+use std::process::{Command, Stdio};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use othello::agents::{Agent, clock_agent, search_agent};
 use othello::board::{Board, empty_count, final_score, is_terminal, legal_moves, pass, play};
@@ -8,8 +10,7 @@ use othello::book::book_move;
 use othello::rng::Rng;
 use othello::score::terminal_score;
 use othello::search::{
-    MAX_CLOCK_MS, NO_DEADLINE, SearchConfig, SearchLimits, SearchResult, allot, search_limited,
-    search_tt,
+    MAX_CLOCK_MS, NO_DEADLINE, SearchConfig, SearchLimits, allot, search_limited, search_tt,
 };
 use othello::tt::{MAX_ENTRIES, Table};
 
@@ -48,14 +49,48 @@ fn limits(time_ms: u64, start_ms: u64, max_depth: u32) -> SearchLimits {
     }
 }
 
-/// Runs the search on a thread; `None` if it outlasts `seconds`. An
-/// uncapped search of the fixture would run far longer than that.
-fn bounded(board: Board, limits: SearchLimits, seconds: u64) -> Option<SearchResult> {
-    let (send, receive) = channel();
-    thread::spawn(move || {
-        let _ = send.send(search_limited(board, limits, &heuristic()));
-    });
-    receive.recv_timeout(Duration::from_secs(seconds)).ok()
+/// Runs `case` in a child copy of this test binary (`child_search`), and
+/// kills and reaps it after `seconds`, so a runaway search cannot outlive
+/// its test. Returns the child's `depth nodes best score` fields.
+fn bounded(case: &str, seconds: u64) -> Option<Vec<i64>> {
+    let mut child = Command::new(env::current_exe().unwrap())
+        .args(["--exact", "child_search", "--ignored", "--nocapture"])
+        .env("CLOCK_CASE", case)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let start = Instant::now();
+    while child.try_wait().unwrap().is_none() {
+        if start.elapsed() > Duration::from_secs(seconds) {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            return None;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+    let mut out = String::new();
+    child
+        .stdout
+        .take()
+        .unwrap()
+        .read_to_string(&mut out)
+        .unwrap();
+    let line = out.lines().find_map(|l| l.strip_prefix("result "))?;
+    Some(line.split(' ').map(|f| f.parse().unwrap()).collect())
+}
+
+/// The child side of `bounded`; does nothing unless `CLOCK_CASE` is set.
+#[test]
+#[ignore]
+fn child_search() {
+    let limits = match env::var("CLOCK_CASE").as_deref() {
+        Ok("deadline") => limits(50, NO_DEADLINE, 64),
+        Ok("admission") => limits(NO_DEADLINE, 50, 64),
+        _ => return,
+    };
+    let r = search_limited(line(40), limits, &heuristic());
+    println!("result {} {} {} {}", r.depth, r.nodes, r.best, r.score);
 }
 
 #[test]
@@ -71,22 +106,23 @@ fn flat_start_equal() {
 /// deadline still aborts a 40-empty search bound for depth 64.
 #[test]
 fn deadline_aborts_search() {
-    let result = bounded(line(40), limits(50, NO_DEADLINE, 64), 30)
-        .expect("the in-search check must read time_ms");
-    assert!(result.depth < 64);
+    let result = bounded("deadline", 30).expect("the in-search check must read time_ms");
+    assert!(result[0] < 64);
 }
 
 /// Admission reads `start_ms`: with no deadline, no iteration starts after
 /// 50 ms, and the last one runs to completion.
 #[test]
 fn start_stops_admission() {
-    let board = line(40);
-    let result =
-        bounded(board, limits(NO_DEADLINE, 50, 64), 60).expect("admission must read start_ms");
-    assert!(result.depth >= 1 && result.depth < 64);
-    let plain = search_limited(board, SearchLimits::depth(result.depth), &heuristic());
-    assert_eq!(result.nodes, plain.nodes, "last iteration incomplete");
-    assert_eq!((result.best, result.score), (plain.best, plain.score));
+    let result = bounded("admission", 60).expect("admission must read start_ms");
+    assert!((1..64).contains(&result[0]));
+    let plain = search_limited(
+        line(40),
+        SearchLimits::depth(result[0] as u32),
+        &heuristic(),
+    );
+    let want = [plain.nodes as i64, plain.best.into(), plain.score.into()];
+    assert_eq!(result[1..], want, "last iteration incomplete or different");
 }
 
 #[test]
@@ -230,7 +266,7 @@ fn exact_after(board: Board, square: u8) -> i32 {
 fn split() -> (Board, SearchLimits, u8, i32) {
     let config = SearchConfig::standard();
     let frozen = limits(0, 0, 64);
-    for seed in 0.. {
+    for seed in 0..1000 {
         let mut rng = Rng::new(seed);
         let mut board = Board::START;
         while empty_count(board) > 16 && !is_terminal(board) {
@@ -255,7 +291,7 @@ fn split() -> (Board, SearchLimits, u8, i32) {
             return (board, frozen, quick, exact.score);
         }
     }
-    unreachable!()
+    panic!("no distinguishing 16-empty position in 1,000 seeds")
 }
 
 /// `choose` plays from the limits `limits` reports: the frozen limits'
@@ -278,10 +314,16 @@ fn clock_choose_uses() {
     );
 }
 
+fn forbidden(_: Board) -> i32 {
+    panic!("a book hit must not search")
+}
+
+/// A clocked agent answers from the book without evaluating anything.
 #[test]
 fn clock_book_hit() {
     let booked = SearchConfig {
         book: true,
+        eval: forbidden,
         ..SearchConfig::standard()
     };
     let mut agent = clock_agent(booked, SearchLimits::new(64, 3000, 0));
