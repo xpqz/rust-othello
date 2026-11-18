@@ -9,7 +9,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use othello::rng::Rng;
-use othello::search::{NO_DEADLINE, SearchConfig};
+use othello::search::{MAX_CLOCK_MS, NO_DEADLINE, SearchConfig};
 use othello_tools::agents::{build, clock, config, effective, parse_name};
 use othello_tools::harness::{GameLog, clocked_points, play_clocked};
 use othello_tools::journal::{Journal, Record, mismatch};
@@ -123,9 +123,33 @@ fn load_average() -> f64 {
 struct Saved {
     points: f64,
     load: f64,
-    /// Charged ms for black and white, and the side that flagged.
-    ms: [u64; 2],
-    flag: Option<usize>,
+    /// Present when the record carries clock data (real-time controls).
+    clock: Option<ClockData>,
+}
+
+/// Charged ms for black and white, and the side that flagged.
+type ClockData = ([u64; 2], Option<usize>);
+
+/// A record's clock data: all three fields, valid, or none of them.
+fn clock_data(id: &str, tail: &str) -> Result<Option<ClockData>, String> {
+    let keys = ["black_ms", "white_ms", "flag"];
+    match keys.iter().filter(|key| field(tail, key).is_some()).count() {
+        0 => return Ok(None),
+        3 => {}
+        _ => return Err(format!("record {id}: partial clock data")),
+    }
+    let bad = |_| format!("record {id}: invalid clock data");
+    let ms = [
+        get(tail, "black_ms").map_err(bad)?,
+        get(tail, "white_ms").map_err(bad)?,
+    ];
+    let flag = match field(tail, "flag") {
+        Some("none") => None,
+        Some("black") => Some(0),
+        Some("white") => Some(1),
+        _ => return Err(bad(String::new())),
+    };
+    Ok(Some((ms, flag)))
 }
 
 fn parse_saved(id: &str, line: &str) -> Result<(usize, u64, Saved), String> {
@@ -146,13 +170,7 @@ fn parse_saved(id: &str, line: &str) -> Result<(usize, u64, Saved), String> {
                 .ok_or("missing load")?
                 .parse()
                 .map_err(|_| "invalid load")?,
-            ms: [
-                get(tail, "black_ms").unwrap_or(0),
-                get(tail, "white_ms").unwrap_or(0),
-            ],
-            flag: ["black", "white"]
-                .iter()
-                .position(|side| field(tail, "flag") == Some(side)),
+            clock: clock_data(id, tail)?,
         },
     ))
 }
@@ -232,10 +250,13 @@ impl Run {
                 config(name, nodes, ordering)?;
             }
         }
+        // Bounded like a clock, so charged totals fit the journal and report.
         let elapsed = match std::env::var("OTHELLO_TOOLS_ELAPSED_MS") {
             Ok(text) => Some(
                 text.parse()
-                    .map_err(|_| "invalid OTHELLO_TOOLS_ELAPSED_MS")?,
+                    .ok()
+                    .filter(|ms| *ms <= MAX_CLOCK_MS)
+                    .ok_or("invalid OTHELLO_TOOLS_ELAPSED_MS")?,
             ),
             Err(_) => None,
         };
@@ -604,7 +625,8 @@ fn report_command(args: &[String]) -> Result<(), String> {
     let mut game_points = Vec::new();
     let mut missing = Vec::new();
     // Per agent (a, b): charged ms and flags; a plays black in game 0.
-    let (mut ms, mut flags) = ([0u64; 2], [0usize; 2]);
+    // `complete` until a used record lacks clock data.
+    let (mut ms, mut flags, mut complete) = ([0u128; 2], [0usize; 2], true);
     for pair in 0..pairs {
         let valid = records.get(&(pair, 0)).zip(records.get(&(pair, 1))).filter(
             |((_, left), (_, right))| !void(*left, ctrl, max_load) && !void(*right, ctrl, max_load),
@@ -614,11 +636,19 @@ fn report_command(args: &[String]) -> Result<(), String> {
             continue;
         };
         game_points.push((left.points, right.points));
-        for (game, saved) in [left, right].into_iter().enumerate() {
-            for (side, charged) in saved.ms.into_iter().enumerate() {
-                ms[side ^ game] += charged;
+        let timed = matches!(ctrl, "time" | "clock");
+        for (game, saved) in [left, right].into_iter().enumerate().filter(|_| timed) {
+            let Some((charged, flag)) = saved.clock else {
+                if ctrl == "clock" {
+                    return Err(format!("record {pair}:{game}: missing clock data"));
+                }
+                complete = false;
+                continue;
+            };
+            for (side, charged) in charged.into_iter().enumerate() {
+                ms[side ^ game] += u128::from(charged);
             }
-            if let Some(side) = saved.flag {
+            if let Some(side) = flag {
                 flags[side ^ game] += 1;
             }
         }
@@ -635,17 +665,18 @@ fn report_command(args: &[String]) -> Result<(), String> {
         get(&header, "nodes")?,
         true,
     );
-    let games = (2 * game_points.len()).max(1) as u64;
-    let timed = matches!(ctrl, "time" | "clock");
-    timed.then(|| {
+    let games = (2 * game_points.len()).max(1) as u128;
+    if !complete {
+        println!("time unavailable");
+    } else if matches!(ctrl, "time" | "clock") {
         println!(
             "time a {} b {} flags a {} b {}",
             ms[0] / games,
             ms[1] / games,
             flags[0],
             flags[1]
-        )
-    });
+        );
+    }
     println!("{header}");
     Ok(())
 }

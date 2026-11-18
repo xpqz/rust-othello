@@ -632,3 +632,103 @@ fn engine_clock_smoke() {
     }
     fs::remove_file(path).unwrap();
 }
+
+/// Rewrites every record payload of a journal with `edit(id, payload)`.
+fn rewrite(path: &Path, edit: impl Fn(&str, &str) -> String) {
+    let (head, all) = read(path).unwrap();
+    let body: String = all
+        .iter()
+        .map(|r| format!("{}\t{}\n", r.id, edit(&r.id, &r.line)))
+        .collect();
+    fs::write(path, format!("{head}\n{body}")).unwrap();
+}
+
+/// Clock data is all or nothing per record, and must be valid: a damaged
+/// record is refused, naming it, rather than counted as zero.
+#[test]
+fn report_malformed() {
+    let damages: [(&str, &str, &str); 3] = [
+        ("black_ms 20", "black_ms broken", "invalid"),
+        ("flag black", "flag unknown", "invalid"),
+        (" white_ms 0", "", "partial"),
+    ];
+    for (from, to, word) in damages {
+        let path = temp("malformed");
+        let done = run(
+            "0",
+            Some("20"),
+            &match_args(FLAGGER, "greedy", 2, &path, "1000"),
+        );
+        assert!(done.status.success());
+        assert!(records(&path)["0:0"].contains(from), "{from}");
+        rewrite(&path, |id, line| {
+            if id == "0:0" {
+                line.replacen(from, to, 1)
+            } else {
+                line.to_string()
+            }
+        });
+        let refused = report(&path);
+        assert!(!refused.status.success(), "{to} accepted");
+        let stderr = String::from_utf8_lossy(&refused.stderr);
+        assert!(
+            stderr.contains("record 0:0") && stderr.contains(word),
+            "{stderr}"
+        );
+        fs::remove_file(path).unwrap();
+    }
+}
+
+/// A timed journal from before clock data still reports its score, with
+/// its times unavailable; a clock-control journal without them is refused.
+#[test]
+fn report_older_format() {
+    let strip = |_: &str, line: &str| line.split(" black_ms ").next().unwrap().to_string();
+    let path = temp("older");
+    assert!(
+        run("0", None, &match_args("ab:2:1", "greedy", 2, &path, "1000"))
+            .status
+            .success()
+    );
+    rewrite(&path, strip);
+    let older = report(&path);
+    assert!(
+        older.status.success(),
+        "{}",
+        String::from_utf8_lossy(&older.stderr)
+    );
+    let text = String::from_utf8_lossy(&older.stdout);
+    assert!(
+        text.contains("pairs 2") && text.contains("time unavailable"),
+        "{text}"
+    );
+    assert!(!text.contains("time a "), "{text}");
+    fs::remove_file(&path).unwrap();
+    assert!(
+        run(
+            "0",
+            Some("20"),
+            &match_args(FLAGGER, "greedy", 2, &path, "1000")
+        )
+        .status
+        .success()
+    );
+    rewrite(&path, strip);
+    let refused = report(&path);
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("missing clock data"));
+    fs::remove_file(path).unwrap();
+}
+
+/// The injected charge is bounded like a clock, so totals fit.
+#[test]
+fn elapsed_bounded() {
+    let path = temp("elapsed");
+    let (top, over) = (MAX_CLOCK_MS.to_string(), (MAX_CLOCK_MS + 1).to_string());
+    let args = match_args(FLAGGER, "greedy", 0, &path, "1000");
+    assert!(run("0", Some(&top), &args).status.success());
+    fs::remove_file(&path).unwrap();
+    let refused = run("0", Some(&over), &args);
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("OTHELLO_TOOLS_ELAPSED_MS"));
+}
