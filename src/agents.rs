@@ -1,6 +1,6 @@
 use crate::board::{Board, legal_moves, play, squares};
 use crate::rng::Rng;
-use crate::search::{ClockPolicy, SearchConfig, SearchLimits, allot};
+use crate::search::{ClockPolicy, SearchConfig, SearchLimits, allot_with};
 use crate::tt::{MAX_ENTRIES, Table};
 
 pub trait Agent {
@@ -45,13 +45,25 @@ pub fn greedy_agent() -> GreedyAgent {
     GreedyAgent
 }
 
-/// Configuration, fixed limits, table, whether it follows a game clock, and
-/// the remaining clock once given.
-pub struct SearchAgent(SearchConfig, SearchLimits, Table, bool, Option<u64>);
+/// Configuration, fixed limits, table, the clock policy of a clocked agent,
+/// and the remaining clock once given.
+pub struct SearchAgent(
+    SearchConfig,
+    SearchLimits,
+    Table,
+    Option<&'static ClockPolicy>,
+    Option<u64>,
+);
 
 impl Agent for SearchAgent {
     fn choose(&mut self, board: Board) -> Option<u8> {
-        (legal_moves(board.me, board.opp) != 0)
+        let moves = legal_moves(board.me, board.opp);
+        // A clocked, forced policy plays a lone move without searching.
+        let forced = self.4.is_some() && self.3.is_some_and(ClockPolicy::forced);
+        if moves.count_ones() == 1 && forced {
+            return Some(moves.trailing_zeros() as u8);
+        }
+        (moves != 0)
             .then(|| crate::book::play(board, self.limits(board), &self.0, &mut self.2).best)
     }
 
@@ -60,7 +72,7 @@ impl Agent for SearchAgent {
     }
 
     fn clock(&mut self, remaining_ms: u64) {
-        if self.3 {
+        if self.3.is_some() {
             self.4 = Some(remaining_ms);
         }
     }
@@ -69,15 +81,17 @@ impl Agent for SearchAgent {
 impl SearchAgent {
     /// The limits the next `choose` on `board` would use.
     pub fn limits(&self, board: Board) -> SearchLimits {
-        match self.4 {
-            Some(remaining) => allot(board, remaining, self.0.endgame_threshold),
-            None => self.1,
+        match (self.3, self.4) {
+            (Some(policy), Some(remaining)) => {
+                allot_with(board, remaining, self.0.endgame_threshold, policy)
+            }
+            _ => self.1,
         }
     }
 }
 
 pub fn search_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
-    SearchAgent(config, limits, Table::new(MAX_ENTRIES), false, None)
+    SearchAgent(config, limits, Table::new(MAX_ENTRIES), None, None)
 }
 
 /// A search agent that allocates from the game clock once `clock` is called,
@@ -85,7 +99,7 @@ pub fn search_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
 pub fn clock_agent(
     config: SearchConfig,
     limits: SearchLimits,
-    _policy: &'static ClockPolicy,
+    policy: &'static ClockPolicy,
 ) -> SearchAgent {
-    SearchAgent(config, limits, Table::new(MAX_ENTRIES), true, None)
+    SearchAgent(config, limits, Table::new(MAX_ENTRIES), Some(policy), None)
 }

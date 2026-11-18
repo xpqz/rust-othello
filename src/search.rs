@@ -175,12 +175,30 @@ impl Early {
         decided: 0,
         share: 0,
     };
+
+    /// The registered exits: three stable iterations, `decided`, a quarter.
+    const fn exits(decided: u16) -> Early {
+        Early {
+            stable: 3,
+            decided,
+            share: 25,
+        }
+    }
 }
 
 /// Whether a settled search stops after its completed iterations
 /// `history`, as `(best, score)` in order, `elapsed` after entry.
-pub fn stops(_elapsed: Duration, _start_ms: u64, _early: &Early, _history: &[(u8, i32)]) -> bool {
-    false
+pub fn stops(elapsed: Duration, start_ms: u64, early: &Early, history: &[(u8, i32)]) -> bool {
+    let window = history.len().checked_sub(usize::from(early.stable));
+    let stable = early.stable > 0
+        && window.is_some_and(|from| history[from..].iter().all(|h| h.0 == history[from].0));
+    let decided = early.decided > 0
+        && history
+            .last()
+            .is_some_and(|h| h.1.unsigned_abs() >= u32::from(early.decided));
+    // `None` when the cutoff overflows: it is never reached.
+    let cutoff = Duration::from_millis(start_ms).checked_mul(u32::from(early.share.min(100)));
+    (stable || decided) && cutoff.is_some_and(|cutoff| elapsed >= cutoff / 100)
 }
 
 /// A clock allocation policy; only the registered `CLOCK_POLICIES` exist.
@@ -194,20 +212,26 @@ pub struct ClockPolicy {
 }
 
 /// The four registered variants (`docs/design/time.md` amendment 1).
-pub const CLOCK_POLICIES: [ClockPolicy; 4] = {
-    let base = ClockPolicy {
-        weight: (3, 2),
-        reserve: 4,
-        cap: 2,
-        early: Early::OFF,
-        forced: false,
-    };
-    [base, base, base, base]
-};
+pub const CLOCK_POLICIES: [ClockPolicy; 4] = [
+    ClockPolicy::new((3, 2), 2, Early::OFF, false),
+    ClockPolicy::new((3, 2), 2, Early::exits(0), true),
+    ClockPolicy::new((3, 2), 2, Early::exits(2000), true),
+    ClockPolicy::new((2, 1), 3, Early::exits(2000), true),
+];
 
 impl ClockPolicy {
-    pub fn variant(_k: usize) -> Option<&'static ClockPolicy> {
-        None
+    const fn new(weight: (u64, u64), cap: u64, early: Early, forced: bool) -> Self {
+        Self {
+            weight,
+            reserve: 4,
+            cap,
+            early,
+            forced,
+        }
+    }
+
+    pub fn variant(k: usize) -> Option<&'static ClockPolicy> {
+        CLOCK_POLICIES.get(k)
     }
 
     /// Whether a clocked agent plays a lone legal move without searching.
@@ -244,19 +268,31 @@ pub const MAX_CLOCK_MS: u64 = 1 << 40;
 /// Limits for one move from `remaining_ms` on the game clock
 /// (`docs/design/time.md` § Allocation).
 pub fn allot(board: Board, remaining_ms: u64, threshold: u32) -> SearchLimits {
+    allot_with(board, remaining_ms, threshold, &CLOCK_POLICIES[0])
+}
+
+/// `allot` under a registered policy: its midgame weight, reserve, cap and
+/// early exits. Every product stays below 2 × 3 × 2^40.
+pub fn allot_with(
+    board: Board,
+    remaining_ms: u64,
+    threshold: u32,
+    policy: &ClockPolicy,
+) -> SearchLimits {
     let r = remaining_ms.min(MAX_CLOCK_MS);
     let empties = empty_count(board);
     // Target `t` and in-search cap; the exact solve takes 4 × its cap.
     let (t, cap) = if empties <= threshold {
         (r / 8, r / 8)
     } else {
-        let moves = u64::from((empties - threshold).div_ceil(2)) + 4;
+        let moves = u64::from((empties - threshold).div_ceil(2)) + policy.reserve;
+        let (num, den) = policy.weight;
         let t = if empties <= 44 {
-            3 * r / (2 * moves)
+            num * r / (den * moves)
         } else {
             r / moves
         };
-        (t, (2 * t).min(r / 4))
+        (t, (policy.cap * t).min(r / 4))
     };
     let time_ms = cap.max(1);
     SearchLimits {
@@ -264,18 +300,8 @@ pub fn allot(board: Board, remaining_ms: u64, threshold: u32) -> SearchLimits {
         time_ms,
         max_nodes: 0,
         start_ms: t.min(time_ms).max(1),
-        early: Early::OFF,
+        early: policy.early,
     }
-}
-
-/// `allot` under a registered policy.
-pub fn allot_with(
-    board: Board,
-    remaining_ms: u64,
-    threshold: u32,
-    _policy: &ClockPolicy,
-) -> SearchLimits {
-    allot(board, remaining_ms, threshold)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -700,6 +726,7 @@ fn search_inner(
     let mut best = fallback;
     let mut nodes = 0;
     let mut result = fallback_result;
+    let mut history = Vec::new();
     for depth in 1..=limits.max_depth {
         let mut ctx = Ctx {
             nodes,
@@ -717,6 +744,13 @@ fn search_inner(
         best = square;
         nodes = ctx.nodes;
         result = SearchResult::new(square, score, depth, nodes, SearchStatus::Complete);
+        // Exits off: no history and no extra clock read.
+        if limits.early != Early::OFF {
+            history.push((square, score));
+            if stops(start.elapsed(), limits.start_ms, &limits.early, &history) {
+                break;
+            }
+        }
     }
     if result.depth > 0 && result.depth < limits.max_depth {
         result.status = SearchStatus::Partial;
