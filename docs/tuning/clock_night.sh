@@ -95,8 +95,11 @@ RECORD=$TUNE/docs/tuning/clock_ct.txt
 if [ -e "$RECORD" ]; then
     [ "$(cat "$RECORD")" = "$CT" ] || fail "C_t $CT differs from the recorded $(cat "$RECORD")"
 else
+    # Written beside it, then renamed: an interruption leaves no partial
+    # record, and a leftover temporary file is simply rewritten.
     printf '%s\n' "$analysis" >> "$TUNE/docs/tuning/clock_pilot750.log"
-    echo "$CT" > "$RECORD"
+    echo "$CT" > "$RECORD.tmp"
+    mv "$RECORD.tmp" "$RECORD"
 fi
 
 for k in 0 1 2 3; do
