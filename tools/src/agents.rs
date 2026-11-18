@@ -86,6 +86,11 @@ pub fn clock(name: &str) -> Result<Option<u64>, String> {
     Ok(field.and_then(|f| f.strip_prefix('c')?.parse().ok()))
 }
 
+/// The clock policy variant of a `c<ms>v<k>` field; 0 without one.
+pub fn policy(_name: &str) -> Result<usize, String> {
+    Ok(0)
+}
+
 pub fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
     if nodes == 0 && time.is_none() {
         return Ok((depth, NO_DEADLINE));

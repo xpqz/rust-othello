@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
 use othello::board::{Board, disc_count, legal_moves, pass, play};
 use othello::book::book_move;
-use othello::search::{MAX_CLOCK_MS, SearchConfig, SearchLimits, allot};
-use othello_tools::agents::{clock, config, parse_name, search};
+use othello::search::{ClockPolicy, MAX_CLOCK_MS, SearchConfig, SearchLimits, allot, allot_with};
+use othello_tools::agents::{clock, config, parse_name, policy, search};
 use othello_tools::harness::{Clocked, clocked_points, play_clocked};
 use othello_tools::journal::read;
 use othello_tools::positions;
@@ -758,4 +758,54 @@ fn resume_requires_clock() {
         "{stderr}"
     );
     fs::remove_file(path).unwrap();
+}
+
+/// `c<ms>v<k>` selects clock policy variant k (0..=3); plain `c<ms>` is 0.
+#[test]
+fn variant_grammar() {
+    for (name, ms, k) in [
+        ("pc:80:c13000v2", 13_000, 2),
+        ("pc:80:c13000v0", 13_000, 0),
+        ("pc:80:c13000v3+book", 13_000, 3),
+        ("ab:2:c50v1", 50, 1),
+        ("pc:80:c13000", 13_000, 0),
+    ] {
+        assert_eq!(clock(name), Ok(Some(ms)), "{name}");
+        assert_eq!(policy(name), Ok(k), "{name}");
+    }
+    assert_eq!(policy("pc:80:3000"), Ok(0));
+    for bad in [
+        "pc:80:c13000v4",
+        "pc:80:c13000v",
+        "pc:80:c13000vx",
+        "pc:80:3000v1",
+        "pc:80:cv1",
+    ] {
+        assert!(
+            parse_name(bad).is_err() || policy(bad).is_err(),
+            "{bad} accepted"
+        );
+    }
+}
+
+/// The agent built from a variant name allocates under that variant.
+#[test]
+fn variant_wiring() {
+    let board = Board::START;
+    let threshold = SearchConfig::standard().endgame_threshold;
+    for (name, k) in [
+        ("pc:80:c50000v2", 2),
+        ("pc:80:c50000v3", 3),
+        ("pc:80:c50000", 0),
+    ] {
+        let mut agent = search(name, 0, true).unwrap();
+        agent.clock(40_000);
+        let want = allot_with(board, 40_000, threshold, ClockPolicy::variant(k).unwrap());
+        let got = agent.limits(board);
+        assert_eq!(
+            (got.start_ms, got.time_ms, got.early),
+            (want.start_ms, want.time_ms, want.early),
+            "{name}"
+        );
+    }
 }
