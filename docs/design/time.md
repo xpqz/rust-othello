@@ -603,6 +603,34 @@ and 8 tools lines.
 3. **#163:** registration amended with the tuning stage, then the
    pilots, tuning, pick and gate.
 
+## Amendment 2: early stopping required; non-inferiority gate (#163)
+
+**User decisions, Nov 18, before any tuning or gate game:**
+
+1. "Require it": early stopping is a requirement, not a candidate.
+   Variant 0 is still played in tuning, but only as a reported reference.
+   The pick is made among variants 1–3 by the same half-point rule:
+   - M is the maximum among the eligible variants 1–3;
+   - the pick is the lowest eligible k in 1..=3 with at least M − 4
+     half-points;
+   - if none of 1–3 is eligible (equal-time fails for all), the pick is
+     variant 1, the plainest early-stopping policy.
+2. "Ship if not worse": the gate becomes a non-inferiority test. The
+   user's reason: "We should not stick to a 'fixed time budget' -- if you
+   find a move quicker, take it, and yield. That makes for more natural
+   play."
+   - **Enable** the clock allocator with the picked policy if the lower
+     end of the 95% pair-bootstrap interval of its score is above
+     **0.475**, under the degeneracy policy, and equal-time holds.
+   - *(My call)*: the margin 0.475 is about −17 Elo. It was the example in
+     the question put to the user, not a number the user chose.
+   - **Reported as stronger** if the lower end is also above 0.500.
+   - Otherwise the allocator stays off and the result is recorded. If
+     the score passes but equal-time fails, the result is a comparison at
+     the tested controls only, as before.
+   - Openings, seed, pairs, the clock C, the baseline and the one look
+     are unchanged.
+
 ## Review response
 
 ### First review, of `ca317b51`
