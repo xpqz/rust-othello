@@ -314,9 +314,10 @@ fn temp(label: &str) -> PathBuf {
 fn command(load: &str, elapsed_ms: Option<&str>, args: &[String]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_othello-tools"));
     command.env("OTHELLO_TOOLS_LOAD", load).args(args);
-    if let Some(elapsed) = elapsed_ms {
-        command.env("OTHELLO_TOOLS_ELAPSED_MS", elapsed);
-    }
+    match elapsed_ms {
+        Some(elapsed) => command.env("OTHELLO_TOOLS_ELAPSED_MS", elapsed),
+        None => command.env_remove("OTHELLO_TOOLS_ELAPSED_MS"),
+    };
     command
 }
 
@@ -376,7 +377,7 @@ fn journal_fields() {
     let done = run(
         "0",
         Some("3"),
-        &match_args("pc:80:c100000", "greedy", 2, &path, "1000"),
+        &match_args("pc:80:c200", "greedy", 2, &path, "1000"),
     );
     assert!(
         done.status.success(),
@@ -529,31 +530,32 @@ fn clock_identity() {
     fs::remove_file(path).unwrap();
 }
 
+/// The clock bounds through the binary. `--pairs 0` plays nothing, so the
+/// accepted maximum never starts a days-long search.
 #[test]
 fn clock_cli_boundary() {
     let path = temp("boundary");
     let top = format!("ab:2:c{MAX_CLOCK_MS}");
-    assert!(
-        run(
-            "0",
-            Some("1"),
-            &match_args(&top, "greedy", 1, &path, "1000")
-        )
-        .status
-        .success()
+    let accepted = run(
+        "0",
+        Some("1"),
+        &match_args(&top, "greedy", 0, &path, "1000"),
     );
+    assert!(
+        accepted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&accepted.stderr)
+    );
+    assert_eq!(value(&header(&path), "control"), "clock");
     fs::remove_file(&path).unwrap();
     let over = format!("ab:2:c{}", MAX_CLOCK_MS + 1);
-    assert!(
-        !run(
-            "0",
-            Some("1"),
-            &match_args(&over, "greedy", 1, &path, "1000")
-        )
-        .status
-        .success()
+    let refused = run(
+        "0",
+        Some("1"),
+        &match_args(&over, "greedy", 0, &path, "1000"),
     );
-    let mut nodes = match_args("ab:2:c100", "greedy", 1, &path, "1000");
+    assert!(!refused.status.success());
+    let mut nodes = match_args("ab:2:c100", "greedy", 0, &path, "1000");
     nodes.extend(["--nodes".into(), "2000".into()]);
     assert!(
         !run("0", Some("1"), &nodes).status.success(),
