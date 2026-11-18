@@ -421,6 +421,7 @@ fn deadline_zero_falls_back() {
     let limits = SearchLimits {
         max_depth: 10,
         time_ms: 0,
+        start_ms: 0,
         max_nodes: 0,
     };
     let result = search_limited(board, limits, &config);
@@ -439,6 +440,7 @@ fn node_limit_partial() {
     let limits = SearchLimits {
         max_depth: 10,
         time_ms: NO_DEADLINE,
+        start_ms: NO_DEADLINE,
         max_nodes: depth_one.nodes + 1,
     };
     let result = search_limited(board, limits, &config);
@@ -457,6 +459,7 @@ fn node_limit_fallback() {
     let limits = SearchLimits {
         max_depth: 10,
         time_ms: NO_DEADLINE,
+        start_ms: NO_DEADLINE,
         max_nodes: 1,
     };
     let result = search_limited(board, limits, &config);
@@ -473,6 +476,7 @@ fn complete_status() {
     let limits = SearchLimits {
         max_depth: 3,
         time_ms: NO_DEADLINE,
+        start_ms: NO_DEADLINE,
         max_nodes: 0,
     };
     let result = search_limited(board, limits, &config);
@@ -491,6 +495,7 @@ fn node_limit_boundary() {
     let limits = SearchLimits {
         max_depth: 10,
         time_ms: NO_DEADLINE,
+        start_ms: NO_DEADLINE,
         max_nodes: depth_one.nodes,
     };
     let result = search_limited(board, limits, &config);
@@ -507,6 +512,7 @@ fn deadline_smoke() {
     let limits = SearchLimits {
         max_depth: 30,
         time_ms: 50,
+        start_ms: 50,
         max_nodes: 0,
     };
     let start = Instant::now();
@@ -814,6 +820,7 @@ fn corpus_abort_store() {
         let abort = SearchLimits {
             max_depth: 4,
             time_ms: NO_DEADLINE,
+            start_ms: NO_DEADLINE,
             max_nodes: 20,
         };
         let _ = search_tt(board, abort, &config, &mut table);
@@ -1243,6 +1250,7 @@ fn wdl_cancellation_falls_back() {
     let limits = SearchLimits {
         max_depth: 10,
         time_ms: NO_DEADLINE,
+        start_ms: NO_DEADLINE,
         max_nodes: 1,
     };
     let result = search_tt(board, limits, &config, &mut table);
@@ -1276,6 +1284,7 @@ fn exact_timeout_plays_heuristic() {
         let limits = SearchLimits {
             max_depth: 64,
             time_ms: 0,
+            start_ms: 0,
             max_nodes: 0,
         };
         let result = search_tt(board, limits, &config, &mut table);
@@ -1417,6 +1426,7 @@ fn wdl_only_partial() {
     let limits = SearchLimits {
         max_depth: 10,
         time_ms: NO_DEADLINE,
+        start_ms: NO_DEADLINE,
         max_nodes: wdl_nodes + 1,
     };
     let result = search_limited(board, limits, &config);

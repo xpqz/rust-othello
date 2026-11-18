@@ -6,6 +6,8 @@ use crate::tt::{MAX_ENTRIES, Table};
 pub trait Agent {
     fn choose(&mut self, board: Board) -> Option<u8>;
     fn reset(&mut self) {}
+    /// The remaining game clock before the next `choose`; ignored by default.
+    fn clock(&mut self, _remaining_ms: u64) {}
 }
 
 /// Holds the initial state for `reset` and the live state.
@@ -56,6 +58,19 @@ impl Agent for SearchAgent {
     }
 }
 
+impl SearchAgent {
+    /// The limits the next `choose` on `board` would use.
+    pub fn limits(&self, _board: Board) -> SearchLimits {
+        self.1
+    }
+}
+
 pub fn search_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
     SearchAgent(config, limits, Table::new(MAX_ENTRIES))
+}
+
+/// A search agent that allocates from the game clock once `clock` is called,
+/// and uses `limits` until then.
+pub fn clock_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
+    search_agent(config, limits)
 }

@@ -1,0 +1,291 @@
+use std::sync::mpsc::channel;
+use std::thread;
+use std::time::Duration;
+
+use othello::agents::{Agent, clock_agent, search_agent};
+use othello::board::{Board, empty_count, final_score, is_terminal, legal_moves, pass, play};
+use othello::book::book_move;
+use othello::rng::Rng;
+use othello::score::terminal_score;
+use othello::search::{
+    MAX_CLOCK_MS, NO_DEADLINE, SearchConfig, SearchLimits, SearchResult, allot, search_limited,
+    search_tt,
+};
+use othello::tt::{MAX_ENTRIES, Table};
+
+const T: u32 = 18;
+
+/// Lowest-square plies from the start until `empties` remain and the mover
+/// has a legal move.
+fn line(empties: u32) -> Board {
+    let mut board = Board::START;
+    while empty_count(board) > empties || legal_moves(board.me, board.opp) == 0 {
+        assert!(!is_terminal(board));
+        let moves = legal_moves(board.me, board.opp);
+        board = if moves == 0 {
+            pass(board)
+        } else {
+            play(board, moves.trailing_zeros() as u8)
+        };
+    }
+    assert_eq!(empty_count(board), empties);
+    board
+}
+
+fn heuristic() -> SearchConfig {
+    SearchConfig {
+        endgame_threshold: 0,
+        ..SearchConfig::standard()
+    }
+}
+
+fn limits(time_ms: u64, start_ms: u64, max_depth: u32) -> SearchLimits {
+    SearchLimits {
+        max_depth,
+        time_ms,
+        max_nodes: 0,
+        start_ms,
+    }
+}
+
+/// Runs the search on a thread; `None` if it outlasts `seconds`. An
+/// uncapped search of the fixture would run far longer than that.
+fn bounded(board: Board, limits: SearchLimits, seconds: u64) -> Option<SearchResult> {
+    let (send, receive) = channel();
+    thread::spawn(move || {
+        let _ = send.send(search_limited(board, limits, &heuristic()));
+    });
+    receive.recv_timeout(Duration::from_secs(seconds)).ok()
+}
+
+#[test]
+fn flat_start_equal() {
+    let flat = SearchLimits::new(64, 3000, 0);
+    assert_eq!(flat.start_ms, flat.time_ms);
+    let depth = SearchLimits::depth(5);
+    assert_eq!(depth.start_ms, depth.time_ms);
+    assert_eq!(depth.start_ms, NO_DEADLINE);
+}
+
+/// The in-search check reads `time_ms`: with no start cutoff, a 50 ms
+/// deadline still aborts a 40-empty search bound for depth 64.
+#[test]
+fn deadline_aborts_search() {
+    let result = bounded(line(40), limits(50, NO_DEADLINE, 64), 30)
+        .expect("the in-search check must read time_ms");
+    assert!(result.depth < 64);
+}
+
+/// Admission reads `start_ms`: with no deadline, no iteration starts after
+/// 50 ms, and the last one runs to completion.
+#[test]
+fn start_stops_admission() {
+    let board = line(40);
+    let result =
+        bounded(board, limits(NO_DEADLINE, 50, 64), 60).expect("admission must read start_ms");
+    assert!(result.depth >= 1 && result.depth < 64);
+    let plain = search_limited(board, SearchLimits::depth(result.depth), &heuristic());
+    assert_eq!(result.nodes, plain.nodes, "last iteration incomplete");
+    assert_eq!((result.best, result.score), (plain.best, plain.score));
+}
+
+#[test]
+fn start_zero_fallback() {
+    let result = search_limited(line(40), limits(NO_DEADLINE, 0, 3), &heuristic());
+    assert_eq!(result.depth, 0);
+}
+
+/// The exact branch ignores `start_ms`.
+#[test]
+fn exact_ignores_start() {
+    let config = SearchConfig::standard();
+    let result = search_limited(line(10), limits(10_000, 0, 64), &config);
+    assert!(result.solved);
+}
+
+#[test]
+fn allot_exact() {
+    let board = line(T);
+    for (r, time) in [(16_000, 2000), (15, 1), (7, 1), (0, 1)] {
+        let got = allot(board, r, T);
+        assert_eq!((got.start_ms, got.time_ms), (time, time), "R {r}");
+        assert_eq!((got.max_depth, got.max_nodes), (64, 0));
+    }
+    let deadline = 4 * allot(board, 15, T).time_ms;
+    assert!(deadline <= 15 / 2);
+}
+
+#[test]
+fn allot_examples() {
+    let cases = [
+        (60, 52_000, 2080, 4160),
+        (40, 35_000, 3500, 7000),
+        (19, 1000, 250, 250),
+    ];
+    for (empties, r, start, time) in cases {
+        let got = allot(line(empties), r, T);
+        assert_eq!((got.start_ms, got.time_ms), (start, time), "e {empties}");
+        assert_eq!((got.max_depth, got.max_nodes), (64, 0));
+    }
+}
+
+#[test]
+fn allot_bounds() {
+    for empties in [19, 30, 44, 45, 60] {
+        let board = line(empties);
+        let mut last = (0, 0);
+        for r in (0..200).map(|k| k * k * 37).chain([MAX_CLOCK_MS]) {
+            let got = allot(board, r, T);
+            assert!(
+                1 <= got.start_ms && got.start_ms <= got.time_ms,
+                "e {empties} R {r}"
+            );
+            assert!(got.time_ms <= (r / 4).max(1), "e {empties} R {r}");
+            assert!(
+                got.start_ms >= last.0 && got.time_ms >= last.1,
+                "not monotone at R {r}"
+            );
+            last = (got.start_ms, got.time_ms);
+        }
+    }
+}
+
+/// e = 44 with T = 18 and e = 45 with T = 19 both have m = 13; only the
+/// midgame weight differs.
+#[test]
+fn allot_weight() {
+    let mid = allot(line(44), 34_000, 18);
+    let early = allot(line(45), 34_000, 19);
+    assert_eq!((mid.start_ms, early.start_ms), (3000, 2000));
+}
+
+#[test]
+fn allot_tiny() {
+    for empties in [10, 30] {
+        for r in [0, 1, 3] {
+            let got = allot(line(empties), r, T);
+            assert_eq!((got.start_ms, got.time_ms), (1, 1), "e {empties} R {r}");
+        }
+    }
+}
+
+#[test]
+fn allot_clamped() {
+    for empties in [10, 30, 60] {
+        let board = line(empties);
+        let top = allot(board, MAX_CLOCK_MS, T);
+        let over = allot(board, u64::MAX, T);
+        assert_eq!((over.start_ms, over.time_ms), (top.start_ms, top.time_ms));
+        assert!(top.time_ms > 1);
+    }
+}
+
+#[test]
+fn clock_ignored_flat() {
+    let flat = SearchLimits::new(64, 3000, 0);
+    let mut agent = search_agent(SearchConfig::standard(), flat);
+    let board = line(30);
+    agent.clock(5000);
+    let got = agent.limits(board);
+    assert_eq!((got.time_ms, got.start_ms), (3000, 3000));
+}
+
+/// Fixed limits before any clock, then each clock update's allotment.
+#[test]
+fn clock_limits_follow() {
+    let flat = SearchLimits::new(64, 3000, 0);
+    let mut agent = clock_agent(SearchConfig::standard(), flat);
+    let board = line(30);
+    assert_eq!(agent.limits(board).time_ms, 3000);
+    let (first, second) = (allot(board, 40_000, T), allot(board, 20_000, T));
+    assert_ne!(first.time_ms, second.time_ms);
+    agent.clock(40_000);
+    let got = agent.limits(board);
+    assert_eq!((got.start_ms, got.time_ms), (first.start_ms, first.time_ms));
+    agent.clock(20_000);
+    let got = agent.limits(board);
+    assert_eq!(
+        (got.start_ms, got.time_ms),
+        (second.start_ms, second.time_ms)
+    );
+}
+
+/// The exact value for the mover of playing `square`.
+fn exact_after(board: Board, square: u8) -> i32 {
+    let child = play(board, square);
+    let config = SearchConfig::standard();
+    if is_terminal(child) {
+        return -terminal_score(final_score(child));
+    }
+    if legal_moves(child.me, child.opp) == 0 {
+        return search_limited(pass(child), SearchLimits::depth(64), &config).score;
+    }
+    -search_limited(child, SearchLimits::depth(64), &config).score
+}
+
+/// A 16-empty position where the depth-8 fallback under `frozen` limits
+/// (time 0, fresh table as in a new agent) plays a move that is strictly
+/// worse than the exact optimum. Returns the board, the limits, that move
+/// and the optimum value.
+fn split() -> (Board, SearchLimits, u8, i32) {
+    let config = SearchConfig::standard();
+    let frozen = limits(0, 0, 64);
+    for seed in 0.. {
+        let mut rng = Rng::new(seed);
+        let mut board = Board::START;
+        while empty_count(board) > 16 && !is_terminal(board) {
+            let moves = legal_moves(board.me, board.opp);
+            board = if moves == 0 {
+                pass(board)
+            } else {
+                let squares: Vec<u8> = (0..64).filter(|s| moves & (1 << s) != 0).collect();
+                play(
+                    board,
+                    squares[(rng.next_u64() % squares.len() as u64) as usize],
+                )
+            };
+        }
+        if legal_moves(board.me, board.opp) == 0 {
+            continue;
+        }
+        let quick = search_tt(board, frozen, &config, &mut Table::new(MAX_ENTRIES)).best;
+        let exact = search_limited(board, SearchLimits::depth(64), &config);
+        assert!(exact.solved);
+        if exact_after(board, quick) < exact.score {
+            return (board, frozen, quick, exact.score);
+        }
+    }
+    unreachable!()
+}
+
+/// `choose` plays from the limits `limits` reports: the frozen limits'
+/// fallback move before the clock, an optimal move once the clock allows a
+/// full solve.
+#[test]
+fn clock_choose_uses() {
+    let (board, frozen, quick, optimum) = split();
+    let mut agent = clock_agent(SearchConfig::standard(), frozen);
+    assert_eq!(agent.choose(board), Some(quick));
+    agent.clock(100_000_000);
+    let got = agent.limits(board);
+    let want = allot(board, 100_000_000, T);
+    assert_eq!((got.start_ms, got.time_ms), (want.start_ms, want.time_ms));
+    let chosen = agent.choose(board).unwrap();
+    assert_eq!(
+        exact_after(board, chosen),
+        optimum,
+        "clocked move {chosen} is not optimal"
+    );
+}
+
+#[test]
+fn clock_book_hit() {
+    let booked = SearchConfig {
+        book: true,
+        ..SearchConfig::standard()
+    };
+    let mut agent = clock_agent(booked, SearchLimits::new(64, 3000, 0));
+    agent.clock(50_000);
+    let start = book_move(Board::START).unwrap().0;
+    assert_eq!(agent.choose(Board::START), Some(start));
+}

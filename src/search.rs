@@ -152,6 +152,8 @@ pub struct SearchLimits {
     /// Move time from entry; an exact solve may use `SOLVE_ALLOWANCE` times it.
     pub time_ms: u64,
     pub max_nodes: u64,
+    /// No iteration starts after this many ms; the exact solve ignores it.
+    pub start_ms: u64,
 }
 
 impl SearchLimits {
@@ -160,6 +162,7 @@ impl SearchLimits {
             max_depth,
             time_ms,
             max_nodes,
+            start_ms: time_ms,
         }
     }
 
@@ -168,8 +171,18 @@ impl SearchLimits {
             max_depth,
             time_ms: NO_DEADLINE,
             max_nodes: 0,
+            start_ms: NO_DEADLINE,
         }
     }
+}
+
+/// Clocks are clamped to this, so allocation cannot overflow.
+pub const MAX_CLOCK_MS: u64 = 1 << 40;
+
+/// Limits for one move from `remaining_ms` on the game clock
+/// (`docs/design/time.md` § Allocation).
+pub fn allot(_board: Board, remaining_ms: u64, _threshold: u32) -> SearchLimits {
+    SearchLimits::new(64, remaining_ms, 0)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
