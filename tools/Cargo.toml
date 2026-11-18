@@ -12,3 +12,8 @@ othello = { path = ".." }
 [profile.release]
 lto = "fat"
 codegen-units = 1
+
+# The clock gate's analysis carries unit tests, so `cargo test` runs them.
+[[example]]
+name = "clock_time"
+test = true
