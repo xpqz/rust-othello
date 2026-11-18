@@ -1,0 +1,10 @@
+# commit d2f20f96eb4bfe01671303d7fb5367803deae2a3 build: cd trainer && OTHELLO_COMMIT=d2f20f96eb4bfe01671303d7fb5367803deae2a3 cargo build --release; binary sha256 d4ba97e904a8f3d80a9aa0a5889e228e5096e96211c82432626abb2c1c48e00a host Mac14,9 ncpu 10 start 2026-11-17T19:33:47Z load { 18.11 16.59 16.50 }
+# command: othello-trainer book extend data/wthor docs/tuning/book_run/score.journal --extension run/ext --rounds 3 --roots bench/openings_book.txt --depth 19 --jobs 5
+games 137548 rejected 0 nodes 18877
+exit 137 end 2026-11-18T06:13:37Z
+# resume 2026-11-18T09:45:40Z after operator stop
+games 137548 rejected 0 nodes 18877
+round 1 departures 1843 a 1839 b 1816
+round 2 departures 2128 a 2127 b 2115
+round 3 departures 2385 a 2384 b 2370
+exit 0 end 2026-11-18T12:53:18Z

@@ -1,0 +1,8 @@
+# R=0 start 2026-11-18T12:53:39Z binary sha256 d4ba97e904a8f3d80a9aa0a5889e228e5096e96211c82432626abb2c1c48e00a
+# command: othello-trainer book build data/wthor docs/tuning/book_run/score.journal --roots bench/openings_book.txt --asset run/book_r0.bin --manifest run/book_manifest_r0.txt
+games 137548 rejected 0 nodes 18877
+records 3771 bytes 41481
+real 2.57
+user 2.51
+sys 0.02
+exit 0
