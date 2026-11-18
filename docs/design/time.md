@@ -1,6 +1,6 @@
 # Time management: Design
 
-Nov 18, 2026 · Revision 2, after the first review · SKIS epic #151, design issue #160
+Nov 18, 2026 · Revision 3, after the second review · SKIS epic #151, design issue #160
 
 > Scope: a per-game clock, from which the engine allocates the time for
 > each move. The tools match driver gets a clock control for a fair gate.
@@ -81,13 +81,18 @@ in-search deadline `time_ms`, whichever comes first.
 ### Allocation
 
 `pub fn allot(board, remaining_ms: u64, threshold: u32) -> SearchLimits`
-in `src/search.rs`. All arithmetic is in `u64` milliseconds, divisions
-round down, and products are formed before division (`R` < 2^40 in any
-use, so nothing overflows). Here `R` is `remaining_ms`, `e` the empties
-and `T` the threshold.
+in `src/search.rs`. All arithmetic is in `u64` milliseconds, and
+divisions round down. Here `e` is the empties and `T` the threshold.
+
+- **Range:** `R = min(remaining_ms, MAX_CLOCK_MS)`, with
+  `pub const MAX_CLOCK_MS: u64 = 1 << 40` (about 35 years). Every product
+  below is then at most 3 × 2^40, so `allot` is defined and
+  overflow-free for every `u64` input. The tools grammar refuses clocks
+  above `MAX_CLOCK_MS` (below), so no accepted clock is clamped.
 
 - **Exact branch, `e ≤ T`:** `time_ms = start_ms = max(1, R / 8)`. The
-  solve's deadline is then `4 × time_ms`: R / 2 when R ≥ 8 ms.
+  solve's deadline is then `4 × time_ms`, which is at most R / 2 when
+  R ≥ 8 ms (R = 15 gives 4 ms).
 - **Heuristic branch, `e > T`:**
   - `m = (e − T + 1) / 2` is the number of own moves before the solve;
   - `w = 3/2` when `T < e ≤ 44`, else `1`;
@@ -138,8 +143,11 @@ differently for clocked play.
 - `clock_agent(config)` builds a `SearchAgent` that uses
   `allot(board, remaining, config.endgame_threshold)` once `clock` has been
   called, and its stored limits otherwise. `search_agent` is unchanged.
+- `SearchAgent::limits(&self, board) -> SearchLimits` returns the limits
+  the next `choose` would use. The test hook makes the clock wiring
+  observable without timing.
 - Book moves go through `book::play` as before.
-- **Estimated size:** 30–40 engine lines (PLAN: 20–30), against 204 lines
+- **Estimated size:** 35–45 engine lines (PLAN: 20–30), against 204 lines
   of headroom (1,296 of 1,500).
 
 ## Tools: the clock control
@@ -176,15 +184,23 @@ differently for clocked play.
 - **Today:** load is sampled once, after both games of a pair. A pair
   above `--max-load` is discarded and replayed, in up to ten passes, after
   which the run stops with an error and re-running resumes.
+- **One load value:** the sample is rounded to the three decimals the
+  journal writes. That rounded value is compared with `--max-load`,
+  live and after a restart, for the `time` control as well as the new
+  `clock` control. A raw sample of 6.0004 is then 6.000 in memory, in
+  the journal and on replay, and is accepted (not above 6) in all three.
 - **Clocked control:** `control()` returns `clock` when either agent is
   clocked. `void()` treats `clock` like `time`. The rule is the same for
   every pair, flagged or not: one sample after both games, and the whole
   pair is void above the maximum. A flag cannot survive a void pair.
-- **Void count:** the driver prints a line to stderr for every discarded
+- **Void events:** the driver prints a line to stderr for every discarded
   pair, with its pair number and load. The gate run appends stderr to its
-  committed run log across restarts, and void and replay totals are
-  counted from that log. The journal itself keeps only accepted pairs, as
-  today.
+  committed run log across restarts. The journal itself keeps only
+  accepted pairs, as today.
+  - The reported totals are **observed void events in the log**, not
+    exact counts of unique attempts. A restart between logging and
+    discarding can log the same attempt twice.
+  - Score and time are reproduced from the journal alone.
 - **Resumption:**
   - complete accepted pairs in the journal are kept;
   - partial or void pairs are replayed with the same openings and agent
@@ -208,7 +224,8 @@ differently for clocked play.
 ### Agent-name grammar
 
 - `c<ms>` may appear wherever a time field may (`phase2`, `classic`,
-  `pc`, `ab`), with `ms` ≥ 1. Like a time field, it sets depth 64.
+  `pc`, `ab`), with `1 ≤ ms ≤ MAX_CLOCK_MS`. Like a time field, it sets
+  depth 64.
 - It is refused with `--nodes`, as a time field is, and refused after
   `classic:d<N>`, whose depth field takes the same position.
 - An optional `+book` suffix ends the name, after all fields, on any
@@ -253,7 +270,9 @@ for each pair let `d` = (the candidate's charged ms in both games) −
 
 - **Equal-time holds** if the candidate's mean charged time per game is
   at most 1.05 × the baseline's realized mean per game in the same pairs.
-  That is a 5% tolerance for the baseline's drift between pilot and gate.
+  That is a one-sided 5% tolerance for the baseline's drift between pilot
+  and gate, reported alongside the actual mean paired difference and its
+  interval.
 - **Flags:** a flag ends the game early and lowers the opponent's charged
   time too. Pairs with a flag stay in both the score and the time
   comparison. The flag already counts as a loss for the candidate.
@@ -298,17 +317,22 @@ for each pair let `d` = (the candidate's charged ms in both games) −
 
 - `SearchLimits::new` and `::depth` give `start_ms == time_ms`. The
   existing search suite stays green, with only the literal fields added.
-- **Start limit, controlled:** an evaluator that sleeps a fixed 20 ms per
-  call makes iteration timing predictable (depth 1 ≈ 4 calls).
-  - Choose `start_ms` to fall inside iteration 2 and set a `time_ms` far
-    beyond it.
-  - The search must report depth 2 (`Partial`), with elapsed time past
-    `start_ms`: iteration 2 started before the cutoff and finished after
-    it.
-  - The evaluator's call count must equal a plain `depth(2)` search's
-    count: iteration 3 was not started.
-  - An implementation that applied `start_ms` inside the search would stop
-    iteration 2 and report depth 1.
+- **Start limit and deadline, separated.** No sleeping, and no
+  dependence on where clock polls fall: each test sets one limit to an
+  extreme value, so a mix-up does not end the search at all. The fixture
+  is a deep midgame position with `endgame_threshold` 0 and `max_depth`
+  64, under a test timeout.
+  - *In-search check uses `time_ms`:* `time_ms = 50`, `start_ms =
+    NO_DEADLINE`. The search must return within a few seconds, with an
+    aborted iteration (depth below 64). If the in-search check read
+    `start_ms`, nothing would stop iteration 1 onwards before depth 64,
+    and the test times out.
+  - *Admission uses `start_ms`:* `start_ms = 50`, `time_ms = NO_DEADLINE`.
+    The search must return, so no iteration was admitted after the cutoff.
+    The last iteration ran to completion: `nodes` equals a plain
+    `SearchLimits::depth(result.depth)` search's count on a fresh context.
+    If admission read `time_ms`, the search would never stop.
+  - Both fail if the two checks are swapped, whatever the scheduler does.
 - **Edge:** `start_ms = 0` with a long `time_ms` returns the fallback
   result (depth 0), as `time_ms = 0` does today.
 - **Exact branch:** with `start_ms = 0` and a solvable small endgame, the
@@ -319,11 +343,16 @@ for each pair let `d` = (the candidate's charged ms in both games) −
   - the e = 19, R = 1,000 case is clamped (250/250);
   - it is non-decreasing in `R`;
   - the midgame weight gives 3/2 the target;
-  - R = 0, 1, 3 and u32::MAX ms give sane values.
+  - R = 0, 1, 3, 15 (exact deadline 4 ms ≤ R/2), `MAX_CLOCK_MS` and
+    `u64::MAX` ms give the stated values, and `u64::MAX` equals
+    `MAX_CLOCK_MS`.
 - **Agents:**
   - `clock` is a no-op on existing agents;
-  - a `clock_agent` given a clock plays the exact solver's move in a small
-    endgame;
+  - on a heuristic midgame position, a `clock_agent`'s `limits` are its
+    stored limits before any `clock` call, then `allot(board, R1, T)` after
+    `clock(R1)`, then `allot(board, R2, T)` after `clock(R2)`, with the
+    two allotments different. A `search_agent`'s `limits` stay fixed
+    after `clock`;
   - with `book: true` it still answers book hits.
 
 ### Tools (RED, in the tools issue)
@@ -342,6 +371,10 @@ noted.
   - an unclocked side never flags, and both sides' times are recorded;
   - a clocked agent receives `clock(remaining)` with the rounded-down
     milliseconds.
+- **Load representation:** an injected load of 6.0004 against a limit of
+  6 is accepted live, written as 6.000, and still accepted after a
+  SIGKILL and resume, before and after the voiding pass. 6.0006 is void
+  in all three.
 - **Pairs and voiding:**
   - a pair above the load limit is void whether or not it flagged, and is
     replayed with the same openings and seeds;
@@ -356,8 +389,9 @@ noted.
     completed journal and report are identical to an uninterrupted run.
 - **Grammar:**
   - `c<ms>` on each kind;
-  - `c0`, a non-number, `c<ms>` with `--nodes`, and `classic:d4:c…` are
-    refused;
+  - `c0`, `c<MAX_CLOCK_MS + 1>`, a non-number, `c<ms>` with `--nodes`,
+    and `classic:d4:c…` are refused, and `c<MAX_CLOCK_MS>` is accepted,
+    through the `othello-tools match` command line;
   - `+book` works on search kinds and is refused on `random` and
     `greedy`;
   - existing names parse as before.
@@ -394,3 +428,11 @@ noted.
 | Clock enforcement and flag semantics | Return-and-forfeit contract: charged time = each `choose` call (book and overhead included, passes and openings free), `Duration` accounting, strict `>` flag, flagging move discarded, sub-ms remainder passed as 0. "Deadlines, not bounds" states that the engine promises no per-move maximum. Injected time source for deterministic tests. |
 | Equal-time gate can mislead | Pilot bound to build, openings and seed before measurement; C from complete accepted pairs, never recomputed. Pre-registered equal-time condition (candidate ≤ 1.05 × baseline realized mean), flags included; enable needs both score and equal-time; otherwise a score-only report with no equal-time claim. #142 described as a pooled approximation (51.5 s at threshold 18). |
 | Clocked resumption | Load sampled once per pair after both games, whole pair void, same for flagged and unflagged; ten-pass exhaustion stops the run; void totals from a retained stderr log; flag points separate from disc score; stopped games' `moves`; resume keeps accepted pairs and replays partial or void ones with the same seeds; identical results tested with injected time and load; grammar of `c<ms>` with `--nodes`, depth fields and `+book`; depth-by-stage deferred. |
+
+### Second review, of `15fb378`
+
+| Finding | Change |
+|---|---|
+| Sleep test cannot show which deadline the search uses (polls every 1,024 nodes) | Two extreme-value tests: `time_ms` 50 with `start_ms` unlimited must abort, and `start_ms` 50 with `time_ms` unlimited must stop admitting iterations with the last one complete (node count equals a plain `depth(d)` search). Swapping the checks makes either run forever (test timeout). The agent test uses a heuristic position and `SearchAgent::limits` to tell fixed limits from two different clock updates. |
+| Clock range and overflow | `MAX_CLOCK_MS = 2^40`. `allot` clamps its input, so it is overflow-free for every `u64`. The grammar refuses larger clocks, tested at the boundary through the CLI. The exact deadline is "at most R/2" (R = 15 gives 4 ms). |
+| Live and resumed load decisions | The load is rounded to the journal's three decimals before any comparison, live and on replay, for `time` and `clock`. A 6.0004/6.0006 threshold test runs across resume. Void totals are labelled observed log events, not unique attempts. The equal-time tolerance is reported as one-sided, with the paired difference. |
