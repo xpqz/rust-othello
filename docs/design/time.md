@@ -1,6 +1,6 @@
 # Time management: Design
 
-Nov 18, 2026 · Approved, revision 3 · SKIS epic #151, design issue #160
+Nov 18, 2026 · Approved, revision 3; amendment 1 (#164) for review · SKIS epic #151, design issue #160
 
 > Scope: a per-game clock, from which the engine allocates the time for
 > each move. The tools match driver gets a clock control for a fair gate.
@@ -411,12 +411,131 @@ noted.
 ## Not in scope
 
 - Increments, byoyomi, or pondering on the opponent's time.
-- Extending a search when the best move changes, or other in-search time
-  heuristics beyond the start limit.
+- Extending a search when the best move changes. Amendment 1 adds early
+  exits only.
 - Bounding `fallback_search`, or changing the exact-solve allowance.
-- Tuning the allocation constants. A later issue can tune them if the
-  gate passes.
+- Tuning beyond amendment 1's four registered variants.
 - Depth-by-stage reporting.
+
+## Amendment 1: early exits and a tuning stage (#164)
+
+**User decision, Nov 18:** the allocation constants above are untested
+guesses, and the gate gets one look per opening set. A pre-registered
+tuning stage therefore runs before the gate, and only its pick is gated.
+The user added: "We should not stick to a 'fixed time budget' -- if you
+find a move quicker, take it, and yield. That makes for more natural
+play." Early exits are part of what is tuned. Everything here applies to
+clocked play only. Flat play, `SearchLimits::new` and `::depth` callers
+and the approved allocation (variant 0) are unchanged.
+
+### Early exits
+
+A clocked move may stop before its start cutoff. The time it saves stays
+on the clock, and `allot` hands it to later moves.
+
+- **Forced move:** with exactly one legal move, a clocked agent that has
+  `forced` set plays it without searching. The call is still charged, as
+  every `choose` is.
+- **Settled search:** `SearchLimits` gains `early: Early`, where
+  `Early { stable, decided, share }` and `Early::OFF` turns everything
+  off. `new` and `depth` set `Early::OFF`, and the 10 test literals gain
+  it. After each completed iteration of the heuristic search, no further
+  iteration starts if both of these hold:
+  - the search is settled:
+    - **stable:** `stable > 0` and the best move has been the same in the
+      last `stable` completed iterations; or
+    - **decided:** `decided > 0` and |score| ≥ `decided` centidiscs;
+  - elapsed time is at least `share`% of `start_ms`.
+
+  The exact solve is unchanged; it already returns as soon as it
+  finishes.
+- **Why these:** a forced move needs no thought. A best move that keeps
+  surviving deeper searches rarely changes in the next one. A decided
+  score means the remaining time is better spent where the game is still
+  open.
+
+### Policies and variants
+
+`pub struct ClockPolicy { weight: (u64, u64), reserve: u64, cap: u64,
+early: Early, forced: bool }` in `src/search.rs`. `allot_with(board, R,
+threshold, &policy)` uses `weight` for the midgame factor (3/2),
+`reserve` for the `+4`, and `cap` for the `2` in `min(cap·t, R/4)`, and
+sets `early`. `allot` is `allot_with` with variant 0.
+`pub const CLOCK_POLICIES: [ClockPolicy; 4]` (*my call*, fixed now):
+
+| Variant | Allocation | Forced | Stable | Decided | Share |
+|---|---|---|---|---|---|
+| 0 | approved (3/2, +4, cap 2) | no | off | off | – |
+| 1 | approved | yes | 3 iterations | off | 25% |
+| 2 | approved | yes | 3 iterations | 2,000 (20 discs) | 25% |
+| 3 | weight 2, reserve +4, cap 3 | yes | 3 iterations | 2,000 | 25% |
+
+- **Variant 0** is the approved allocator, as the control.
+- **Variant 1** adds the user's early exits.
+- **Variant 2** also stops on decided scores.
+- **Variant 3** spends the time the exits save more boldly in the midgame.
+
+**Grammar:** the clock field `c<ms>` takes an optional `v<k>`, for example
+`pc:80:c13000v2`, with `k` in 0..=3. Plain `c<ms>` is variant 0, and any
+other `k` is refused. `clock_agent` takes the policy, and
+`SearchAgent::limits` returns `allot_with` under it. About 30 engine lines
+and 8 tools lines.
+
+### Tuning stage (registered in #163 before any tuning game)
+
+- **Tuning clock:**
+  - a second pilot, `pc:80:750` against itself, runs 50 pairs on
+    `bench/openings_tune.txt` with seed 1631, as the C pilot does;
+  - `C_t` is its `clock_time` `C_ms`;
+  - the tuning baseline is `pc:80:750`. A quarter of the gate's per-move
+    time keeps the stage cheap, as ProbCut's tuning did at 500 ms.
+- **Matches:** each variant k plays `pc:80:c<C_t>v<k>` against
+  `pc:80:750`: 200 pairs on `bench/openings_tune.txt`, seed `1640 + k`,
+  `--jobs 4 --max-load 6`, in the pinned worktree. About 45 min each, 3 h
+  in all.
+- **Pick rule:**
+  - among the variants whose equal-time condition holds against the
+    realized baseline (`20·a ≤ 21·b` in `clock_time`), pick the highest
+    score point estimate;
+  - ties within 0.005 go to the lower variant number;
+  - if none holds equal-time, pick variant 0.
+
+  The pick and its journals are committed and reviewed before the gate.
+- **Gate:** unchanged except the candidate: `pc:80:c<C>v<pick>` against
+  `pc:80:3000` on `bench/openings_time.txt`, which no tuning game touches.
+  Same rule, equal-time condition and one look.
+
+### Tests (RED, in the engine and tools issues)
+
+- **Engine:**
+  - `Early::OFF` from `new` and `depth`;
+  - **stable exit:** with no time limits (`start_ms` and `time_ms`
+    unlimited), `stable = 2` and `share = 0`, the search stops after the
+    first iteration whose best move equals the previous one. The depth
+    must match per-depth reference searches, and it must not stop
+    earlier;
+  - **decided exit:** a score threshold stops after the first iteration
+    reaching it, and not before;
+  - **forced move:** a clocked agent with `forced` plays the only legal
+    move without calling the evaluator (a panicking evaluator), while
+    `search_agent` with the same position searches as before;
+  - `allot_with(…, &CLOCK_POLICIES[0])` equals `allot` everywhere
+    `allot` is tested, and each variant's weight, reserve and cap give
+    the expected limits;
+  - the existing clock and search suites stay green.
+- **Tools:**
+  - the `c<ms>v<k>` grammar, with refusals of `v4`, `v` and `vx`;
+  - `search("pc:80:c50000v2")` follows clock updates with variant 2's
+    `allot_with` limits;
+  - plain `c<ms>` is variant 0.
+
+### Issues (after approval)
+
+1. **Engine clock policies:** `Early`, `ClockPolicy`, `CLOCK_POLICIES`,
+   `allot_with`, the forced move. Red/green.
+2. **Tools variant grammar.** Red/green.
+3. **#163:** registration amended with the tuning stage, then the
+   pilots, tuning, pick and gate.
 
 ## Review response
 
