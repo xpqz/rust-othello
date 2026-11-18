@@ -152,7 +152,8 @@ fn clock_data(id: &str, tail: &str) -> Result<Option<ClockData>, String> {
     Ok(Some((ms, flag)))
 }
 
-fn parse_saved(id: &str, line: &str) -> Result<(usize, u64, Saved), String> {
+/// A journal record; under `clock` control it must carry clock data.
+fn parse_saved(id: &str, line: &str, ctrl: &str) -> Result<(usize, u64, Saved), String> {
     let (pair, game) = id.split_once(':').ok_or("invalid journal id")?;
     let (_, tail) = line.rsplit_once(" points ").ok_or("missing points")?;
     let parts: Vec<&str> = tail.split_whitespace().collect();
@@ -170,7 +171,10 @@ fn parse_saved(id: &str, line: &str) -> Result<(usize, u64, Saved), String> {
                 .ok_or("missing load")?
                 .parse()
                 .map_err(|_| "invalid load")?,
-            clock: clock_data(id, tail)?,
+            clock: match clock_data(id, tail)? {
+                None if ctrl == "clock" => return Err(format!("record {id}: missing clock data")),
+                data => data,
+            },
         },
     ))
 }
@@ -502,7 +506,7 @@ fn match_command(args: &[String]) -> Result<(), String> {
     if let Some(path) = &run.out {
         let (opened, _) = Journal::open(Path::new(path), &run.header()?)?;
         for record in opened.records().to_vec() {
-            let (pair, game, record) = parse_saved(&record.id, &record.line)?;
+            let (pair, game, record) = parse_saved(&record.id, &record.line, ctrl)?;
             saved.insert((pair, game), record);
         }
         journal = Some(Arc::new(Mutex::new(opened)));
@@ -607,7 +611,8 @@ fn report_command(args: &[String]) -> Result<(), String> {
             header = Some(found);
         }
         for Record { id, line } in journal {
-            let (pair, game, saved) = parse_saved(&id, &line)?;
+            let ctrl = field(header.as_deref().unwrap_or(""), "control").unwrap_or("");
+            let (pair, game, saved) = parse_saved(&id, &line, ctrl)?;
             if records
                 .get(&(pair, game))
                 .is_some_and(|(other, _)| *other != source)
@@ -639,9 +644,6 @@ fn report_command(args: &[String]) -> Result<(), String> {
         let timed = matches!(ctrl, "time" | "clock");
         for (game, saved) in [left, right].into_iter().enumerate().filter(|_| timed) {
             let Some((charged, flag)) = saved.clock else {
-                if ctrl == "clock" {
-                    return Err(format!("record {pair}:{game}: missing clock data"));
-                }
                 complete = false;
                 continue;
             };

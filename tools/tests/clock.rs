@@ -732,3 +732,30 @@ fn elapsed_bounded() {
     assert!(!refused.status.success());
     assert!(String::from_utf8_lossy(&refused.stderr).contains("OTHELLO_TOOLS_ELAPSED_MS"));
 }
+
+/// Resume applies the same rule as the report: a clock-control record
+/// without clock data cannot survive a successful run.
+#[test]
+fn resume_requires_clock() {
+    let path = temp("resume");
+    let args = match_args(FLAGGER, "greedy", 2, &path, "1000");
+    assert!(run("0", Some("20"), &args).status.success());
+    rewrite(&path, |id, line| {
+        if id == "0:0" {
+            line.split(" black_ms ").next().unwrap().to_string()
+        } else {
+            line.to_string()
+        }
+    });
+    let resumed = run("0", Some("20"), &args);
+    assert!(
+        !resumed.status.success(),
+        "resume kept a record without clock data"
+    );
+    let stderr = String::from_utf8_lossy(&resumed.stderr);
+    assert!(
+        stderr.contains("record 0:0: missing clock data"),
+        "{stderr}"
+    );
+    fs::remove_file(path).unwrap();
+}
