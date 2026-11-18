@@ -1,0 +1,21 @@
+header v1 a pc:80 b pc:80 pairs 10 seed 1632 nodes 20000 ordering true control nodes max_load 1000.000 openings bench/openings_tune.txt hash a623dd7697598d6e engine 52a20e9f9655ed34bfafb18769302edc6309603c
+3:0	run 1632 pair 3 game 0 seeds (16765068530979038678, 3498816752475882227) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 d2 c1 d1 black pc:80 white pc:80 score 0 points 0.5000 load 2.690 jobs 4
+3:1	run 1632 pair 3 game 1 seeds (6404083940566248348, 11584576235772643513) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 d2 c1 d1 black pc:80 white pc:80 score 0 points 0.5000 load 2.690 jobs 4
+2:0	run 1632 pair 2 game 0 seeds (239542033940696703, 48391013674414434) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 d2 c2 b2 black pc:80 white pc:80 score 3000 points 1.0000 load 2.690 jobs 4
+2:1	run 1632 pair 2 game 1 seeds (8325301517237457989, 8134150496971175720) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 d2 c2 b2 black pc:80 white pc:80 score 3000 points 0.0000 load 2.690 jobs 4
+0:0	run 1632 pair 0 game 0 seeds (11785434630047312733, 11594283609781030464) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 g1 d2 d1 black pc:80 white pc:80 score 4000 points 1.0000 load 2.690 jobs 4
+0:1	run 1632 pair 0 game 1 seeds (12167736670579877271, 11976585650313595002) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 g1 d2 d1 black pc:80 white pc:80 score 4000 points 0.0000 load 2.690 jobs 4
+1:0	run 1632 pair 1 game 0 seeds (9864217053376103092, 15044709348582498257) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 a2 a3 b2 black pc:80 white pc:80 score 2200 points 1.0000 load 2.690 jobs 4
+1:1	run 1632 pair 1 game 1 seeds (10246519093908667630, 15427011389115062795) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 a2 a3 b2 black pc:80 white pc:80 score 2200 points 0.0000 load 2.690 jobs 4
+6:0	run 1632 pair 6 game 0 seeds (14041244989146567875, 13850093968880285606) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 d2 c1 d1 black pc:80 white pc:80 score -800 points 0.0000 load 2.690 jobs 4
+6:1	run 1632 pair 6 game 1 seeds (3680260398733777545, 3489109378467495276) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 d2 c1 d1 black pc:80 white pc:80 score -800 points 1.0000 load 2.690 jobs 4
+4:0	run 1632 pair 4 game 0 seeds (7140393511543632289, 6949242491277350020) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 d2 c1 d1 black pc:80 white pc:80 score 0 points 0.5000 load 2.690 jobs 4
+4:1	run 1632 pair 4 game 1 seeds (7522695552076196827, 7331544531809914558) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 d2 c1 d1 black pc:80 white pc:80 score 0 points 0.5000 load 2.690 jobs 4
+5:0	run 1632 pair 5 game 0 seeds (2179346746691264528, 7359839041897659693) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 d2 e1 a1 black pc:80 white pc:80 score -4400 points 0.0000 load 2.690 jobs 4
+5:1	run 1632 pair 5 game 1 seeds (2561648787223829066, 7742141082430224231) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 d2 e1 a1 black pc:80 white pc:80 score -4400 points 1.0000 load 2.690 jobs 4
+7:0	run 1632 pair 7 game 0 seeds (9080198224294200114, 14260690519500595279) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 g1 f3 d2 black pc:80 white pc:80 score 600 points 1.0000 load 2.690 jobs 4
+7:1	run 1632 pair 7 game 1 seeds (17165957707590961400, 3899705929087804949) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 g1 f3 d2 black pc:80 white pc:80 score 600 points 0.0000 load 2.690 jobs 4
+8:0	run 1632 pair 8 game 0 seeds (2495352393039951845, 2304201372773669576) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 e2 b1 g1 black pc:80 white pc:80 score -1600 points 0.0000 load 2.690 jobs 4
+8:1	run 1632 pair 8 game 1 seeds (2877654433572516383, 2686503413306234114) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 e2 b1 g1 black pc:80 white pc:80 score -1600 points 1.0000 load 2.690 jobs 4
+9:0	run 1632 pair 9 game 0 seeds (574134816368742204, 5754627111575137369) key (34628436992, 68954357760) opening d3 c3 b3 d2 d1 b2 b1 a1 black pc:80 white pc:80 score -4400 points 0.0000 load 2.690 jobs 4
+9:1	run 1632 pair 9 game 1 seeds (956436856901306742, 6136929152107701907) key (34628436992, 68954357760) opening d3 c3 b3 d2 d1 b2 b1 a1 black pc:80 white pc:80 score -4400 points 1.0000 load 2.690 jobs 4
