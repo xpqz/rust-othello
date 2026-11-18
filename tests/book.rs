@@ -67,20 +67,37 @@ fn asset(records: &[(Board, u8, i16)]) -> Vec<u8> {
         .collect()
 }
 
+fn is_asymmetric(board: Board) -> bool {
+    let mut images: Vec<(u64, u64)> = Sym::ALL
+        .iter()
+        .map(|&s| (image(board, s).me, image(board, s).opp))
+        .collect();
+    images.sort();
+    images.dedup();
+    images.len() == 8
+}
+
 /// A record whose eight images are distinct boards.
 fn asymmetric() -> (Board, u8, i32) {
     manifest()
         .into_iter()
-        .find(|&(b, _, _)| {
-            let mut images: Vec<(u64, u64)> = Sym::ALL
-                .iter()
-                .map(|&s| (image(b, s).me, image(b, s).opp))
-                .collect();
-            images.sort();
-            images.dedup();
-            images.len() == 8
-        })
+        .find(|&(b, _, _)| is_asymmetric(b))
         .unwrap()
+}
+
+/// The first `n` asymmetric records, in their canonical orientation, where
+/// the depth-3 search plays another move than the stored one, so a book hit
+/// is distinguishable from a search. Taken from the manifest, independently
+/// of `lookup`.
+fn distinct(n: usize) -> Vec<(Board, u8)> {
+    let found: Vec<(Board, u8)> = manifest()
+        .into_iter()
+        .filter(|&(b, sq, _)| is_asymmetric(b) && fresh(b, &SearchConfig::standard()).best != sq)
+        .map(|(b, sq, _)| (b, sq))
+        .take(n)
+        .collect();
+    assert_eq!(found.len(), n);
+    found
 }
 
 /// 46 plies of lowest-square moves from the start: far past any book line.
@@ -294,31 +311,30 @@ fn search_ignores_book() {
     }
 }
 
-/// One agent leaves the book with a search move, then is answered from the
-/// book again: lookup is stateless.
+/// One agent answers from the book, leaves it through a search move, then is
+/// answered from the book again: lookup is stateless. Every hit is on a board
+/// where the search would play another move.
 #[test]
 fn agent_reenters() {
+    let fixtures = distinct(2);
+    let [(a, a_move), (b, b_move)] = [fixtures[0], fixtures[1]];
     let mut agent = search_agent(booked(), SearchLimits::depth(3));
-    let (key, _, _) = asymmetric();
-    let stored = book_move(key).expect("stored").0;
-    assert_eq!(agent.choose(key), Some(stored));
+    assert_eq!(agent.choose(a), Some(a_move));
     let board = deep();
     assert_eq!(agent.choose(board), Some(fresh(board, &booked()).best));
-    assert_eq!(agent.choose(key), Some(stored));
-    assert_eq!(
-        agent.choose(Board::START),
-        Some(book_move(Board::START).unwrap().0)
-    );
+    assert_eq!(agent.choose(b), Some(b_move));
+    assert_eq!(agent.choose(a), Some(a_move));
 }
 
+/// With the book off, the same agent plays the search move on those boards.
 #[test]
 fn agent_book_off() {
     let mut agent = search_agent(SearchConfig::standard(), SearchLimits::depth(3));
-    let board = asymmetric().0;
-    assert_eq!(
-        agent.choose(board),
-        Some(fresh(board, &SearchConfig::standard()).best)
-    );
+    for (board, stored) in distinct(2) {
+        let searched = fresh(board, &SearchConfig::standard()).best;
+        assert_ne!(searched, stored);
+        assert_eq!(agent.choose(board), Some(searched));
+    }
 }
 
 #[test]

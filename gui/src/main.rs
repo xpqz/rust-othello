@@ -181,17 +181,10 @@ impl App {
     }
 
     fn start_engine(&mut self) {
-        let (sender, result) = channel();
-        let generation = self.generation;
-        let board = self.position.board;
         let config = self.engine_config();
-        let table = Arc::clone(&self.table);
         let limits = SearchLimits::new(64, (self.think_seconds * 1000.0) as u64, 0);
-        thread::spawn(move || {
-            let mut table = table.lock().unwrap();
-            let found = search_tt(board, limits, &config, &mut table);
-            let _ = sender.send((generation, found));
-        });
+        let table = Arc::clone(&self.table);
+        let result = think(self.position.board, limits, config, table, self.generation);
         self.thinking = Some(Thinking {
             started: Instant::now(),
             result,
@@ -590,6 +583,22 @@ impl eframe::App for App {
     }
 }
 
+/// The engine's move on a worker thread, tagged with the position's generation.
+fn think(
+    board: Board,
+    limits: SearchLimits,
+    config: SearchConfig,
+    table: Arc<Mutex<Table>>,
+    generation: u64,
+) -> Receiver<(u64, SearchResult)> {
+    let (sender, result) = channel();
+    thread::spawn(move || {
+        let found = search_tt(board, limits, &config, &mut table.lock().unwrap());
+        let _ = sender.send((generation, found));
+    });
+    result
+}
+
 fn cell_rect(inner: Rect, cell: f32, file: u8, row: u8) -> Rect {
     Rect::from_min_size(
         inner.left_top() + Vec2::new(file as f32, row as f32) * cell,
@@ -704,5 +713,40 @@ mod tests {
         let mut app = App::new();
         assert_eq!(app.engine_config().book, SearchConfig::standard().book);
         assert!(!app.engine_config().book);
+    }
+
+    /// The engine call answers from the book when the configuration enables
+    /// it, and searches on a miss. The stored board is one where the search
+    /// plays another move (square 12, not the stored 37).
+    #[test]
+    fn engine_book_path() {
+        let booked = SearchConfig {
+            book: true,
+            ..SearchConfig::standard()
+        };
+        let limits = SearchLimits::depth(3);
+        let fresh = || Arc::new(Mutex::new(Table::new(1 << 16)));
+        let searched = |board, config: &SearchConfig| {
+            search_tt(board, limits, config, &mut Table::new(1 << 16))
+        };
+        let stored = Board {
+            me: 0x0000_0301_352b_0100,
+            opp: 0x0000_1c1e_0a14_2000,
+        };
+        assert_ne!(searched(stored, &SearchConfig::standard()).best, 37);
+        let (generation, hit) = think(stored, limits, booked, fresh(), 7).recv().unwrap();
+        assert_eq!(generation, 7);
+        assert_eq!((hit.best, hit.score, hit.depth, hit.nodes), (37, 553, 0, 0));
+        let mut deep = Board::START;
+        for _ in 0..46 {
+            let moves = legal_moves(deep.me, deep.opp);
+            deep = if moves == 0 {
+                pass(deep)
+            } else {
+                play(deep, moves.trailing_zeros() as u8)
+            };
+        }
+        let (_, miss) = think(deep, limits, booked, fresh(), 8).recv().unwrap();
+        assert_eq!(miss, searched(deep, &booked));
     }
 }
