@@ -187,6 +187,7 @@ fn config() -> SearchConfig {
 fn full() -> SearchConfig {
     SearchConfig {
         probcut: None,
+        book: false,
         ..SearchConfig::standard()
     }
 }

@@ -77,28 +77,20 @@ pub fn config(
     let limits = SearchLimits::new(depth, time, nodes);
     // `pc:<t>`: the fitted model with margin `t`; `pc:off`: none.
     let margin = name.split(':').nth(1).and_then(|t| t.parse().ok());
-    let config = match kind {
-        "phase2" => SearchConfig {
-            ordering,
-            ..phase2_config()
-        },
-        "classic" => SearchConfig {
-            ordering,
-            ..classic_config()
-        },
+    let base = match kind {
+        "phase2" => phase2_config(),
+        "classic" => classic_config(),
         "pc" => SearchConfig {
-            ordering,
+            book: false,
             probcut: margin.map(|t| ProbCut {
                 t,
                 ..ProbCut::FITTED
             }),
             ..SearchConfig::standard()
         },
-        _ => SearchConfig {
-            ordering,
-            ..SearchConfig::standard()
-        },
+        _ => SearchConfig::standard(),
     };
+    let config = SearchConfig { ordering, ..base };
     Ok((config, limits))
 }
 

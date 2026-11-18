@@ -1,6 +1,6 @@
 use crate::board::{Board, legal_moves, play, squares};
 use crate::rng::Rng;
-use crate::search::{SearchConfig, SearchLimits, search_tt};
+use crate::search::{SearchConfig, SearchLimits};
 use crate::tt::{MAX_ENTRIES, Table};
 
 pub trait Agent {
@@ -48,7 +48,7 @@ pub struct SearchAgent(SearchConfig, SearchLimits, Table);
 impl Agent for SearchAgent {
     fn choose(&mut self, board: Board) -> Option<u8> {
         (legal_moves(board.me, board.opp) != 0)
-            .then(|| search_tt(board, self.1, &self.0, &mut self.2).best)
+            .then(|| crate::book::play(board, self.1, &self.0, &mut self.2).best)
     }
 
     fn reset(&mut self) {

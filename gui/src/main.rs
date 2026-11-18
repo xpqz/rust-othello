@@ -11,7 +11,7 @@ use eframe::egui::{
     self, Align2, Color32, CornerRadius, FontId, Pos2, Rect, RichText, Sense, Stroke, Vec2,
 };
 use othello::board::{Board, is_terminal, legal_moves, pass, play, squares};
-use othello::search::{SearchConfig, SearchLimits, SearchResult, search_tt};
+use othello::search::{SearchConfig, SearchLimits, SearchResult};
 use othello::tt::{MAX_ENTRIES, Table};
 use othello_gui::overlays::{NO_MOVE, frontier, opponent_move_counts};
 
@@ -593,7 +593,7 @@ fn think(
 ) -> Receiver<(u64, SearchResult)> {
     let (sender, result) = channel();
     thread::spawn(move || {
-        let found = search_tt(board, limits, &config, &mut table.lock().unwrap());
+        let found = othello::book::play(board, limits, &config, &mut table.lock().unwrap());
         let _ = sender.send((generation, found));
     });
     result
@@ -727,7 +727,7 @@ mod tests {
         let limits = SearchLimits::depth(3);
         let fresh = || Arc::new(Mutex::new(Table::new(1 << 16)));
         let searched = |board, config: &SearchConfig| {
-            search_tt(board, limits, config, &mut Table::new(1 << 16))
+            othello::search::search_tt(board, limits, config, &mut Table::new(1 << 16))
         };
         let stored = Board {
             me: 0x0000_0301_352b_0100,
