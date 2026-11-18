@@ -21,6 +21,7 @@ fn config() -> SearchConfig {
         endgame_threshold: 12,
         ordering: true,
         probcut: None,
+        book: false,
     }
 }
 

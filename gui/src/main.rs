@@ -697,4 +697,12 @@ mod tests {
         assert_eq!(config.endgame_threshold, app.threshold);
         assert!(!stored(&app), "a changed threshold clears the table");
     }
+
+    /// The GUI plays the shipped book policy, which stays off until the gate.
+    #[test]
+    fn engine_book_policy() {
+        let mut app = App::new();
+        assert_eq!(app.engine_config().book, SearchConfig::standard().book);
+        assert!(!app.engine_config().book);
+    }
 }

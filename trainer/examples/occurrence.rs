@@ -32,6 +32,7 @@ fn main() {
         endgame_threshold: 14,
         ordering: true,
         probcut: None,
+        book: false,
     };
     let mut sample = BTreeSet::new();
     for &start in corpus.iter().take(10) {

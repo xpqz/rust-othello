@@ -49,6 +49,14 @@ fn frozen_off() {
     // Frozen baselines never inherit ProbCut from a future `standard()`.
     assert!(phase2_config().probcut.is_none());
     assert!(classic_config().probcut.is_none());
+    // Nor the opening book: frozen and measurement agents stay book-free.
+    assert!(!phase2_config().book && !classic_config().book);
+    for name in ["pc:120:500", "pc:off:500"] {
+        assert!(
+            !othello_tools::agents::config(name, 0, true).unwrap().0.book,
+            "{name}"
+        );
+    }
 }
 
 /// Runs the tools binary with the measured load fixed at zero, so that timed

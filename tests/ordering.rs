@@ -81,6 +81,7 @@ fn evaluated(run: impl FnOnce(&SearchConfig)) -> u64 {
         endgame_threshold: 0,
         ordering: true,
         probcut: None,
+        book: false,
     };
     EMPTIES.store(0, Relaxed);
     run(&config);

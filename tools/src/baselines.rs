@@ -34,6 +34,7 @@ pub fn phase2_config() -> SearchConfig {
         endgame_threshold: 12,
         ordering: true,
         probcut: None,
+        book: false,
     }
 }
 
@@ -131,5 +132,6 @@ pub fn classic_config() -> SearchConfig {
         endgame_threshold: 14,
         ordering: true,
         probcut: None,
+        book: false,
     }
 }

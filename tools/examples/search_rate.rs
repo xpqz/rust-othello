@@ -23,6 +23,7 @@ fn main() {
         endgame_threshold: 14,
         ordering: true,
         probcut: None,
+        book: false,
     };
     for (label, config) in [("classic", classic_config()), ("pattern", pattern)] {
         let mut nps = Vec::new();
