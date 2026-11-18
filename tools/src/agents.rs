@@ -1,5 +1,5 @@
 use crate::baselines::{PHASE2_DEPTH, classic_config, phase2_config};
-use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
+use othello::agents::{Agent, SearchAgent, greedy_agent, random_agent, search_agent};
 use othello::search::{NO_DEADLINE, ProbCut, SearchConfig, SearchLimits};
 
 fn unknown(name: &str) -> String {
@@ -97,6 +97,13 @@ pub fn config(
     };
     let config = SearchConfig { ordering, ..base };
     Ok((config, limits))
+}
+
+/// The search agent for a search kind's name: a `clock_agent` when the name
+/// has a `c<ms>` field.
+pub fn search(name: &str, nodes: u64, ordering: bool) -> Result<SearchAgent, String> {
+    let (config, limits) = config(name, nodes, ordering)?;
+    Ok(search_agent(config, limits))
 }
 
 pub fn build(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<dyn Agent>, String> {
