@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use othello::agents::Agent;
-use othello::board::{Board, final_score, legal_moves, pass, play};
+use othello::board::{Board, disc_count, final_score, legal_moves, pass, play};
 use othello::score::terminal_score;
 
 pub type Factory = dyn Fn() -> Box<dyn Agent>;
@@ -20,38 +20,35 @@ pub fn play_game(
     black: &mut dyn Agent,
     white: &mut dyn Agent,
 ) -> Result<GameResult, String> {
-    let mut board = Board::START;
-    let mut black_to_move = true;
-    for &square in opening {
-        if !contains(legal_moves(board.me, board.opp), square) {
-            return Err("illegal opening move".into());
-        }
-        board = play(board, square);
-        black_to_move = !black_to_move;
-    }
-    let mut result = play_from(board, black_to_move, black, white)?;
-    result.plies += opening.len() as u32;
-    Ok(result)
+    let real = &mut |start: Instant| start.elapsed();
+    Ok(play_clocked(opening, black, white, [None, None], real)?.result)
 }
 
 pub fn play_from(
     board: Board,
-    mut black_to_move: bool,
+    black_to_move: bool,
     black: &mut dyn Agent,
     white: &mut dyn Agent,
 ) -> Result<GameResult, String> {
-    let mut board = board;
-    let (mut plies, mut passes) = (0, 0);
-    loop {
+    let real = &mut |start: Instant| start.elapsed();
+    Ok(clocked_from(board, black_to_move, [black, white], [None, None], real)?.result)
+}
+
+/// The game from `board` under `clocks`, indexed black then white.
+fn clocked_from(
+    mut board: Board,
+    mut black_to_move: bool,
+    agents: [&mut dyn Agent; 2],
+    clocks: [Option<Duration>; 2],
+    elapsed: &mut dyn FnMut(Instant) -> Duration,
+) -> Result<Clocked, String> {
+    let [black, white] = agents;
+    let (mut plies, mut passes, mut used) = (0, 0, [Duration::ZERO; 2]);
+    let (value, flag) = loop {
         let moves = legal_moves(board.me, board.opp);
         if moves == 0 {
             if legal_moves(board.opp, board.me) == 0 {
-                let value = terminal_score(final_score(board));
-                return Ok(GameResult {
-                    score: if black_to_move { value } else { -value },
-                    plies,
-                    passes,
-                });
+                break (terminal_score(final_score(board)), None);
             }
             board = pass(board);
             black_to_move = !black_to_move;
@@ -59,21 +56,40 @@ pub fn play_from(
             passes += 1;
             continue;
         }
+        let side = usize::from(!black_to_move);
         let agent: &mut dyn Agent = if black_to_move {
             &mut *black
         } else {
             &mut *white
         };
-        let square = agent
-            .choose(board)
-            .ok_or("agent returned None with legal moves")?;
+        if let Some(limit) = clocks[side] {
+            agent.clock(limit.saturating_sub(used[side]).as_millis() as u64);
+        }
+        let start = Instant::now();
+        let square = agent.choose(board);
+        used[side] += elapsed(start);
+        if clocks[side].is_some_and(|limit| used[side] > limit) {
+            // The flagging move is not played; the score is the stopped lead.
+            let lead = disc_count(board.me) as i32 - disc_count(board.opp) as i32;
+            break (terminal_score(lead), Some(side));
+        }
+        let square = square.ok_or("agent returned None with legal moves")?;
         if !contains(moves, square) {
             return Err(format!("illegal move: {square}"));
         }
         board = play(board, square);
         black_to_move = !black_to_move;
         plies += 1;
-    }
+    };
+    Ok(Clocked {
+        result: GameResult {
+            score: if black_to_move { value } else { -value },
+            plies,
+            passes,
+        },
+        used,
+        flag,
+    })
 }
 
 fn contains(moves: u64, square: u8) -> bool {
@@ -144,22 +160,31 @@ pub struct Clocked {
 
 /// Black's points: a flag loses whatever the discs.
 pub fn clocked_points(game: &Clocked) -> f64 {
-    points(game.result.score)
+    match game.flag {
+        Some(side) => side as f64,
+        None => points(game.result.score),
+    }
 }
 
 /// Plays a game, charging each `choose` call `elapsed(start of call)`.
 /// A side with a clock receives `Agent::clock` before each move and flags
-/// once its charged time exceeds the clock.
+/// once its charged time exceeds the clock; its last move is not played.
 pub fn play_clocked(
     opening: &[u8],
     black: &mut dyn Agent,
     white: &mut dyn Agent,
-    _clocks: [Option<Duration>; 2],
-    _elapsed: &mut dyn FnMut(Instant) -> Duration,
+    clocks: [Option<Duration>; 2],
+    elapsed: &mut dyn FnMut(Instant) -> Duration,
 ) -> Result<Clocked, String> {
-    Ok(Clocked {
-        result: play_game(opening, black, white)?,
-        used: [Duration::ZERO; 2],
-        flag: None,
-    })
+    let mut board = Board::START;
+    for &square in opening {
+        if !contains(legal_moves(board.me, board.opp), square) {
+            return Err("illegal opening move".into());
+        }
+        board = play(board, square);
+    }
+    let black_to_move = opening.len().is_multiple_of(2);
+    let mut game = clocked_from(board, black_to_move, [black, white], clocks, elapsed)?;
+    game.result.plies += opening.len() as u32;
+    Ok(game)
 }

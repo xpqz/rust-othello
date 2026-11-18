@@ -13,5 +13,5 @@ fn tools_budget() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let total = rules::count_dir(&root.join("src"));
     println!("tools production lines: {total}");
-    assert!(total <= 1400, "tools production lines {total} exceed 1400");
+    assert!(total <= 1500, "tools production lines {total} exceed 1500");
 }

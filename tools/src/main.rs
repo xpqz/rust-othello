@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 
 use othello::rng::Rng;
 use othello::search::{NO_DEADLINE, SearchConfig};
-use othello_tools::agents::{build, effective, parse_name};
-use othello_tools::harness::{GameLog, play_game, points};
+use othello_tools::agents::{build, clock, config, effective, parse_name};
+use othello_tools::harness::{GameLog, clocked_points, play_clocked};
 use othello_tools::journal::{Journal, Record, mismatch};
 use othello_tools::positions::{self, Opening};
 use othello_tools::provenance::{file_hash, git_commit};
@@ -80,13 +80,20 @@ fn get<T: FromStr>(line: &str, key: &str) -> Result<T, String> {
 
 fn control(a: &str, b: &str, nodes: u64) -> Result<&'static str, String> {
     let timed = |name: &str| parse_name(name).map(|(_, _, time)| time.is_some());
-    if nodes > 0 {
+    if clock(a)?.is_some() || clock(b)?.is_some() {
+        Ok("clock")
+    } else if nodes > 0 {
         Ok("nodes")
     } else if timed(a)? || timed(b)? {
         Ok("time")
     } else {
         Ok("depth")
     }
+}
+
+/// The load as journalled, to three decimals: every decision uses this value.
+fn rounded(load: f64) -> f64 {
+    (load * 1000.0).round() / 1000.0
 }
 
 fn load_average() -> f64 {
@@ -112,10 +119,13 @@ fn load_average() -> f64 {
         .unwrap_or(0.0)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 struct Saved {
     points: f64,
     load: f64,
+    /// Charged ms for black and white, and the side that flagged.
+    ms: [u64; 2],
+    flag: Option<usize>,
 }
 
 fn parse_saved(id: &str, line: &str) -> Result<(usize, u64, Saved), String> {
@@ -136,12 +146,19 @@ fn parse_saved(id: &str, line: &str) -> Result<(usize, u64, Saved), String> {
                 .ok_or("missing load")?
                 .parse()
                 .map_err(|_| "invalid load")?,
+            ms: [
+                get(tail, "black_ms").unwrap_or(0),
+                get(tail, "white_ms").unwrap_or(0),
+            ],
+            flag: ["black", "white"]
+                .iter()
+                .position(|side| field(tail, "flag") == Some(side)),
         },
     ))
 }
 
 fn void(saved: Saved, control: &str, max_load: f64) -> bool {
-    control == "time" && saved.load > max_load
+    matches!(control, "time" | "clock") && saved.load > max_load
 }
 
 struct Outcome {
@@ -165,6 +182,9 @@ struct Run {
     out: Option<String>,
     first: usize,
     past: usize,
+    /// `OTHELLO_TOOLS_ELAPSED_MS`: a fixed charge per move in place of the
+    /// measured time, part of the journal's identity.
+    elapsed: Option<u64>,
 }
 
 impl Run {
@@ -207,11 +227,24 @@ impl Run {
         }
         let a = a.ok_or("missing --a")?;
         let b = b.ok_or("missing --b")?;
+        for name in [&a, &b] {
+            if !matches!(parse_name(name)?.0, "random" | "greedy") {
+                config(name, nodes, ordering)?;
+            }
+        }
+        let elapsed = match std::env::var("OTHELLO_TOOLS_ELAPSED_MS") {
+            Ok(text) => Some(
+                text.parse()
+                    .map_err(|_| "invalid OTHELLO_TOOLS_ELAPSED_MS")?,
+            ),
+            Err(_) => None,
+        };
         let max_load = match max_load {
             Some(value) => value,
-            None if control(&a, &b, nodes)? == "time" => jobs as f64 + 2.0,
+            None if matches!(control(&a, &b, nodes)?, "time" | "clock") => jobs as f64 + 2.0,
             None => jobs as f64,
         };
+        let max_load = rounded(max_load);
         if max_load <= 0.0 {
             return Err("max-load must be positive".into());
         }
@@ -228,10 +261,14 @@ impl Run {
             out,
             first,
             past,
+            elapsed,
         })
     }
 
     fn header(&self) -> Result<String, String> {
+        let elapsed = self
+            .elapsed
+            .map_or(String::new(), |ms| format!(" elapsed {ms}"));
         Ok(format!(
             "header v1 a {} b {} pairs {} seed {} nodes {} ordering {} control {} max_load {:.3} openings {} hash {:016x} engine {}",
             self.a,
@@ -245,7 +282,7 @@ impl Run {
             self.openings,
             file_hash(&self.openings)?,
             git_commit()
-        ))
+        ) + &elapsed)
     }
 
     fn play(
@@ -255,7 +292,7 @@ impl Run {
         journal: Option<&Mutex<Journal>>,
     ) -> Result<Outcome, String> {
         let mut points_a = [0.0; 2];
-        let mut logs = Vec::new();
+        let (mut logs, mut clock_fields) = (Vec::new(), Vec::new());
         for game in 0..2u64 {
             let seeds = (
                 stream(self.seed, pair, game, 0),
@@ -268,12 +305,27 @@ impl Run {
             };
             let mut black_agent = build(black, seeds.0, self.nodes, self.ordering)?;
             let mut white_agent = build(white, seeds.1, self.nodes, self.ordering)?;
-            let result = play_game(&opening.squares, &mut *black_agent, &mut *white_agent)?;
+            let clocks = [clock(black)?, clock(white)?].map(|c| c.map(Duration::from_millis));
+            let fixed = self.elapsed.map(Duration::from_millis);
+            let mut elapsed = |start: Instant| fixed.unwrap_or_else(|| start.elapsed());
+            let game_result = play_clocked(
+                &opening.squares,
+                &mut *black_agent,
+                &mut *white_agent,
+                clocks,
+                &mut elapsed,
+            )?;
+            let result = game_result.result;
+            let black_points = clocked_points(&game_result);
             points_a[game as usize] = if game == 0 {
-                points(result.score)
+                black_points
             } else {
-                1.0 - points(result.score)
+                1.0 - black_points
             };
+            let flag = game_result
+                .flag
+                .map_or("none", |side| ["black", "white"][side]);
+            let [black_ms, white_ms] = game_result.used.map(|used| used.as_millis());
             let line = GameLog {
                 run: self.seed,
                 pair,
@@ -287,14 +339,21 @@ impl Run {
             }
             .line();
             logs.push((game, line));
+            // Real-time controls only: depth and node runs stay reproducible.
+            let timed = matches!(control(&self.a, &self.b, self.nodes)?, "time" | "clock");
+            clock_fields.push(if timed {
+                format!(" black_ms {black_ms} white_ms {white_ms} flag {flag}")
+            } else {
+                String::new()
+            });
         }
-        let load = load_average();
+        let load = rounded(load_average());
         if let Some(journal) = journal {
             let mut journal = journal.lock().unwrap();
             for (game, line) in &logs {
                 let payload = format!(
-                    "{line} points {:.4} load {load:.3} jobs {}",
-                    points_a[*game as usize], self.jobs
+                    "{line} points {:.4} load {load:.3} jobs {}{}",
+                    points_a[*game as usize], self.jobs, clock_fields[*game as usize]
                 );
                 journal.append(&format!("{pair}:{game}"), &payload)?;
             }
@@ -432,17 +491,25 @@ fn match_command(args: &[String]) -> Result<(), String> {
     let mut outcomes = Vec::new();
     for pass in 0.. {
         // Missing and half-played pairs count as void too: nothing valid to keep.
-        let void: Vec<usize> = (run.first..run.past)
+        let voided: Vec<usize> = (run.first..run.past)
             .filter(|&pair| pair_points(&saved, pair, ctrl, run.max_load).is_none())
             .collect();
-        saved.retain(|(pair, _), _| !void.contains(pair));
-        let discard: BTreeSet<String> = (void.iter())
+        for pair in &voided {
+            if let Some(over) = saved
+                .get(&(*pair, 0))
+                .filter(|s| void(**s, ctrl, run.max_load))
+            {
+                eprintln!("void pair {pair} load {:.3}", over.load);
+            }
+        }
+        saved.retain(|(pair, _), _| !voided.contains(pair));
+        let discard: BTreeSet<String> = (voided.iter())
             .flat_map(|pair| [format!("{pair}:0"), format!("{pair}:1")])
             .collect();
         if let Some(journal) = &journal {
             journal.lock().unwrap().discard(&discard)?;
         }
-        outcomes.retain(|outcome: &Outcome| !void.contains(&outcome.pair));
+        outcomes.retain(|outcome: &Outcome| !voided.contains(&outcome.pair));
         let queued: Vec<usize> = (run.first..run.past)
             .filter(|&pair| !saved.contains_key(&(pair, 0)))
             .collect();
@@ -455,7 +522,12 @@ fn match_command(args: &[String]) -> Result<(), String> {
         for outcome in run.run(&queued, &openings, journal.as_ref())? {
             for (game, &points) in (0..).zip(&outcome.points) {
                 let load = outcome.load;
-                saved.insert((outcome.pair, game), Saved { points, load });
+                let fresh = Saved {
+                    points,
+                    load,
+                    ..Saved::default()
+                };
+                saved.insert((outcome.pair, game), fresh);
             }
             outcomes.push(outcome);
         }
@@ -531,15 +603,25 @@ fn report_command(args: &[String]) -> Result<(), String> {
     let ctrl = field(&header, "control").ok_or("missing control")?;
     let mut game_points = Vec::new();
     let mut missing = Vec::new();
+    // Per agent (a, b): charged ms and flags; a plays black in game 0.
+    let (mut ms, mut flags) = ([0u64; 2], [0usize; 2]);
     for pair in 0..pairs {
-        let valid = records
-            .get(&(pair, 0))
-            .zip(records.get(&(pair, 1)))
-            .and_then(|((_, left), (_, right))| {
-                (!void(*left, ctrl, max_load) && !void(*right, ctrl, max_load))
-                    .then_some((left.points, right.points))
-            });
-        valid.map_or_else(|| missing.push(pair), |points| game_points.push(points));
+        let valid = records.get(&(pair, 0)).zip(records.get(&(pair, 1))).filter(
+            |((_, left), (_, right))| !void(*left, ctrl, max_load) && !void(*right, ctrl, max_load),
+        );
+        let Some(((_, left), (_, right))) = valid else {
+            missing.push(pair);
+            continue;
+        };
+        game_points.push((left.points, right.points));
+        for (game, saved) in [left, right].into_iter().enumerate() {
+            for (side, charged) in saved.ms.into_iter().enumerate() {
+                ms[side ^ game] += charged;
+            }
+            if let Some(side) = saved.flag {
+                flags[side ^ game] += 1;
+            }
+        }
     }
     if !missing.is_empty() {
         if !partial {
@@ -553,6 +635,17 @@ fn report_command(args: &[String]) -> Result<(), String> {
         get(&header, "nodes")?,
         true,
     );
+    let games = (2 * game_points.len()).max(1) as u64;
+    let timed = matches!(ctrl, "time" | "clock");
+    timed.then(|| {
+        println!(
+            "time a {} b {} flags a {} b {}",
+            ms[0] / games,
+            ms[1] / games,
+            flags[0],
+            flags[1]
+        )
+    });
     println!("{header}");
     Ok(())
 }

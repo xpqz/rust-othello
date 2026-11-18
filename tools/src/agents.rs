@@ -1,18 +1,38 @@
 use crate::baselines::{PHASE2_DEPTH, classic_config, phase2_config};
-use othello::agents::{Agent, SearchAgent, greedy_agent, random_agent, search_agent};
-use othello::search::{NO_DEADLINE, ProbCut, SearchConfig, SearchLimits};
+use othello::agents::{Agent, SearchAgent, clock_agent, greedy_agent, random_agent, search_agent};
+use othello::search::{MAX_CLOCK_MS, NO_DEADLINE, ProbCut, SearchConfig, SearchLimits};
 
 fn unknown(name: &str) -> String {
     format!("unknown agent: {name}")
 }
 
+/// The name without an optional `+book` suffix, and whether it had one.
+fn book(name: &str) -> (&str, bool) {
+    name.strip_suffix("+book")
+        .map_or((name, false), |base| (base, true))
+}
+
+/// A time field: per-move ms, or `c<ms>`, a game clock in 1..=`MAX_CLOCK_MS`.
+fn time_field(name: &str, text: &str) -> Result<u64, String> {
+    match text.strip_prefix('c') {
+        Some(clock) => clock
+            .parse()
+            .ok()
+            .filter(|ms| (1..=MAX_CLOCK_MS).contains(ms))
+            .ok_or_else(|| unknown(name)),
+        None => text.parse().map_err(|_| unknown(name)),
+    }
+}
+
 pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
-    let mut parts = name.split(':');
+    let (base, book) = book(name);
+    let mut parts = base.split(':');
     let kind = parts.next().unwrap();
-    let time = |parts: &mut std::str::Split<char>| match parts.next() {
-        None => Ok(None),
-        Some(text) => text.parse().map(Some).map_err(|_| unknown(name)),
-    };
+    if book && matches!(kind, "random" | "greedy") {
+        return Err(unknown(name));
+    }
+    let time =
+        |parts: &mut std::str::Split<char>| parts.next().map(|t| time_field(name, t)).transpose();
     let (depth, time) = match kind {
         "random" | "greedy" => (0, None),
         "phase2" => (PHASE2_DEPTH, time(&mut parts)?),
@@ -26,7 +46,7 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
                         return Err(unknown(name));
                     }
                 } else {
-                    time = Some(field.parse().map_err(|_| unknown(name))?);
+                    time = Some(time_field(name, field)?);
                 }
             }
             (depth, time)
@@ -58,8 +78,10 @@ pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
 }
 
 /// The game clock in ms of a `c<ms>` time field, if the name has one.
-pub fn clock(_name: &str) -> Result<Option<u64>, String> {
-    Ok(None)
+pub fn clock(name: &str) -> Result<Option<u64>, String> {
+    parse_name(name)?;
+    let field = book(name).0.split(':').skip(1).last();
+    Ok(field.and_then(|f| f.strip_prefix('c')?.parse().ok()))
 }
 
 pub fn effective(depth: u32, time: Option<u64>, nodes: u64) -> Result<(u32, u64), String> {
@@ -81,7 +103,7 @@ pub fn config(
     let (depth, time) = effective(depth, time, nodes)?;
     let limits = SearchLimits::new(depth, time, nodes);
     // `pc:<t>`: the fitted model with margin `t`; `pc:off`: none.
-    let margin = name.split(':').nth(1).and_then(|t| t.parse().ok());
+    let margin = book(name).0.split(':').nth(1).and_then(|t| t.parse().ok());
     let base = match kind {
         "phase2" => phase2_config(),
         "classic" => classic_config(),
@@ -95,7 +117,11 @@ pub fn config(
         },
         _ => SearchConfig::standard(),
     };
-    let config = SearchConfig { ordering, ..base };
+    let config = SearchConfig {
+        ordering,
+        book: book(name).1,
+        ..base
+    };
     Ok((config, limits))
 }
 
@@ -103,7 +129,10 @@ pub fn config(
 /// has a `c<ms>` field.
 pub fn search(name: &str, nodes: u64, ordering: bool) -> Result<SearchAgent, String> {
     let (config, limits) = config(name, nodes, ordering)?;
-    Ok(search_agent(config, limits))
+    Ok(match clock(name)? {
+        Some(_) => clock_agent(config, limits),
+        None => search_agent(config, limits),
+    })
 }
 
 pub fn build(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<dyn Agent>, String> {
@@ -111,9 +140,6 @@ pub fn build(name: &str, seed: u64, nodes: u64, ordering: bool) -> Result<Box<dy
     match kind {
         "random" => Ok(Box::new(random_agent(seed))),
         "greedy" => Ok(Box::new(greedy_agent())),
-        _ => {
-            let (config, limits) = config(name, nodes, ordering)?;
-            Ok(Box::new(search_agent(config, limits)))
-        }
+        _ => Ok(Box::new(search(name, nodes, ordering)?)),
     }
 }
