@@ -35,7 +35,7 @@ for side in a b; do
         --config 'profile.release.opt-level=3' --config 'profile.release.lto="fat"' \
         --config 'profile.release.codegen-units=1' --config 'profile.release.debug=false' \
         2>"$OUT/build-$side.log"
-    cp "$src/tools/target/release/examples/engine_worker" "$OUT/worker-$side"
+    cp "${CARGO_TARGET_DIR:-$src/tools/target}/release/examples/engine_worker" "$OUT/worker-$side"
     {
         echo "$side commit $commit"
         echo "$side worker_sha256 $(shasum -a 256 "$OUT/worker-$side" | cut -d' ' -f1)"

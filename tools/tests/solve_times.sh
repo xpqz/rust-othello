@@ -9,7 +9,7 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/othello-solve-times.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 cd "$ROOT"
 cargo build --quiet --release --example solve_times --manifest-path tools/Cargo.toml
-BIN="$ROOT/tools/target/release/examples/solve_times"
+BIN="${CARGO_TARGET_DIR:-$ROOT/tools/target}/release/examples/solve_times"
 ARGS="--empties 12,14 --budget 2000 --previous 20 --progress 1"
 
 ids() { grep -v '^header' "$1" | cut -f1 | sort; }
@@ -59,7 +59,7 @@ cmp -s "$TMP/kill.journal" "$TMP/copy.journal" || { echo "rejected run changed t
 
 # A journal from a different build of the same commit is refused, untouched.
 cargo build --quiet --example solve_times --manifest-path tools/Cargo.toml
-if "$ROOT/tools/target/debug/examples/solve_times" --out "$TMP/kill.journal" $ARGS >"$TMP/debug.out" 2>"$TMP/debug.err"; then
+if "${CARGO_TARGET_DIR:-$ROOT/tools/target}/debug/examples/solve_times" --out "$TMP/kill.journal" $ARGS >"$TMP/debug.out" 2>"$TMP/debug.err"; then
     echo "journal accepted a different executable" >&2; exit 1
 fi
 grep -q 'journal header mismatch' "$TMP/debug.err" || { echo "no header mismatch for a different executable" >&2; exit 1; }

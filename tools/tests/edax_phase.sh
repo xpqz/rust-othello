@@ -18,7 +18,7 @@ trap 'pkill -9 -f "$EDAX" 2>/dev/null || true; rm -rf "$TMP"' EXIT
 cd "$ROOT"
 cargo build --quiet --release --example edax_ladder --example edax_phase \
     --manifest-path tools/Cargo.toml
-BIN=tools/target/release/examples
+BIN="${CARGO_TARGET_DIR:-tools/target}"/release/examples
 
 records() {
     if [ -f "$1" ]; then awk 'NR > 1' "$1" | wc -l | tr -d ' '; else echo 0; fi

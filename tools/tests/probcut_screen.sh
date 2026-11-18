@@ -5,7 +5,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
 cargo build --quiet --release --example probcut_screen --manifest-path tools/Cargo.toml
-BIN="$ROOT/tools/target/release/examples/probcut_screen"
+BIN="${CARGO_TARGET_DIR:-$ROOT/tools/target}/release/examples/probcut_screen"
 reject() {
     if "$BIN" "$@" >/dev/null 2>&1; then
         echo "accepted: $*" >&2

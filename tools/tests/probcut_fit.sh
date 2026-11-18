@@ -12,7 +12,7 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/othello-probcut-fit.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 cd "$ROOT"
 cargo build --quiet --release --example probcut_fit --manifest-path tools/Cargo.toml
-BIN="$ROOT/tools/target/release/examples/probcut_fit"
+BIN="${CARGO_TARGET_DIR:-$ROOT/tools/target}/release/examples/probcut_fit"
 ARGS="--depth 6 --deep-depth 7 --deep-every 4 --jobs 3 --seed 7"
 
 # Records without the timing field, sorted by unit id.

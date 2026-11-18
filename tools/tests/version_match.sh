@@ -9,10 +9,10 @@ cd "$ROOT"
 cargo build --quiet --release --example engine_worker --example version_match \
     --manifest-path tools/Cargo.toml
 # Private copies, so only this test's workers match.
-cp tools/target/release/examples/engine_worker "$TMP/worker-test-a"
-cp tools/target/release/examples/engine_worker "$TMP/worker-test-b"
+cp "${CARGO_TARGET_DIR:-tools/target}"/release/examples/engine_worker "$TMP/worker-test-a"
+cp "${CARGO_TARGET_DIR:-tools/target}"/release/examples/engine_worker "$TMP/worker-test-b"
 trap 'pkill -9 -f "$TMP/worker-test-" 2>/dev/null || true; rm -rf "$TMP"' EXIT
-DRIVER=tools/target/release/examples/version_match
+DRIVER="${CARGO_TARGET_DIR:-tools/target}"/release/examples/version_match
 
 records() {
     if [ -f "$1" ]; then awk 'NR > 1' "$1" | wc -l | tr -d ' '; else echo 0; fi

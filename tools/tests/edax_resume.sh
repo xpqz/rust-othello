@@ -50,7 +50,7 @@ echo "resume check passed: $first"
 KILL_EDAX="$TMP/mEdax-native"
 cp "$EDAX_BIN" "$KILL_EDAX"
 KILL_CWD=$(dirname "$EDAX_BIN")
-BIN="$ROOT/tools/target/release/examples/edax_ladder"
+BIN="${CARGO_TARGET_DIR:-$ROOT/tools/target}/release/examples/edax_ladder"
 cargo build --quiet --release --example edax_ladder --manifest-path tools/Cargo.toml
 
 kill_run() {
