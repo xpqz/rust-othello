@@ -781,11 +781,49 @@ fn variant_grammar() {
         "pc:80:3000v1",
         "pc:80:cv1",
     ] {
-        assert!(
-            parse_name(bad).is_err() || policy(bad).is_err(),
-            "{bad} accepted"
-        );
+        assert!(parse_name(bad).is_err(), "parse_name accepted {bad}");
+        assert!(clock(bad).is_err(), "clock accepted {bad}");
+        assert!(policy(bad).is_err(), "policy accepted {bad}");
+        assert!(config(bad, 0, true).is_err(), "config accepted {bad}");
     }
+}
+
+/// The variant grammar through the binary, with no game played: a valid
+/// variant is clock control, and bad variants, clock bounds and `--nodes`
+/// are refused before any game.
+#[test]
+fn variant_cli_boundary() {
+    let path = temp("variant");
+    let accepted = |name: &str| {
+        let done = run(
+            "0",
+            Some("1"),
+            &match_args(name, "greedy", 0, &path, "1000"),
+        );
+        let ok = done.status.success();
+        let header = ok.then(|| header(&path));
+        let _ = fs::remove_file(&path);
+        (ok, header)
+    };
+    for name in ["ab:2:c100v2".to_string(), format!("ab:2:c{MAX_CLOCK_MS}v3")] {
+        let (ok, header) = accepted(&name);
+        assert!(ok, "{name} refused");
+        assert_eq!(value(&header.unwrap(), "control"), "clock", "{name}");
+    }
+    for name in [
+        "ab:2:c100v4".to_string(),
+        "ab:2:c0v1".to_string(),
+        format!("ab:2:c{}v1", MAX_CLOCK_MS + 1),
+        "ab:2:c100v".to_string(),
+    ] {
+        assert!(!accepted(&name).0, "{name} accepted");
+    }
+    let mut nodes = match_args("ab:2:c100v2", "greedy", 0, &path, "1000");
+    nodes.extend(["--nodes".into(), "2000".into()]);
+    assert!(
+        !run("0", Some("1"), &nodes).status.success(),
+        "variant with --nodes"
+    );
 }
 
 /// The agent built from a variant name allocates under that variant.
