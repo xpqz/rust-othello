@@ -1,6 +1,6 @@
 use crate::board::{Board, legal_moves, play, squares};
 use crate::rng::Rng;
-use crate::search::{SearchConfig, SearchLimits};
+use crate::search::{SearchConfig, SearchLimits, allot};
 use crate::tt::{MAX_ENTRIES, Table};
 
 pub trait Agent {
@@ -45,32 +45,43 @@ pub fn greedy_agent() -> GreedyAgent {
     GreedyAgent
 }
 
-pub struct SearchAgent(SearchConfig, SearchLimits, Table);
+/// Configuration, fixed limits, table, whether it follows a game clock, and
+/// the remaining clock once given.
+pub struct SearchAgent(SearchConfig, SearchLimits, Table, bool, Option<u64>);
 
 impl Agent for SearchAgent {
     fn choose(&mut self, board: Board) -> Option<u8> {
         (legal_moves(board.me, board.opp) != 0)
-            .then(|| crate::book::play(board, self.1, &self.0, &mut self.2).best)
+            .then(|| crate::book::play(board, self.limits(board), &self.0, &mut self.2).best)
     }
 
     fn reset(&mut self) {
         self.2.clear();
     }
+
+    fn clock(&mut self, remaining_ms: u64) {
+        if self.3 {
+            self.4 = Some(remaining_ms);
+        }
+    }
 }
 
 impl SearchAgent {
     /// The limits the next `choose` on `board` would use.
-    pub fn limits(&self, _board: Board) -> SearchLimits {
-        self.1
+    pub fn limits(&self, board: Board) -> SearchLimits {
+        match self.4 {
+            Some(remaining) => allot(board, remaining, self.0.endgame_threshold),
+            None => self.1,
+        }
     }
 }
 
 pub fn search_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
-    SearchAgent(config, limits, Table::new(MAX_ENTRIES))
+    SearchAgent(config, limits, Table::new(MAX_ENTRIES), false, None)
 }
 
 /// A search agent that allocates from the game clock once `clock` is called,
 /// and uses `limits` until then.
 pub fn clock_agent(config: SearchConfig, limits: SearchLimits) -> SearchAgent {
-    search_agent(config, limits)
+    SearchAgent(config, limits, Table::new(MAX_ENTRIES), true, None)
 }

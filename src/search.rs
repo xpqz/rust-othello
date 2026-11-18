@@ -181,8 +181,28 @@ pub const MAX_CLOCK_MS: u64 = 1 << 40;
 
 /// Limits for one move from `remaining_ms` on the game clock
 /// (`docs/design/time.md` § Allocation).
-pub fn allot(_board: Board, remaining_ms: u64, _threshold: u32) -> SearchLimits {
-    SearchLimits::new(64, remaining_ms, 0)
+pub fn allot(board: Board, remaining_ms: u64, threshold: u32) -> SearchLimits {
+    let r = remaining_ms.min(MAX_CLOCK_MS);
+    let empties = empty_count(board);
+    // Target `t` and in-search cap; the exact solve takes 4 × its cap.
+    let (t, cap) = if empties <= threshold {
+        (r / 8, r / 8)
+    } else {
+        let moves = u64::from((empties - threshold).div_ceil(2)) + 4;
+        let t = if empties <= 44 {
+            3 * r / (2 * moves)
+        } else {
+            r / moves
+        };
+        (t, (2 * t).min(r / 4))
+    };
+    let time_ms = cap.max(1);
+    SearchLimits {
+        max_depth: 64,
+        time_ms,
+        max_nodes: 0,
+        start_ms: t.min(time_ms).max(1),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -260,8 +280,10 @@ impl<'a> Ctx<'a> {
             || (self.nodes & 1023 == 0 && self.expired())
     }
 
-    fn stop_iteration(&self) -> bool {
-        (self.max_nodes > 0 && self.nodes > self.max_nodes) || self.expired()
+    /// Before an iteration: the node limit, or the start cutoff `admit`.
+    fn stop_iteration(&self, admit: Option<Instant>) -> bool {
+        (self.max_nodes > 0 && self.nodes > self.max_nodes)
+            || admit.is_some_and(|admit| Instant::now() >= admit)
     }
 }
 
@@ -564,6 +586,7 @@ fn search_inner(
 ) -> SearchResult {
     let start = Instant::now();
     let deadline = start.checked_add(Duration::from_millis(limits.time_ms));
+    let admit = start.checked_add(Duration::from_millis(limits.start_ms));
     let (moves, fallback, fallback_result) = root_setup(board, config);
     if empty_count(board) <= config.endgame_threshold {
         let allowance = limits.time_ms.saturating_mul(SOLVE_ALLOWANCE);
@@ -612,7 +635,7 @@ fn search_inner(
             table: table.as_deref_mut(),
             ..Ctx::new(config)
         };
-        if ctx.stop_iteration() {
+        if ctx.stop_iteration(admit) {
             break;
         }
         let Some((square, score)) = root(board, moves, depth, best, -INF, INF, &mut ctx) else {
