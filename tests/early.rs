@@ -84,7 +84,7 @@ fn stops_stable() {
 #[test]
 fn stops_decided() {
     let rule = early(0, 2000, 0);
-    for score in [2000, -2000, 6400, -6400] {
+    for score in [2000, -2000, 6400, -6400, i32::MIN, i32::MAX] {
         assert!(stops(NONE, 1000, &rule, &[(5, 0), (6, score)]), "{score}");
     }
     for score in [1999, -1999, 0] {
@@ -315,4 +315,56 @@ fn variant_limits() {
         (2000, 2000),
         "exact branch unchanged"
     );
+}
+
+/// Stable and decided together (variants 2 and 3): either one settles.
+#[test]
+fn stops_both() {
+    let rule = early(3, 2000, 25);
+    let unstable_decided = [(5, 0), (6, 0), (7, 2500)];
+    let stable_open = [(5, 0), (5, 0), (5, 100)];
+    let neither = [(5, 0), (6, 0), (7, 100)];
+    let (before, at) = (
+        Duration::from_nanos(249_999_999),
+        Duration::from_millis(250),
+    );
+    assert!(stops(at, 1000, &rule, &unstable_decided));
+    assert!(stops(at, 1000, &rule, &stable_open));
+    assert!(!stops(at, 1000, &rule, &neither));
+    assert!(!stops(before, 1000, &rule, &unstable_decided));
+    assert!(!stops(before, 1000, &rule, &stable_open));
+}
+
+/// Variant 3's cap 3 against cap 2: e 44, T 18, R 34 s gives a target of
+/// 4,000 ms and a deadline of 8,500 ms (cap 2 would give 8,000).
+#[test]
+fn variant_cap() {
+    let got = allot_with(line(44), 34_000, T, ClockPolicy::variant(3).unwrap());
+    assert_eq!((got.start_ms, got.time_ms), (4000, 8500));
+}
+
+/// A clocked agent exposes its fixed limits until the first clock, then
+/// its own variant's allocation and exits.
+#[test]
+fn agent_variant_limits() {
+    let board = line(44);
+    let fixed = SearchLimits::new(64, 1234, 0);
+    let mut agent = clock_agent(
+        SearchConfig::standard(),
+        fixed,
+        ClockPolicy::variant(3).unwrap(),
+    );
+    let before = agent.limits(board);
+    assert_eq!(
+        (before.time_ms, before.start_ms, before.early),
+        (1234, 1234, Early::OFF)
+    );
+    agent.clock(34_000);
+    let got = agent.limits(board);
+    assert_eq!(
+        (got.start_ms, got.time_ms, got.early),
+        (4000, 8500, early(3, 2000, 25))
+    );
+    let zero = allot(board, 34_000, T);
+    assert_ne!((zero.start_ms, zero.time_ms), (got.start_ms, got.time_ms));
 }
