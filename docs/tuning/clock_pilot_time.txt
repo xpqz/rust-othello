@@ -1,0 +1,10 @@
+a pc:80:3000
+b pc:80:3000
+pairs 50 games 100
+total_ms a 5113394 b 5113437
+mean_ms_per_game a 51133.9 b 51134.4
+max_ms_per_game a 57000 b 57000
+equal_time 20a <= 21b: ratio 1.0000 holds
+paired_diff_ms_per_pair a-b mean -0.9 interval [-50.2, 36.5] resamples 10000 seed 1
+flags a black 0 white 0 b black 0 white 0
+pilot C_ms 51000
