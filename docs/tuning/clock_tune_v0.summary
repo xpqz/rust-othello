@@ -1,0 +1,15 @@
+pairs 200 games 400 W 194 D 12 L 194 mean 0.5000 interval [0.4763, 0.5238] bootstrap elo [-16.52, 16.52]
+seed 1640 resamples 10000 evaluator-only nodes 0 ordering true
+time a 12678 b 13068 flags a 0 b 0
+header v1 a pc:80:c13000v0 b pc:80:750 pairs 200 seed 1640 nodes 0 ordering true control clock max_load 6.000 openings bench/openings_tune.txt hash a623dd7697598d6e engine ca3db5ce8d33660a4a47186131bcdb5e13aa8f0f
+
+a pc:80:c13000v0
+b pc:80:750
+pairs 200 games 400
+total_ms a 5071552 b 5227224
+mean_ms_per_game a 12678.9 b 13068.1
+max_ms_per_game a 12918 b 15665
+equal_time 20a <= 21b: ratio 0.9702 holds
+paired_diff_ms_per_pair a-b mean -778.4 interval [-842.1, -719.9] resamples 10000 seed 1
+flags a black 0 white 0 b black 0 white 0
+pilot C_ms 12000

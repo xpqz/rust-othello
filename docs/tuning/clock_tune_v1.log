@@ -1,0 +1,1241 @@
+# start 2026-11-19T10:59:02Z commit ca3db5ce8d33660a4a47186131bcdb5e13aa8f0f binary cb0c1101ce39ec8328ecc64af109da63c5ba629d2ab2fa87d516d0a537e494cc load { 4.45 5.05 6.56 }
+# command: othello-tools match --a pc:80:c13000v1 --b pc:80:750 --openings bench/openings_tune.txt --pairs 200 --seed 1641 --jobs 4 --max-load 6 --out docs/tuning/clock_tune_v1.journal
+pairs 0/200 queued, 4 jobs
+void pair 0 load 7.910
+void pair 1 load 7.600
+void pair 2 load 7.600
+void pair 3 load 7.910
+void pair 4 load 9.960
+void pair 5 load 9.960
+void pair 6 load 9.960
+void pair 7 load 9.960
+void pair 8 load 10.760
+void pair 9 load 10.760
+void pair 10 load 10.970
+void pair 11 load 10.760
+void pair 12 load 9.790
+void pair 13 load 11.640
+void pair 14 load 11.640
+void pair 15 load 9.440
+void pair 16 load 10.520
+void pair 17 load 9.520
+void pair 18 load 9.520
+void pair 19 load 9.520
+void pair 20 load 7.860
+void pair 21 load 7.640
+void pair 22 load 7.430
+void pair 23 load 7.430
+void pair 24 load 6.590
+void pair 25 load 6.720
+void pair 26 load 6.660
+void pair 27 load 6.610
+void pair 28 load 6.340
+void pair 29 load 6.360
+void pair 30 load 6.360
+void pair 31 load 6.660
+void pair 32 load 6.140
+void pair 33 load 6.120
+void pair 34 load 6.120
+void pair 40 load 7.560
+void pair 41 load 7.400
+void pair 42 load 7.520
+void pair 43 load 7.450
+void pair 44 load 19.200
+void pair 45 load 17.170
+void pair 46 load 17.170
+void pair 47 load 16.350
+void pair 48 load 12.590
+void pair 49 load 14.150
+void pair 50 load 14.150
+void pair 51 load 13.410
+void pair 52 load 12.870
+void pair 53 load 15.680
+void pair 54 load 15.680
+void pair 55 load 15.680
+void pair 56 load 12.530
+void pair 57 load 11.370
+void pair 58 load 11.370
+void pair 59 load 11.370
+void pair 60 load 11.200
+void pair 61 load 10.270
+void pair 62 load 10.470
+void pair 63 load 10.270
+void pair 64 load 8.970
+void pair 65 load 8.540
+void pair 66 load 8.540
+void pair 67 load 8.540
+void pair 68 load 8.050
+void pair 69 load 8.130
+void pair 70 load 8.040
+void pair 71 load 8.130
+void pair 72 load 7.460
+void pair 73 load 7.460
+void pair 74 load 7.460
+void pair 75 load 7.320
+void pair 76 load 8.190
+void pair 77 load 8.160
+void pair 78 load 8.070
+void pair 79 load 8.070
+void pair 80 load 7.510
+void pair 81 load 7.340
+void pair 82 load 7.560
+void pair 83 load 7.560
+void pair 84 load 7.790
+void pair 85 load 7.610
+void pair 86 load 7.440
+void pair 87 load 7.610
+void pair 88 load 7.510
+void pair 89 load 7.180
+void pair 90 load 7.250
+void pair 91 load 9.140
+void pair 92 load 10.330
+void pair 93 load 9.560
+void pair 94 load 9.560
+void pair 95 load 10.650
+void pair 96 load 10.640
+void pair 97 load 9.920
+void pair 98 load 9.920
+void pair 99 load 9.320
+void pair 100 load 8.940
+void pair 101 load 9.800
+void pair 102 load 9.410
+void pair 103 load 9.140
+void pair 104 load 8.590
+void pair 105 load 8.000
+void pair 106 load 8.000
+void pair 107 load 8.160
+void pair 108 load 7.600
+void pair 109 load 6.890
+void pair 110 load 6.660
+void pair 111 load 6.660
+void pair 112 load 6.230
+void pair 113 load 6.390
+void pair 114 load 6.200
+void pair 115 load 6.660
+void pair 116 load 6.430
+void pair 117 load 6.060
+void pair 119 load 6.270
+void pair 120 load 6.320
+void pair 125 load 6.050
+void pair 126 load 6.050
+void pair 169 load 6.190
+void pair 170 load 6.190
+void pair 171 load 6.190
+void pair 172 load 6.300
+pairs 0/121 queued, 4 jobs
+void pair 30 load 6.320
+void pair 31 load 6.220
+void pair 34 load 6.290
+void pair 40 load 6.290
+void pair 41 load 6.310
+void pair 42 load 6.610
+void pair 43 load 6.360
+void pair 44 load 6.360
+void pair 45 load 6.060
+void pair 47 load 6.380
+void pair 48 load 6.380
+void pair 49 load 8.790
+void pair 50 load 8.890
+void pair 51 load 8.900
+void pair 52 load 8.660
+void pair 53 load 8.370
+void pair 54 load 8.500
+void pair 55 load 8.460
+void pair 56 load 8.580
+void pair 57 load 10.190
+void pair 58 load 13.860
+void pair 59 load 13.860
+void pair 60 load 13.630
+void pair 61 load 11.260
+void pair 62 load 11.080
+void pair 63 load 11.470
+void pair 64 load 11.470
+void pair 65 load 10.660
+void pair 66 load 10.530
+void pair 67 load 10.880
+void pair 68 load 10.890
+void pair 69 load 11.690
+void pair 70 load 11.690
+void pair 71 load 11.720
+void pair 72 load 11.500
+void pair 73 load 10.810
+void pair 74 load 10.500
+void pair 75 load 10.500
+void pair 76 load 10.860
+void pair 77 load 10.090
+void pair 78 load 10.090
+void pair 79 load 10.090
+void pair 80 load 9.690
+void pair 81 load 8.320
+void pair 82 load 8.130
+void pair 83 load 8.130
+void pair 84 load 8.120
+void pair 85 load 13.780
+void pair 86 load 13.310
+void pair 87 load 13.780
+void pair 88 load 13.310
+void pair 89 load 9.730
+void pair 90 load 9.730
+void pair 91 load 9.510
+void pair 92 load 9.310
+void pair 93 load 10.610
+void pair 94 load 10.240
+void pair 95 load 10.540
+void pair 96 load 10.540
+void pair 97 load 10.190
+void pair 98 load 9.940
+void pair 99 load 10.020
+void pair 100 load 10.020
+void pair 101 load 10.070
+void pair 102 load 9.820
+void pair 103 load 9.820
+void pair 104 load 9.820
+void pair 105 load 9.470
+void pair 106 load 9.470
+void pair 107 load 9.470
+void pair 108 load 9.470
+void pair 109 load 17.650
+void pair 110 load 17.650
+void pair 111 load 17.650
+void pair 112 load 17.650
+void pair 113 load 14.880
+void pair 114 load 14.490
+void pair 115 load 14.490
+void pair 116 load 14.490
+void pair 117 load 13.200
+void pair 119 load 12.860
+void pair 120 load 12.860
+void pair 125 load 12.860
+void pair 126 load 16.470
+void pair 169 load 16.470
+void pair 170 load 16.510
+void pair 171 load 16.510
+void pair 172 load 12.920
+pairs 0/88 queued, 4 jobs
+void pair 30 load 18.710
+void pair 31 load 18.710
+void pair 34 load 18.710
+void pair 40 load 18.710
+void pair 41 load 16.040
+void pair 42 load 16.040
+void pair 43 load 16.040
+void pair 44 load 15.800
+void pair 45 load 13.180
+void pair 47 load 13.540
+void pair 48 load 13.540
+void pair 49 load 13.180
+void pair 50 load 11.610
+void pair 51 load 11.610
+void pair 52 load 11.240
+void pair 53 load 11.240
+void pair 54 load 13.490
+void pair 55 load 13.880
+void pair 56 load 13.490
+void pair 57 load 14.570
+void pair 58 load 12.030
+void pair 59 load 11.700
+void pair 60 load 11.700
+void pair 61 load 11.570
+void pair 62 load 16.680
+void pair 63 load 17.430
+void pair 64 load 16.750
+void pair 65 load 16.750
+void pair 66 load 13.290
+void pair 67 load 13.290
+void pair 68 load 12.780
+void pair 69 load 13.680
+void pair 70 load 11.910
+void pair 71 load 11.910
+void pair 72 load 11.910
+void pair 73 load 12.490
+void pair 74 load 13.010
+void pair 75 load 13.010
+void pair 76 load 12.930
+void pair 77 load 12.370
+void pair 78 load 10.680
+void pair 79 load 10.680
+void pair 80 load 10.680
+void pair 81 load 10.870
+void pair 82 load 9.760
+void pair 83 load 9.760
+void pair 84 load 9.760
+void pair 85 load 9.380
+void pair 86 load 9.050
+void pair 87 load 9.140
+void pair 88 load 9.140
+void pair 89 load 9.030
+void pair 90 load 8.730
+void pair 91 load 8.510
+void pair 92 load 8.510
+void pair 93 load 8.890
+void pair 94 load 8.790
+void pair 95 load 8.730
+void pair 96 load 8.790
+void pair 97 load 8.610
+void pair 98 load 7.900
+void pair 99 load 7.990
+void pair 100 load 7.990
+void pair 101 load 9.420
+void pair 102 load 8.950
+void pair 103 load 8.950
+void pair 104 load 8.950
+void pair 105 load 10.230
+void pair 106 load 10.340
+void pair 107 load 10.340
+void pair 108 load 9.990
+void pair 109 load 9.530
+void pair 110 load 8.510
+void pair 111 load 8.510
+void pair 112 load 8.630
+void pair 113 load 8.370
+void pair 114 load 8.440
+void pair 115 load 8.650
+void pair 116 load 8.440
+void pair 117 load 8.510
+void pair 119 load 8.440
+void pair 120 load 8.440
+void pair 125 load 8.210
+void pair 126 load 8.190
+void pair 169 load 8.190
+void pair 170 load 8.410
+void pair 171 load 9.260
+void pair 172 load 8.920
+pairs 0/88 queued, 4 jobs
+void pair 30 load 7.840
+void pair 31 load 7.830
+void pair 34 load 7.830
+void pair 40 load 7.830
+void pair 41 load 7.360
+void pair 42 load 7.360
+void pair 43 load 7.360
+void pair 44 load 7.420
+void pair 45 load 7.430
+void pair 47 load 7.460
+void pair 48 load 7.430
+void pair 49 load 7.430
+void pair 50 load 7.100
+void pair 51 load 7.010
+void pair 52 load 7.010
+void pair 53 load 7.170
+void pair 54 load 9.220
+void pair 55 load 9.220
+void pair 56 load 9.220
+void pair 57 load 9.280
+void pair 58 load 11.990
+void pair 59 load 11.990
+void pair 60 load 11.510
+void pair 61 load 11.510
+void pair 62 load 9.140
+void pair 63 load 9.140
+void pair 64 load 9.140
+void pair 65 load 9.050
+void pair 66 load 8.170
+void pair 67 load 8.170
+void pair 68 load 8.390
+void pair 69 load 8.170
+void pair 70 load 8.610
+void pair 71 load 8.610
+void pair 72 load 8.610
+void pair 73 load 8.520
+void pair 74 load 9.920
+void pair 75 load 10.090
+void pair 76 load 10.090
+void pair 77 load 10.240
+void pair 78 load 9.800
+void pair 79 load 9.800
+void pair 80 load 9.800
+void pair 81 load 9.370
+void pair 82 load 8.710
+void pair 83 load 8.710
+void pair 84 load 8.710
+void pair 85 load 8.820
+void pair 86 load 8.070
+void pair 87 load 8.250
+void pair 88 load 8.250
+void pair 89 load 11.410
+void pair 90 load 16.170
+void pair 91 load 17.520
+void pair 92 load 19.640
+void pair 93 load 18.160
+void pair 94 load 15.290
+void pair 95 load 14.790
+void pair 96 load 14.790
+void pair 97 load 13.820
+void pair 98 load 12.180
+void pair 99 load 12.250
+void pair 100 load 12.390
+void pair 101 load 13.050
+void pair 102 load 13.660
+void pair 103 load 13.660
+void pair 104 load 13.290
+void pair 105 load 12.560
+void pair 106 load 14.290
+void pair 107 load 14.290
+void pair 108 load 13.870
+void pair 109 load 13.390
+void pair 110 load 13.650
+void pair 111 load 13.650
+void pair 112 load 13.650
+void pair 113 load 12.790
+void pair 114 load 11.220
+void pair 115 load 11.220
+void pair 116 load 11.220
+void pair 117 load 10.500
+void pair 119 load 11.540
+void pair 120 load 11.540
+void pair 125 load 12.440
+void pair 126 load 12.710
+void pair 169 load 12.580
+void pair 170 load 12.130
+void pair 171 load 11.640
+void pair 172 load 10.840
+pairs 0/88 queued, 4 jobs
+void pair 30 load 13.110
+void pair 31 load 13.110
+void pair 34 load 13.110
+void pair 40 load 13.110
+void pair 41 load 14.340
+void pair 42 load 14.340
+void pair 43 load 14.340
+void pair 44 load 13.990
+void pair 45 load 12.780
+void pair 47 load 12.500
+void pair 48 load 12.780
+void pair 49 load 12.400
+void pair 50 load 12.450
+void pair 51 load 12.450
+void pair 52 load 13.060
+void pair 53 load 13.060
+void pair 54 load 18.110
+void pair 55 load 18.110
+void pair 56 load 17.540
+void pair 57 load 18.110
+void pair 58 load 14.860
+void pair 59 load 14.860
+void pair 60 load 14.150
+void pair 61 load 14.860
+void pair 62 load 10.680
+void pair 63 load 10.680
+void pair 64 load 10.550
+void pair 65 load 10.550
+void pair 66 load 12.330
+void pair 67 load 12.330
+void pair 68 load 12.330
+void pair 69 load 12.330
+void pair 70 load 10.070
+void pair 71 load 10.070
+void pair 72 load 10.070
+void pair 73 load 9.820
+void pair 74 load 9.100
+void pair 75 load 9.100
+void pair 76 load 9.100
+void pair 77 load 8.930
+void pair 78 load 9.830
+void pair 79 load 10.080
+void pair 80 load 10.080
+void pair 81 load 10.090
+void pair 82 load 9.650
+void pair 83 load 9.650
+void pair 84 load 9.650
+void pair 85 load 9.360
+void pair 86 load 8.430
+void pair 87 load 8.680
+void pair 88 load 8.680
+void pair 89 load 8.430
+void pair 90 load 11.850
+void pair 91 load 11.540
+void pair 92 load 11.170
+void pair 93 load 11.170
+void pair 94 load 9.460
+void pair 95 load 9.500
+void pair 96 load 9.380
+void pair 97 load 9.380
+void pair 98 load 8.830
+void pair 99 load 8.910
+void pair 100 load 8.910
+void pair 101 load 8.910
+void pair 102 load 7.760
+void pair 103 load 7.700
+void pair 104 load 7.700
+void pair 105 load 7.720
+void pair 106 load 9.970
+void pair 107 load 10.220
+void pair 108 load 10.220
+void pair 109 load 9.960
+void pair 110 load 8.970
+void pair 111 load 8.650
+void pair 112 load 8.650
+void pair 113 load 11.880
+void pair 114 load 11.660
+void pair 115 load 11.660
+void pair 116 load 11.280
+void pair 117 load 10.940
+void pair 119 load 8.920
+void pair 120 load 8.920
+void pair 125 load 8.790
+void pair 126 load 8.790
+void pair 169 load 7.820
+void pair 170 load 7.840
+void pair 171 load 7.530
+void pair 172 load 7.490
+pairs 0/88 queued, 4 jobs
+void pair 30 load 7.090
+void pair 31 load 7.090
+void pair 34 load 7.090
+void pair 40 load 7.090
+void pair 41 load 8.320
+void pair 42 load 8.320
+void pair 43 load 8.320
+void pair 44 load 8.290
+void pair 45 load 7.350
+void pair 47 load 7.350
+void pair 48 load 7.350
+void pair 49 load 7.400
+void pair 50 load 8.080
+void pair 51 load 8.080
+void pair 52 load 8.080
+void pair 53 load 8.160
+void pair 54 load 9.960
+void pair 55 load 10.050
+void pair 56 load 9.960
+void pair 57 load 10.770
+void pair 58 load 13.250
+void pair 59 load 13.250
+void pair 60 load 13.250
+void pair 61 load 12.910
+void pair 62 load 16.220
+void pair 63 load 16.220
+void pair 64 load 16.220
+void pair 65 load 15.880
+void pair 66 load 12.500
+void pair 67 load 12.500
+void pair 68 load 12.940
+void pair 69 load 12.540
+void pair 70 load 13.000
+void pair 71 load 13.000
+void pair 72 load 13.000
+void pair 73 load 13.720
+void pair 74 load 12.790
+void pair 75 load 12.790
+void pair 76 load 12.490
+void pair 77 load 13.330
+void pair 78 load 11.980
+void pair 79 load 12.150
+void pair 80 load 11.980
+void pair 81 load 11.980
+void pair 82 load 15.910
+void pair 83 load 15.910
+void pair 84 load 15.910
+void pair 85 load 15.150
+void pair 86 load 17.640
+void pair 87 load 17.640
+void pair 88 load 18.870
+void pair 89 load 17.420
+void pair 90 load 15.700
+void pair 91 load 15.700
+void pair 92 load 15.080
+void pair 93 load 13.920
+void pair 94 load 13.240
+void pair 95 load 12.500
+void pair 96 load 12.980
+void pair 97 load 12.380
+void pair 98 load 15.940
+void pair 99 load 15.550
+void pair 100 load 15.550
+void pair 101 load 15.180
+void pair 102 load 12.810
+void pair 103 load 12.810
+void pair 104 load 12.810
+void pair 105 load 12.390
+void pair 106 load 13.510
+void pair 107 load 13.510
+void pair 108 load 13.510
+void pair 109 load 14.810
+void pair 110 load 13.820
+void pair 111 load 13.980
+void pair 112 load 13.980
+void pair 113 load 13.410
+void pair 114 load 15.400
+void pair 115 load 15.400
+void pair 116 load 15.400
+void pair 117 load 15.720
+void pair 119 load 16.580
+void pair 120 load 17.330
+void pair 125 load 15.810
+void pair 126 load 15.050
+void pair 169 load 13.780
+void pair 170 load 13.390
+void pair 171 load 12.800
+void pair 172 load 11.140
+pairs 0/88 queued, 4 jobs
+void pair 30 load 8.920
+void pair 31 load 8.920
+void pair 34 load 9.090
+void pair 40 load 9.090
+void pair 41 load 9.650
+void pair 42 load 9.880
+void pair 43 load 9.880
+void pair 44 load 9.650
+void pair 45 load 8.350
+void pair 47 load 8.160
+void pair 48 load 8.350
+void pair 49 load 8.160
+void pair 50 load 10.600
+void pair 51 load 10.480
+void pair 52 load 10.600
+void pair 53 load 10.400
+void pair 54 load 9.290
+void pair 55 load 9.290
+void pair 56 load 9.290
+void pair 57 load 9.180
+void pair 58 load 11.550
+void pair 59 load 11.550
+void pair 60 load 11.590
+void pair 61 load 11.590
+void pair 62 load 10.450
+void pair 63 load 10.170
+void pair 64 load 10.170
+void pair 65 load 10.000
+void pair 66 load 10.710
+void pair 67 load 10.650
+void pair 68 load 10.680
+void pair 69 load 10.680
+void pair 70 load 11.310
+void pair 71 load 10.970
+void pair 72 load 10.890
+void pair 73 load 10.890
+void pair 74 load 10.880
+void pair 75 load 10.880
+void pair 76 load 11.130
+void pair 77 load 11.440
+void pair 78 load 10.240
+void pair 79 load 10.240
+void pair 80 load 10.300
+void pair 81 load 10.270
+void pair 82 load 8.830
+void pair 83 load 8.530
+void pair 84 load 8.320
+void pair 85 load 8.320
+void pair 86 load 8.980
+void pair 87 load 9.230
+void pair 88 load 8.980
+void pair 89 load 8.740
+void pair 90 load 8.820
+void pair 91 load 8.820
+void pair 92 load 8.820
+void pair 93 load 8.680
+void pair 94 load 9.810
+void pair 95 load 9.750
+void pair 96 load 9.810
+void pair 97 load 9.610
+void pair 98 load 9.710
+void pair 99 load 9.710
+void pair 100 load 9.710
+void pair 101 load 9.730
+void pair 102 load 9.740
+void pair 103 load 9.740
+void pair 104 load 9.740
+void pair 105 load 9.800
+void pair 106 load 9.530
+void pair 107 load 9.530
+void pair 108 load 9.400
+void pair 109 load 9.370
+void pair 110 load 14.670
+void pair 111 load 15.080
+void pair 112 load 14.670
+void pair 113 load 14.060
+void pair 114 load 13.830
+void pair 115 load 13.360
+void pair 116 load 13.830
+void pair 117 load 12.930
+void pair 119 load 12.080
+void pair 120 load 12.080
+void pair 125 load 11.990
+void pair 126 load 11.750
+void pair 169 load 10.990
+void pair 170 load 10.670
+void pair 171 load 10.670
+void pair 172 load 10.120
+pairs 0/88 queued, 4 jobs
+void pair 30 load 9.850
+void pair 31 load 9.940
+void pair 34 load 9.850
+void pair 40 load 9.850
+void pair 41 load 9.650
+void pair 42 load 9.650
+void pair 43 load 9.710
+void pair 44 load 9.650
+void pair 45 load 11.490
+void pair 47 load 10.830
+void pair 48 load 10.830
+void pair 49 load 11.210
+void pair 50 load 11.170
+void pair 51 load 11.170
+void pair 52 load 12.360
+void pair 53 load 12.170
+void pair 54 load 10.800
+void pair 55 load 10.800
+void pair 56 load 10.500
+void pair 57 load 10.500
+void pair 58 load 10.090
+void pair 59 load 10.090
+void pair 60 load 9.840
+void pair 61 load 10.170
+void pair 62 load 9.690
+void pair 63 load 9.690
+void pair 64 load 9.640
+void pair 65 load 9.430
+void pair 66 load 12.080
+void pair 67 load 12.080
+void pair 68 load 12.150
+void pair 69 load 12.150
+void pair 70 load 11.690
+void pair 71 load 11.690
+void pair 72 load 11.470
+void pair 73 load 11.350
+void pair 74 load 10.960
+void pair 75 load 10.960
+void pair 76 load 10.340
+void pair 77 load 10.340
+void pair 78 load 12.890
+void pair 79 load 12.890
+void pair 80 load 12.650
+void pair 81 load 12.650
+void pair 82 load 11.040
+void pair 83 load 11.040
+void pair 84 load 10.790
+void pair 85 load 10.650
+void pair 86 load 11.630
+void pair 87 load 11.950
+void pair 88 load 11.820
+void pair 89 load 12.950
+void pair 90 load 12.240
+void pair 91 load 11.580
+void pair 92 load 11.580
+void pair 93 load 11.620
+void pair 94 load 10.890
+void pair 95 load 10.310
+void pair 96 load 10.520
+void pair 97 load 10.310
+void pair 98 load 15.420
+void pair 99 load 16.740
+void pair 100 load 16.120
+void pair 101 load 16.350
+void pair 102 load 14.020
+void pair 103 load 14.020
+void pair 104 load 13.380
+void pair 105 load 13.110
+void pair 106 load 12.980
+void pair 107 load 12.980
+void pair 108 load 12.800
+void pair 109 load 12.500
+void pair 110 load 11.190
+void pair 111 load 11.190
+void pair 112 load 11.010
+void pair 113 load 10.630
+void pair 114 load 13.430
+void pair 115 load 13.430
+void pair 116 load 13.390
+void pair 117 load 13.710
+void pair 119 load 11.950
+void pair 120 load 12.120
+void pair 125 load 11.870
+void pair 126 load 11.400
+void pair 169 load 10.660
+void pair 170 load 10.660
+void pair 171 load 10.640
+void pair 172 load 10.180
+pairs 0/88 queued, 4 jobs
+void pair 30 load 12.620
+void pair 31 load 12.620
+void pair 34 load 12.620
+void pair 40 load 13.030
+void pair 41 load 14.230
+void pair 42 load 14.230
+void pair 43 load 14.230
+void pair 44 load 13.570
+void pair 45 load 11.030
+void pair 47 load 11.030
+void pair 48 load 11.030
+void pair 49 load 10.790
+void pair 50 load 8.860
+void pair 51 load 8.860
+void pair 52 load 8.860
+void pair 53 load 8.630
+void pair 54 load 9.800
+void pair 55 load 9.790
+void pair 56 load 9.790
+void pair 57 load 9.800
+void pair 58 load 9.480
+void pair 59 load 9.480
+void pair 60 load 9.360
+void pair 61 load 9.490
+void pair 62 load 13.610
+void pair 63 load 13.800
+void pair 64 load 13.800
+void pair 65 load 13.250
+void pair 66 load 11.240
+void pair 67 load 11.060
+void pair 68 load 10.820
+void pair 69 load 10.820
+void pair 70 load 11.740
+void pair 71 load 12.800
+void pair 72 load 12.800
+void pair 73 load 13.380
+void pair 74 load 14.120
+void pair 75 load 13.790
+void pair 76 load 13.790
+void pair 77 load 13.400
+void pair 78 load 11.650
+void pair 79 load 11.650
+void pair 80 load 11.650
+void pair 81 load 14.560
+void pair 82 load 11.990
+void pair 83 load 11.990
+void pair 84 load 11.990
+void pair 85 load 10.740
+void pair 86 load 9.520
+void pair 87 load 9.640
+void pair 88 load 9.740
+void pair 89 load 8.990
+void pair 90 load 8.800
+void pair 91 load 9.210
+void pair 92 load 9.280
+void pair 93 load 9.070
+void pair 94 load 8.980
+void pair 95 load 8.900
+void pair 96 load 8.900
+void pair 97 load 8.610
+void pair 98 load 9.470
+void pair 99 load 9.270
+void pair 100 load 9.270
+void pair 101 load 9.430
+void pair 102 load 9.080
+void pair 103 load 9.080
+void pair 104 load 9.080
+void pair 105 load 10.630
+void pair 106 load 10.110
+void pair 107 load 10.110
+void pair 108 load 9.780
+void pair 109 load 13.060
+void pair 110 load 30.450
+void pair 111 load 28.830
+void pair 112 load 28.830
+void pair 113 load 32.610
+void pair 114 load 31.450
+void pair 115 load 31.450
+void pair 116 load 31.450
+void pair 117 load 31.070
+void pair 119 load 41.100
+void pair 120 load 41.100
+void pair 125 load 41.100
+void pair 126 load 43.810
+void pair 169 load 31.650
+void pair 170 load 31.650
+void pair 171 load 31.650
+void pair 172 load 27.790
+pairs 0/88 queued, 4 jobs
+void pair 30 load 19.050
+void pair 31 load 19.050
+void pair 34 load 19.750
+void pair 40 load 19.050
+void pair 41 load 19.880
+void pair 42 load 19.330
+void pair 43 load 19.330
+void pair 44 load 19.330
+void pair 45 load 17.660
+void pair 47 load 17.660
+void pair 48 load 16.890
+void pair 49 load 16.890
+void pair 50 load 28.080
+void pair 51 load 28.080
+void pair 52 load 26.470
+void pair 53 load 26.470
+void pair 54 load 19.230
+void pair 55 load 19.230
+void pair 56 load 19.230
+void pair 57 load 19.230
+void pair 58 load 19.870
+void pair 59 load 19.870
+void pair 60 load 19.870
+void pair 61 load 18.760
+void pair 62 load 15.960
+void pair 63 load 15.960
+void pair 64 load 15.960
+void pair 65 load 17.090
+void pair 66 load 15.040
+void pair 67 load 15.040
+void pair 68 load 15.040
+void pair 69 load 15.040
+void pair 70 load 12.520
+void pair 71 load 12.520
+void pair 72 load 12.520
+void pair 73 load 12.480
+void pair 74 load 11.160
+void pair 75 load 11.160
+void pair 76 load 10.910
+void pair 77 load 10.750
+void pair 78 load 11.600
+void pair 79 load 9.480
+void pair 80 load 11.600
+void pair 81 load 11.310
+void pair 82 load 10.310
+void pair 83 load 10.280
+void pair 84 load 10.280
+void pair 85 load 10.830
+void pair 86 load 12.920
+void pair 87 load 13.430
+void pair 88 load 13.430
+void pair 89 load 12.010
+void pair 90 load 9.810
+void pair 91 load 9.510
+void pair 92 load 11.990
+void pair 93 load 11.830
+void pair 94 load 10.210
+void pair 95 load 10.270
+void pair 96 load 9.930
+void pair 97 load 9.690
+void pair 98 load 8.720
+void pair 99 load 8.540
+void pair 100 load 8.540
+void pair 101 load 8.420
+void pair 102 load 7.880
+void pair 103 load 7.730
+void pair 104 load 7.730
+void pair 105 load 7.610
+void pair 106 load 8.090
+void pair 107 load 8.090
+void pair 108 load 8.160
+void pair 109 load 8.380
+void pair 110 load 8.670
+void pair 111 load 8.670
+void pair 112 load 8.670
+void pair 113 load 9.150
+void pair 114 load 8.790
+void pair 115 load 10.810
+void pair 116 load 8.790
+void pair 117 load 10.680
+void pair 119 load 9.830
+void pair 120 load 9.990
+void pair 125 load 10.160
+void pair 126 load 9.990
+void pair 169 load 9.640
+void pair 170 load 9.350
+void pair 171 load 8.840
+void pair 172 load 8.860
+88 pairs void after ten passes
+# start 2026-11-20T17:30:58Z commit ca3db5ce8d33660a4a47186131bcdb5e13aa8f0f binary cb0c1101ce39ec8328ecc64af109da63c5ba629d2ab2fa87d516d0a537e494cc load { 5.17 7.17 9.31 }
+# command: othello-tools match --a pc:80:c13000v1 --b pc:80:750 --openings bench/openings_tune.txt --pairs 200 --seed 1641 --jobs 4 --max-load 6 --out docs/tuning/clock_tune_v1.journal
+pairs 0/88 queued, 4 jobs
+void pair 30 load 6.210
+void pair 31 load 6.210
+void pair 34 load 6.210
+void pair 40 load 6.210
+void pair 41 load 19.340
+void pair 42 load 16.580
+void pair 43 load 19.340
+void pair 44 load 19.340
+void pair 45 load 29.030
+void pair 47 load 30.340
+void pair 48 load 29.030
+void pair 49 load 30.340
+void pair 50 load 36.910
+void pair 51 load 36.910
+void pair 52 load 36.910
+void pair 53 load 34.440
+void pair 54 load 21.280
+void pair 55 load 21.280
+void pair 56 load 21.280
+void pair 57 load 20.140
+void pair 58 load 13.830
+void pair 59 load 13.830
+void pair 60 load 13.520
+void pair 61 load 13.520
+void pair 62 load 10.180
+void pair 63 load 9.840
+void pair 64 load 9.840
+void pair 65 load 9.450
+void pair 66 load 9.070
+void pair 67 load 9.220
+void pair 68 load 9.280
+void pair 69 load 9.280
+void pair 70 load 8.440
+void pair 71 load 8.440
+void pair 72 load 8.440
+void pair 73 load 8.080
+void pair 74 load 8.120
+void pair 75 load 8.120
+void pair 76 load 7.870
+void pair 77 load 7.640
+void pair 78 load 7.240
+void pair 79 load 7.240
+void pair 80 load 7.140
+void pair 81 load 7.040
+void pair 82 load 7.040
+void pair 83 load 7.040
+void pair 84 load 7.040
+void pair 85 load 7.420
+void pair 86 load 8.250
+void pair 87 load 8.350
+void pair 88 load 8.350
+void pair 89 load 8.060
+void pair 90 load 7.650
+void pair 91 load 7.650
+void pair 92 load 7.600
+void pair 93 load 7.550
+void pair 94 load 8.910
+void pair 95 load 8.910
+void pair 96 load 8.910
+void pair 97 load 8.840
+void pair 98 load 14.150
+void pair 99 load 13.820
+void pair 100 load 14.150
+void pair 101 load 13.270
+void pair 102 load 21.010
+void pair 103 load 21.010
+void pair 104 load 21.010
+void pair 105 load 19.090
+void pair 106 load 18.860
+void pair 107 load 17.990
+void pair 108 load 17.990
+void pair 109 load 17.110
+void pair 110 load 13.680
+void pair 111 load 13.680
+void pair 112 load 13.680
+void pair 113 load 14.100
+void pair 114 load 12.440
+void pair 115 load 12.440
+void pair 116 load 12.800
+void pair 117 load 12.180
+void pair 119 load 9.610
+void pair 120 load 9.610
+void pair 125 load 9.130
+void pair 126 load 9.130
+void pair 169 load 7.830
+void pair 170 load 7.830
+void pair 171 load 7.450
+void pair 172 load 7.450
+pairs 0/88 queued, 4 jobs
+void pair 30 load 13.630
+void pair 31 load 13.630
+void pair 34 load 13.630
+void pair 40 load 13.260
+void pair 41 load 9.930
+void pair 42 load 9.930
+void pair 43 load 9.930
+void pair 44 load 9.530
+void pair 45 load 9.450
+void pair 47 load 9.450
+void pair 48 load 9.450
+void pair 49 load 9.450
+void pair 50 load 8.360
+void pair 51 load 8.360
+void pair 52 load 8.360
+void pair 53 load 8.360
+void pair 54 load 7.640
+void pair 55 load 7.640
+void pair 56 load 7.640
+void pair 57 load 7.510
+void pair 58 load 6.520
+void pair 59 load 6.520
+void pair 60 load 6.400
+void pair 61 load 6.400
+void pair 119 load 6.370
+void pair 120 load 6.370
+void pair 125 load 6.420
+void pair 126 load 6.630
+void pair 169 load 6.450
+void pair 170 load 6.450
+void pair 171 load 6.250
+void pair 172 load 6.250
+pairs 0/32 queued, 4 jobs
+void pair 30 load 6.730
+void pair 31 load 6.750
+void pair 34 load 6.730
+void pair 40 load 6.730
+void pair 41 load 6.640
+void pair 42 load 6.640
+void pair 43 load 6.640
+void pair 44 load 6.430
+void pair 49 load 6.240
+pairs 0/9 queued, 4 jobs
+pairs 200 games 400 W 194 D 21 L 185 mean 0.5112 interval [0.4925, 0.5312] bootstrap elo [-5.21, 21.74]
+seed 1641 resamples 10000 evaluator-only nodes 0 ordering true
+a pc:80:c13000v1 (pattern::evaluate, depth 64, time 13000, nodes 0, threshold 18)
+b pc:80:750 (pattern::evaluate, depth 64, time 750, nodes 0, threshold 18)
+run 1641 pair 30 game 0 seeds (65049844277203106, 5245542139483598271) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 b2 f5 d2 black pc:80:c13000v1 white pc:80:750 score 1800
+run 1641 pair 30 game 1 seeds (18129491877454190184, 4863240098951033733) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 b2 f5 d2 black pc:80:750 white pc:80:c13000v1 score 400
+run 1641 pair 31 game 0 seeds (3515475583078670899, 3324324562812388630) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 e1 f3 c5 black pc:80:c13000v1 white pc:80:750 score 1600
+run 1641 pair 31 game 1 seeds (3133173542546106361, 2942022522279824092) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 e1 f3 c5 black pc:80:750 white pc:80:c13000v1 score 1600
+run 1641 pair 34 game 0 seeds (17002828115810686190, 3736576337307529739) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 b3 f2 f3 black pc:80:c13000v1 white pc:80:750 score -2000
+run 1641 pair 34 game 1 seeds (16620526075278121652, 3354274296774965201) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 b3 f2 f3 black pc:80:750 white pc:80:c13000v1 score -1800
+run 1641 pair 40 game 0 seeds (16237396422808141396, 2971144644304984945) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 g1 e6 f5 black pc:80:c13000v1 white pc:80:750 score 2400
+run 1641 pair 40 game 1 seeds (8151636939511380110, 13332129234717775275) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 g1 e6 f5 black pc:80:750 white pc:80:c13000v1 score 3400
+run 1641 pair 41 game 0 seeds (16647992973428451069, 16456841953162168800) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 a2 e6 f5 black pc:80:c13000v1 white pc:80:750 score 2000
+run 1641 pair 41 game 1 seeds (8562233490131689783, 8371082469865407514) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 a2 e6 f5 black pc:80:750 white pc:80:c13000v1 score 1600
+run 1641 pair 42 game 0 seeds (7712745878803325302, 12893238174009720467) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 d2 f5 a7 black pc:80:c13000v1 white pc:80:750 score 2800
+run 1641 pair 42 game 1 seeds (7330443838270760764, 12510936133477155929) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 d2 f5 a7 black pc:80:750 white pc:80:c13000v1 score 2400
+run 1641 pair 43 game 0 seeds (8123342429423634975, 7932191409157352706) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 d2 b5 b6 black pc:80:c13000v1 white pc:80:750 score 200
+run 1641 pair 43 game 1 seeds (7741040388891070437, 7549889368624788168) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 d2 b5 b6 black pc:80:750 white pc:80:c13000v1 score 0
+run 1641 pair 44 game 0 seeds (14595010220326902704, 1328758441823746253) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 d2 f5 a7 black pc:80:c13000v1 white pc:80:750 score 600
+run 1641 pair 44 game 1 seeds (6509250737030141418, 11689743032236536583) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 d2 f5 a7 black pc:80:750 white pc:80:c13000v1 score 1200
+run 1641 pair 45 game 0 seeds (18045435959128370497, 17854284938862088228) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 d2 c6 b4 black pc:80:c13000v1 white pc:80:750 score -2000
+run 1641 pair 45 game 1 seeds (9959676475831609211, 9768525455565326942) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 d2 c6 b4 black pc:80:750 white pc:80:c13000v1 score -3000
+run 1641 pair 47 game 0 seeds (9520785415123554403, 9329634394857272134) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 e2 c6 black pc:80:c13000v1 white pc:80:750 score -600
+run 1641 pair 47 game 1 seeds (9138483374590989865, 8947332354324707596) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 e2 c6 black pc:80:750 white pc:80:c13000v1 score -600
+run 1641 pair 48 game 0 seeds (7006386041788517932, 12186878336994913097) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 e2 f3 d6 black pc:80:c13000v1 white pc:80:750 score 2000
+run 1641 pair 48 game 1 seeds (17367370632201308262, 4101118853698151811) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 e2 f3 d6 black pc:80:750 white pc:80:c13000v1 score 1800
+run 1641 pair 49 game 0 seeds (7416982592408827605, 7225831572142545336) key (34628436992, 68954357760) opening d3 c3 b3 d2 d1 e3 f3 e2 black pc:80:c13000v1 white pc:80:750 score -1000
+run 1641 pair 49 game 1 seeds (17777967182821617935, 17586816162555335666) key (34628436992, 68954357760) opening d3 c3 b3 d2 d1 e3 f3 e2 black pc:80:750 white pc:80:c13000v1 score -1600
+run 1641 pair 50 game 0 seeds (10848821195130937214, 16029313490337332379) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 c1 f2 black pc:80:c13000v1 white pc:80:750 score -1200
+run 1641 pair 50 game 1 seeds (10466519154598372676, 15647011449804767841) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 c1 f2 black pc:80:750 white pc:80:c13000v1 score -1400
+run 1641 pair 51 game 0 seeds (11259417745751246887, 11068266725484964618) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 d2 d1 c1 black pc:80:c13000v1 white pc:80:750 score 1200
+run 1641 pair 51 game 1 seeds (10877115705218682349, 10685964684952400080) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 d2 d1 c1 black pc:80:750 white pc:80:c13000v1 score 600
+run 1641 pair 52 game 0 seeds (11651427160292198376, 16831919455498593541) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 c5 c2 d6 black pc:80:c13000v1 white pc:80:750 score -2200
+run 1641 pair 52 game 1 seeds (3565667676995437090, 8746159972201832255) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 c5 c2 d6 black pc:80:750 white pc:80:c13000v1 score -2400
+run 1641 pair 53 game 0 seeds (15101852899093666169, 14910701878827383900) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 d2 e6 f6 black pc:80:c13000v1 white pc:80:750 score 0
+run 1641 pair 53 game 1 seeds (7016093415796904883, 6824942395530622614) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 d2 e6 f6 black pc:80:750 white pc:80:c13000v1 score 400
+run 1641 pair 54 game 0 seeds (15493862313634617658, 2227610535131461207) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 b3 b4 d6 black pc:80:c13000v1 white pc:80:750 score -3400
+run 1641 pair 54 game 1 seeds (15111560273102053120, 1845308494598896669) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 b3 b4 d6 black pc:80:750 white pc:80:c13000v1 score -2400
+run 1641 pair 55 game 0 seeds (497543978726533835, 306392958460251566) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 d2 d6 e7 black pc:80:c13000v1 white pc:80:750 score 1800
+run 1641 pair 55 game 1 seeds (115241938193969297, 18370834991637238644) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 d2 d6 e7 black pc:80:750 white pc:80:c13000v1 score 800
+run 1641 pair 56 game 0 seeds (10083389502128392420, 15263881797334787585) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c2 g4 g6 black pc:80:c13000v1 white pc:80:750 score 1800
+run 1641 pair 56 game 1 seeds (1997630018831631134, 7178122314038026299) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c2 g4 g6 black pc:80:750 white pc:80:c13000v1 score 1400
+run 1641 pair 57 game 0 seeds (10493986052748702093, 10302835032482419824) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 d2 e1 g5 black pc:80:c13000v1 white pc:80:750 score 200
+run 1641 pair 57 game 1 seeds (2408226569451940807, 2217075549185658538) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 d2 e1 g5 black pc:80:750 white pc:80:c13000v1 score 0
+run 1641 pair 58 game 0 seeds (1558738958123576326, 6739231253329971491) key (86169878528, 8830654087168) opening d3 e3 f6 c4 e2 d2 c1 d1 black pc:80:c13000v1 white pc:80:750 score -800
+run 1641 pair 58 game 1 seeds (1176436917591011788, 6356929212797406953) key (86169878528, 8830654087168) opening d3 e3 f6 c4 e2 d2 c1 d1 black pc:80:750 white pc:80:c13000v1 score -800
+run 1641 pair 59 game 0 seeds (1969335508743885999, 1778184488477603730) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 d2 e1 f5 black pc:80:c13000v1 white pc:80:750 score -1800
+run 1641 pair 59 game 1 seeds (1587033468211321461, 1395882447945039192) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 d2 e1 f5 black pc:80:750 white pc:80:c13000v1 score -1200
+run 1641 pair 60 game 0 seeds (14728430620632072864, 1462178842128916413) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 d2 c3 g1 black pc:80:c13000v1 white pc:80:750 score 3000
+run 1641 pair 60 game 1 seeds (6642671137335311578, 11823163432541706743) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 d2 c3 g1 black pc:80:750 white pc:80:c13000v1 score 2800
+run 1641 pair 61 game 0 seeds (18178856359433540657, 17987705339167258388) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 b2 b1 a2 black pc:80:c13000v1 white pc:80:750 score -2600
+run 1641 pair 61 game 1 seeds (10093096876136779371, 9901945855870497102) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 b2 b1 a2 black pc:80:750 white pc:80:c13000v1 score -3800
+run 1641 pair 62 game 0 seeds (6203780076627256770, 11384272371833651935) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 d2 e6 a7 black pc:80:c13000v1 white pc:80:750 score 2800
+run 1641 pair 62 game 1 seeds (5821478036094692232, 11001970331301087397) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 d2 e6 a7 black pc:80:750 white pc:80:c13000v1 score 3200
+run 1641 pair 63 game 0 seeds (9654205815428724563, 9463054795162442294) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 d2 e6 f4 black pc:80:c13000v1 white pc:80:750 score 600
+run 1641 pair 63 game 1 seeds (9271903774896160025, 9080752754629877756) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 d2 e6 f4 black pc:80:750 white pc:80:c13000v1 score 0
+run 1641 pair 64 game 0 seeds (13427233763078607228, 160981984575450777) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 e2 d1 c2 black pc:80:c13000v1 white pc:80:750 score -600
+run 1641 pair 64 game 1 seeds (5341474279781845942, 10521966574988241107) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 e2 d1 c2 black pc:80:750 white pc:80:c13000v1 score -1000
+run 1641 pair 65 game 0 seeds (13837830313698916901, 13646679293432634632) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f3 f4 g3 black pc:80:c13000v1 white pc:80:750 score -2000
+run 1641 pair 65 game 1 seeds (5752070830402155615, 5560919810135873346) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f3 f4 g3 black pc:80:750 white pc:80:c13000v1 score -1600
+run 1641 pair 66 game 0 seeds (17269668916421026510, 4003417137917870059) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f2 g2 e7 black pc:80:c13000v1 white pc:80:750 score -1200
+run 1641 pair 66 game 1 seeds (16887366875888461972, 3621115097385305521) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f2 g2 e7 black pc:80:750 white pc:80:c13000v1 score -3200
+run 1641 pair 67 game 0 seeds (17680265467041336183, 17489114446775053914) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 f3 f5 black pc:80:c13000v1 white pc:80:750 score 400
+run 1641 pair 67 game 1 seeds (17297963426508771645, 17106812406242489376) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 f3 f5 black pc:80:750 white pc:80:c13000v1 score -600
+run 1641 pair 68 game 0 seeds (11784847560597368536, 16965339855803763701) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 e2 f6 g2 black pc:80:c13000v1 white pc:80:750 score 1400
+run 1641 pair 68 game 1 seeds (3699088077300607250, 8879580372507002415) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 e2 f6 g2 black pc:80:750 white pc:80:c13000v1 score 1400
+run 1641 pair 69 game 0 seeds (15235273299398836329, 15044122279132554060) key (34628436992, 68954357760) opening d3 c3 b3 d2 d1 c5 b6 f3 black pc:80:c13000v1 white pc:80:750 score -200
+run 1641 pair 69 game 1 seeds (7149513816102075043, 6958362795835792774) key (34628436992, 68954357760) opening d3 c3 b3 d2 d1 c5 b6 f3 black pc:80:750 white pc:80:c13000v1 score -1000
+run 1641 pair 70 game 0 seeds (15627282713939787818, 2361030935436631367) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 e1 d6 black pc:80:c13000v1 white pc:80:750 score -800
+run 1641 pair 70 game 1 seeds (15244980673407223280, 1978728894904066829) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 e1 d6 black pc:80:750 white pc:80:c13000v1 score -600
+run 1641 pair 71 game 0 seeds (630964379031703995, 439813358765421726) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 d2 f3 c4 black pc:80:c13000v1 white pc:80:750 score 1400
+run 1641 pair 71 game 1 seeds (248662338499139457, 57511318232857188) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 d2 f3 c4 black pc:80:750 white pc:80:c13000v1 score 400
+run 1641 pair 72 game 0 seeds (10632347791678768372, 15812840086885163537) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 c5 f3 f5 black pc:80:c13000v1 white pc:80:750 score -3000
+run 1641 pair 72 game 1 seeds (2546588308382007086, 7727080603588402251) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 c5 f3 f5 black pc:80:750 white pc:80:c13000v1 score -3000
+run 1641 pair 73 game 0 seeds (11042944342299078045, 10851793322032795776) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 c3 e3 b4 black pc:80:c13000v1 white pc:80:750 score -400
+run 1641 pair 73 game 1 seeds (2957184859002316759, 2766033838736034490) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 c3 e3 b4 black pc:80:750 white pc:80:c13000v1 score 1200
+run 1641 pair 74 game 0 seeds (2107697247673952278, 7288189542880347443) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 c4 e2 c2 black pc:80:c13000v1 white pc:80:750 score -3400
+run 1641 pair 74 game 1 seeds (1725395207141387740, 6905887502347782905) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 c4 e2 c2 black pc:80:750 white pc:80:c13000v1 score -4200
+run 1641 pair 75 game 0 seeds (2518293798294261951, 2327142778027979682) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 c3 c4 d2 black pc:80:c13000v1 white pc:80:750 score -200
+run 1641 pair 75 game 1 seeds (2135991757761697413, 1944840737495415144) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 c3 c4 d2 black pc:80:750 white pc:80:c13000v1 score 200
+run 1641 pair 76 game 0 seeds (8989961589197529680, 14170453884403924845) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c2 b6 b4 black pc:80:c13000v1 white pc:80:750 score 1600
+run 1641 pair 76 game 1 seeds (904202105900768394, 6084694401107163559) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c2 b6 b4 black pc:80:750 white pc:80:c13000v1 score 200
+run 1641 pair 77 game 0 seeds (12440387327998997473, 12249236307732715204) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 d2 c4 e3 black pc:80:c13000v1 white pc:80:750 score 200
+run 1641 pair 77 game 1 seeds (4354627844702236187, 4163476824435953918) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 d2 c4 e3 black pc:80:750 white pc:80:c13000v1 score -600
+run 1641 pair 78 game 0 seeds (465311045192713586, 5645803340399108751) key (86169878528, 8830654087168) opening d3 e3 f6 c4 e2 d2 b3 f2 black pc:80:c13000v1 white pc:80:750 score -400
+run 1641 pair 78 game 1 seeds (83009004660149048, 5263501299866544213) key (86169878528, 8830654087168) opening d3 e3 f6 c4 e2 d2 b3 f2 black pc:80:750 white pc:80:c13000v1 score -600
+run 1641 pair 79 game 0 seeds (3915736783994181379, 3724585763727899110) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 d2 c4 e3 black pc:80:c13000v1 white pc:80:750 score -400
+run 1641 pair 79 game 1 seeds (3533434743461616841, 3342283723195334572) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 d2 c4 e3 black pc:80:750 white pc:80:c13000v1 score -400
+run 1641 pair 80 game 0 seeds (570261632168733324, 5750753927375128489) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 d2 b6 f3 black pc:80:c13000v1 white pc:80:750 score -800
+run 1641 pair 80 game 1 seeds (10931246222581523654, 16111738517787918819) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 d2 b6 f3 black pc:80:750 white pc:80:c13000v1 score -1200
+run 1641 pair 81 game 0 seeds (980858182789042997, 789707162522760728) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 b2 c6 c5 black pc:80:c13000v1 white pc:80:750 score 1600
+run 1641 pair 81 game 1 seeds (11341842773201833327, 11150691752935551058) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 b2 c6 c5 black pc:80:750 white pc:80:c13000v1 score 3200
+run 1641 pair 82 game 0 seeds (4412696785511152606, 9593189080717547771) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 c3 b3 g3 black pc:80:c13000v1 white pc:80:750 score -400
+run 1641 pair 82 game 1 seeds (4030394744978588068, 9210887040184983233) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 c3 b3 g3 black pc:80:750 white pc:80:c13000v1 score -400
+run 1641 pair 83 game 0 seeds (4823293336131462279, 4632142315865180010) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 e2 f1 g3 black pc:80:c13000v1 white pc:80:750 score -1200
+run 1641 pair 83 game 1 seeds (4440991295598897741, 4249840275332615472) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 e2 f1 g3 black pc:80:750 white pc:80:c13000v1 score 0
+run 1641 pair 84 game 0 seeds (5215302750672413768, 10395795045878808933) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 e2 f2 g2 black pc:80:c13000v1 white pc:80:750 score 2800
+run 1641 pair 84 game 1 seeds (15576287341085204098, 2310035562582047647) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 e2 f2 g2 black pc:80:750 white pc:80:c13000v1 score 1000
+run 1641 pair 85 game 0 seeds (8665728489473881561, 8474577469207599292) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f3 d7 c4 black pc:80:c13000v1 white pc:80:750 score -3000
+run 1641 pair 85 game 1 seeds (579969006177120275, 388817985910838006) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f3 d7 c4 black pc:80:750 white pc:80:c13000v1 score -4200
+run 1641 pair 86 game 0 seeds (9057737904014833050, 14238230199221228215) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f2 c4 e7 black pc:80:c13000v1 white pc:80:750 score 1400
+run 1641 pair 86 game 1 seeds (8675435863482268512, 13855928158688663677) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f2 c4 e7 black pc:80:750 white pc:80:c13000v1 score 2400
+run 1641 pair 87 game 0 seeds (12508163642816300843, 12317012622550018574) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 f5 g1 black pc:80:c13000v1 white pc:80:750 score 400
+run 1641 pair 87 game 1 seeds (12125861602283736305, 11934710582017454036) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 f5 g1 black pc:80:750 white pc:80:c13000v1 score -200
+run 1641 pair 88 game 0 seeds (16222119734478446084, 2955867955975289633) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 c3 b2 d1 black pc:80:c13000v1 white pc:80:750 score -1200
+run 1641 pair 88 game 1 seeds (8136360251181684798, 13316852546388079963) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 c3 b2 d1 black pc:80:750 white pc:80:c13000v1 score -2000
+run 1641 pair 89 game 0 seeds (16632716285098755757, 16441565264832473488) key (34628436992, 68954357760) opening d3 c3 b3 d2 e1 d1 c1 b4 black pc:80:c13000v1 white pc:80:750 score 3200
+run 1641 pair 89 game 1 seeds (8546956801801994471, 8355805781535712202) key (34628436992, 68954357760) opening d3 c3 b3 d2 e1 d1 c1 b4 black pc:80:750 white pc:80:c13000v1 score 1800
+run 1641 pair 90 game 0 seeds (7697469190473629990, 12877961485680025155) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 c5 e2 black pc:80:c13000v1 white pc:80:750 score -1600
+run 1641 pair 90 game 1 seeds (7315167149941065452, 12495659445147460617) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 c5 e2 black pc:80:750 white pc:80:c13000v1 score -1800
+run 1641 pair 91 game 0 seeds (8108065741093939663, 7916914720827657394) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 d2 e6 c3 black pc:80:c13000v1 white pc:80:750 score -200
+run 1641 pair 91 game 1 seeds (7725763700561375125, 7534612680295092856) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 d2 e6 c3 black pc:80:750 white pc:80:c13000v1 score -200
+run 1641 pair 92 game 0 seeds (2420416779272574912, 7600909074478970077) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 f5 d2 c4 black pc:80:c13000v1 white pc:80:750 score -3000
+run 1641 pair 92 game 1 seeds (12781401369685365242, 17961893664891760407) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 f5 d2 c4 black pc:80:750 white pc:80:c13000v1 score -3000
+run 1641 pair 93 game 0 seeds (5870842518074042705, 5679691497807760436) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 c3 d7 e3 black pc:80:c13000v1 white pc:80:750 score -400
+run 1641 pair 93 game 1 seeds (16231827108486833035, 16040676088220550766) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 c3 d7 e3 black pc:80:750 white pc:80:c13000v1 score -400
+run 1641 pair 94 game 0 seeds (12342510308977310434, 17523002604183705599) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 c4 f3 e2 black pc:80:c13000v1 white pc:80:750 score -3200
+run 1641 pair 94 game 1 seeds (11960208268444745896, 17140700563651141061) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 c4 f3 e2 black pc:80:750 white pc:80:c13000v1 score -2400
+run 1641 pair 95 game 0 seeds (15792936047778778227, 15601785027512495958) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 c3 c6 g7 black pc:80:c13000v1 white pc:80:750 score 800
+run 1641 pair 95 game 1 seeds (15410634007246213689, 15219482986979931420) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 c3 c6 g7 black pc:80:750 white pc:80:c13000v1 score 1400
+run 1641 pair 96 game 0 seeds (13694074563688947548, 427822785185791097) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c2 f6 e7 black pc:80:c13000v1 white pc:80:750 score 800
+run 1641 pair 96 game 1 seeds (5608315080392186262, 10788807375598581427) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c2 f6 e7 black pc:80:750 white pc:80:c13000v1 score 200
+run 1641 pair 97 game 0 seeds (14104671114309257221, 13913520094042974952) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 d2 f7 g5 black pc:80:c13000v1 white pc:80:750 score 0
+run 1641 pair 97 game 1 seeds (6018911631012495935, 5827760610746213666) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 d2 f7 g5 black pc:80:750 white pc:80:c13000v1 score -800
+run 1641 pair 98 game 0 seeds (17536509717031366830, 4270257938528210379) key (86169878528, 8830654087168) opening d3 e3 f6 c4 e2 d2 b4 f5 black pc:80:c13000v1 white pc:80:750 score -600
+run 1641 pair 98 game 1 seeds (17154207676498802292, 3887955897995645841) key (86169878528, 8830654087168) opening d3 e3 f6 c4 e2 d2 b4 f5 black pc:80:750 white pc:80:c13000v1 score -1800
+run 1641 pair 99 game 0 seeds (17947106267651676503, 17755955247385394234) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 d2 g6 d6 black pc:80:c13000v1 white pc:80:750 score -800
+run 1641 pair 99 game 1 seeds (17564804227119111965, 17373653206852829696) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 d2 g6 d6 black pc:80:750 white pc:80:c13000v1 score -1800
+run 1641 pair 100 game 0 seeds (12051688361207708856, 17232180656414104021) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 d2 d6 f6 black pc:80:c13000v1 white pc:80:750 score 800
+run 1641 pair 100 game 1 seeds (3965928877910947570, 9146421173117342735) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 d2 d6 f6 black pc:80:750 white pc:80:c13000v1 score 0
+run 1641 pair 101 game 0 seeds (15502114100009176649, 15310963079742894380) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 d2 e1 f3 black pc:80:c13000v1 white pc:80:750 score 2400
+run 1641 pair 101 game 1 seeds (7416354616712415363, 7225203596446133094) key (141557760, 17695533694976) opening d3 c3 b3 d6 c4 d2 e1 f3 black pc:80:750 white pc:80:c13000v1 score 1400
+run 1641 pair 102 game 0 seeds (15894123514550128138, 2627871736046971687) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 c3 f5 g4 black pc:80:c13000v1 white pc:80:750 score -600
+run 1641 pair 102 game 1 seeds (15511821474017563600, 2245569695514407149) key (202383360, 4501394161664) opening d3 c5 b6 f3 f4 c3 f5 g4 black pc:80:750 white pc:80:c13000v1 score -600
+run 1641 pair 103 game 0 seeds (897805179642044315, 706654159375762046) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 e2 b5 g3 black pc:80:c13000v1 white pc:80:750 score -600
+run 1641 pair 103 game 1 seeds (515503139109479777, 324352118843197508) key (337641472, 120394350592) opening d3 c5 c6 e3 f3 e2 b5 g3 black pc:80:750 white pc:80:c13000v1 score -400
+run 1641 pair 104 game 0 seeds (16771078024028822036, 3504826245525665585) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 e2 f5 a7 black pc:80:c13000v1 white pc:80:750 score 1600
+run 1641 pair 104 game 1 seeds (8685318540732060750, 13865810835938455915) key (404488192, 240518168576) opening d3 e3 f3 c5 b6 e2 f5 a7 black pc:80:750 white pc:80:c13000v1 score 800
+run 1641 pair 105 game 0 seeds (17181674574649131709, 16990523554382849440) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f4 c5 f6 black pc:80:c13000v1 white pc:80:750 score -2600
+run 1641 pair 105 game 1 seeds (9095915091352370423, 8904764071086088154) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f4 c5 f6 black pc:80:750 white pc:80:c13000v1 score -2000
+run 1641 pair 106 game 0 seeds (8246427480024005942, 13426919775230401107) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f2 d6 d2 black pc:80:c13000v1 white pc:80:750 score 200
+run 1641 pair 106 game 1 seeds (7864125439491441404, 13044617734697836569) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f2 d6 d2 black pc:80:750 white pc:80:c13000v1 score 600
+run 1641 pair 107 game 0 seeds (8657024030644315615, 8465873010378033346) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 e6 f6 black pc:80:c13000v1 white pc:80:750 score -1400
+run 1641 pair 107 game 1 seeds (8274721990111751077, 8083570969845468808) key (34361319424, 69189238784) opening d3 e3 f2 c4 b3 c2 e6 f6 black pc:80:750 white pc:80:c13000v1 score -600
+run 1641 pair 108 game 0 seeds (15128691821547583344, 1862440043044426893) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 c3 f3 g1 black pc:80:c13000v1 white pc:80:750 score 1200
+run 1641 pair 108 game 1 seeds (7042932338250822058, 12223424633457217223) key (34495012864, 68988437504) opening d3 e3 f2 c2 d2 c3 f3 g1 black pc:80:750 white pc:80:c13000v1 score 800
+run 1641 pair 109 game 0 seeds (132373486639499521, 18387966540082768868) key (34628436992, 68954357760) opening d3 c3 b3 d2 e1 d1 e3 c5 black pc:80:c13000v1 white pc:80:750 score -200
+run 1641 pair 109 game 1 seeds (10493358077052289851, 10302207056786007582) key (34628436992, 68954357760) opening d3 c3 b3 d2 e1 d1 e3 c5 black pc:80:750 white pc:80:c13000v1 score -400
+run 1641 pair 110 game 0 seeds (6604041277542767250, 11784533572749162415) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 e6 a3 black pc:80:c13000v1 white pc:80:750 score 200
+run 1641 pair 110 game 1 seeds (6221739237010202712, 11402231532216597877) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 d2 e6 a3 black pc:80:750 white pc:80:c13000v1 score 1000
+run 1641 pair 111 game 0 seeds (10054467016344235043, 9863315996077952774) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 c3 c4 e1 black pc:80:c13000v1 white pc:80:750 score 2600
+run 1641 pair 111 game 1 seeds (9672164975811670505, 9481013955545388236) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 c3 c4 e1 black pc:80:750 white pc:80:c13000v1 score 2000
+run 1641 pair 112 game 0 seeds (837102432779073644, 6017594727985468809) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 f5 f3 c2 black pc:80:c13000v1 white pc:80:750 score -6200
+run 1641 pair 112 game 1 seeds (11198087023191863974, 16378579318398259139) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 f5 f3 c2 black pc:80:750 white pc:80:c13000v1 score -5200
+run 1641 pair 113 game 0 seeds (1247698983399383317, 1056547963133101048) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 e3 f2 a5 black pc:80:c13000v1 white pc:80:750 score 1600
+run 1641 pair 113 game 1 seeds (11608683573812173647, 11417532553545891378) key (34762915840, 4512481619738624) opening d3 c5 d6 e7 b5 e3 f2 a5 black pc:80:750 white pc:80:c13000v1 score 800
+run 1641 pair 114 game 0 seeds (4679537586121492926, 9860029881327888091) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 c5 d2 c6 black pc:80:c13000v1 white pc:80:750 score -2800
+run 1641 pair 114 game 1 seeds (4297235545588928388, 9477727840795323553) key (34764488704, 30855045054464) opening d3 e3 f6 c3 b2 c5 d2 c6 black pc:80:750 white pc:80:c13000v1 score -3400
+run 1641 pair 115 game 0 seeds (5090134136741802599, 4898983116475520330) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 e3 d2 g7 black pc:80:c13000v1 white pc:80:750 score 1600
+run 1641 pair 115 game 1 seeds (4707832096209238061, 4516681075942955792) key (51675922432, 17661175005184) opening d3 c5 f6 f5 f4 e3 d2 g7 black pc:80:750 white pc:80:c13000v1 score 1600
+run 1641 pair 116 game 0 seeds (5482143551282754088, 10662635846489149253) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c3 g4 f4 black pc:80:c13000v1 white pc:80:750 score -400
+run 1641 pair 116 game 1 seeds (15843128141695544418, 2576876363192387967) key (52210696192, 17661175005184) opening d3 c5 e6 f5 c4 c3 g4 f4 black pc:80:750 white pc:80:c13000v1 score -400
+run 1641 pair 117 game 0 seeds (8932569290084221881, 8741418269817939612) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 e3 f7 c5 black pc:80:c13000v1 white pc:80:750 score -1400
+run 1641 pair 117 game 1 seeds (846809806787460595, 655658786521178326) key (86034612224, 4432676782080) opening d3 c3 f5 f6 b3 e3 f7 c5 black pc:80:750 white pc:80:c13000v1 score -1600
+run 1641 pair 119 game 0 seeds (12775004443426641163, 12583853423160358894) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 e3 f5 b2 black pc:80:c13000v1 white pc:80:750 score 2600
+run 1641 pair 119 game 1 seeds (12392702402894076625, 12201551382627794356) key (86570434560, 4432676782080) opening d3 c3 e6 f6 b3 e3 f5 b2 black pc:80:750 white pc:80:c13000v1 score 2200
+run 1641 pair 120 game 0 seeds (3914105893118948132, 9094598188325343297) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 e2 d2 d1 black pc:80:c13000v1 white pc:80:750 score -400
+run 1641 pair 120 game 1 seeds (14275090483531738462, 1008838705028582011) key (135798784, 120527519744) opening d3 e3 f2 c5 f4 e2 d2 d1 black pc:80:750 white pc:80:c13000v1 score -1400
+run 1641 pair 125 game 0 seeds (12009572750424096369, 11818421730157814100) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f4 f6 f7 black pc:80:c13000v1 white pc:80:750 score -1000
+run 1641 pair 125 game 1 seeds (3923813267127335083, 3732662246861052814) key (17583570944, 4638564679680) opening d3 c3 f5 d6 b2 f4 f6 f7 black pc:80:750 white pc:80:c13000v1 score -2000
+run 1641 pair 126 game 0 seeds (34496467617812482, 5214988762824207647) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f3 g3 f5 black pc:80:c13000v1 white pc:80:750 score -2200
+run 1641 pair 126 game 1 seeds (18098938500794799560, 4832686722291643109) key (18119393280, 17695332368384) opening d3 c5 e6 e3 e2 f3 g3 f5 black pc:80:750 white pc:80:c13000v1 score -1600
+run 1641 pair 169 game 0 seeds (4309425755409562493, 4118274735143280224) key (34628436992, 68954357760) opening d3 c3 b3 d2 e1 b2 b4 a3 black pc:80:c13000v1 white pc:80:750 score 3200
+run 1641 pair 169 game 1 seeds (14670410345822352823, 14479259325556070554) key (34628436992, 68954357760) opening d3 c3 b3 d2 e1 b2 b4 a3 black pc:80:750 white pc:80:c13000v1 score 6400
+run 1641 pair 170 game 0 seeds (13820922734493988342, 554670955990831891) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 f2 f1 f4 black pc:80:c13000v1 white pc:80:750 score -2000
+run 1641 pair 170 game 1 seeds (13438620693961423804, 172368915458267353) key (34631843840, 68853956608) opening d3 e3 f3 c3 b3 f2 f1 f4 black pc:80:750 white pc:80:c13000v1 score -1200
+run 1641 pair 171 game 0 seeds (14231519285114298015, 14040368264848015746) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 c4 b5 c5 black pc:80:c13000v1 white pc:80:750 score -800
+run 1641 pair 171 game 1 seeds (13849217244581733477, 13658066224315451208) key (34762915840, 344135303168) opening d3 e3 f4 g5 e2 c4 b5 c5 black pc:80:750 white pc:80:c13000v1 score -1400
+run 1641 pair 172 game 0 seeds (2256443002308014128, 7436935297514409293) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 d6 c5 f4 black pc:80:c13000v1 white pc:80:750 score -1200
+run 1641 pair 172 game 1 seeds (12617427592720804458, 17797919887927199623) key (34762915840, 61641370632192) opening d3 c3 e6 e3 b2 d6 c5 f4 black pc:80:750 white pc:80:c13000v1 score -1800

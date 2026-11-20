@@ -1,17 +1,6 @@
 # start 2026-11-19T00:47:59Z commit ca3db5ce8d33660a4a47186131bcdb5e13aa8f0f binary cb0c1101ce39ec8328ecc64af109da63c5ba629d2ab2fa87d516d0a537e494cc load { 4.71 5.10 5.51 }
 # command: othello-tools match --a pc:80:750 --b pc:80:750 --openings bench/openings_tune.txt --pairs 50 --seed 1631 --jobs 4 --max-load 6 --out docs/tuning/clock_pilot750.journal
 pairs 0/50 queued, 4 jobs
-pairs 4/50 elapsed 60.4s
-pairs 8/50 elapsed 120.7s
-pairs 12/50 elapsed 181.3s
-pairs 16/50 elapsed 241.9s
-pairs 20/50 elapsed 302.7s
-pairs 24/50 elapsed 363.6s
-pairs 30/50 elapsed 424.4s
-pairs 36/50 elapsed 484.7s
-pairs 40/50 elapsed 545.3s
-pairs 44/50 elapsed 605.7s
-pairs 48/50 elapsed 666.3s
 void pair 8 load 7.440
 void pair 9 load 7.440
 void pair 10 load 7.720
@@ -49,13 +38,6 @@ void pair 41 load 6.420
 void pair 42 load 6.630
 void pair 43 load 6.420
 pairs 0/36 queued, 4 jobs
-pairs 4/36 elapsed 60.9s
-pairs 8/36 elapsed 121.4s
-pairs 12/36 elapsed 181.6s
-pairs 16/36 elapsed 241.7s
-pairs 20/36 elapsed 302.7s
-pairs 24/36 elapsed 363.1s
-pairs 30/36 elapsed 423.6s
 void pair 24 load 6.310
 void pair 25 load 6.120
 void pair 26 load 6.120
@@ -174,3 +156,15 @@ equal_time 20a <= 21b: ratio 0.9980 holds
 paired_diff_ms_per_pair a-b mean -52.9 interval [-120.0, -2.3] resamples 10000 seed 1
 flags a black 0 white 0 b black 0 white 0
 pilot C_ms 13000
+# start 2026-11-19T09:47:34Z commit ca3db5ce8d33660a4a47186131bcdb5e13aa8f0f binary cb0c1101ce39ec8328ecc64af109da63c5ba629d2ab2fa87d516d0a537e494cc load { 4.19 9.02 11.37 }
+# command: othello-tools match --a pc:80:750 --b pc:80:750 --openings bench/openings_tune.txt --pairs 50 --seed 1631 --jobs 4 --max-load 6 --out docs/tuning/clock_pilot750.journal
+pairs 50 games 100 W 49 D 2 L 49 mean 0.5000 interval [0.3079, 0.6921] uninformative elo none
+seed 1631 resamples 10000 evaluator-only nodes 0 ordering true
+a pc:80:750 (pattern::evaluate, depth 64, time 750, nodes 0, threshold 18)
+b pc:80:750 (pattern::evaluate, depth 64, time 750, nodes 0, threshold 18)
+# start 2026-11-20T17:30:58Z commit ca3db5ce8d33660a4a47186131bcdb5e13aa8f0f binary cb0c1101ce39ec8328ecc64af109da63c5ba629d2ab2fa87d516d0a537e494cc load { 5.17 7.17 9.31 }
+# command: othello-tools match --a pc:80:750 --b pc:80:750 --openings bench/openings_tune.txt --pairs 50 --seed 1631 --jobs 4 --max-load 6 --out docs/tuning/clock_pilot750.journal
+pairs 50 games 100 W 49 D 2 L 49 mean 0.5000 interval [0.3079, 0.6921] uninformative elo none
+seed 1631 resamples 10000 evaluator-only nodes 0 ordering true
+a pc:80:750 (pattern::evaluate, depth 64, time 750, nodes 0, threshold 18)
+b pc:80:750 (pattern::evaluate, depth 64, time 750, nodes 0, threshold 18)
