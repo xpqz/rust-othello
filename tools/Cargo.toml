@@ -22,3 +22,8 @@ test = true
 [[example]]
 name = "book_trace"
 test = true
+
+# The book diagnostic analysis carries unit tests as well.
+[[example]]
+name = "book_diag"
+test = true
