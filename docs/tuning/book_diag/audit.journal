@@ -1,0 +1,17 @@
+header book_diag audit v1 nodes 500000,2000000 found fbf9a6537d3def3d engine 66e41804aba82b4eef836cf0357811df7a262e80
+r0:early:0:0	500000 book 477:b4:p:10:heur off 426:d6:p:10:heur | 2000000 book 417:b4:p:12:heur off 381:c5:p:12:heur | reversal no
+r0:early:0:1	500000 book -335:f6:p:11:heur off -121:c4:p:12:heur | 2000000 book -175:f6:p:13:heur off -477:c4:p:13:heur | reversal yes
+r0:early:1:0	500000 book 95:d2:p:11:heur off 169:e3:p:11:heur | 2000000 book 175:f5:p:12:heur off 37:f5:p:13:heur | reversal yes
+r0:early:1:1	500000 book -2:c4:p:10:heur off -138:f4:p:10:heur | 2000000 book -527:c4:p:11:heur off -385:c4:p:11:heur | reversal yes
+r0:hist:1:1	500000 book -400:h6:p:9:heur off 509:c3:p:10:heur | 2000000 book 164:h6:p:10:heur off -30:c3:p:11:heur | reversal yes
+r0:hist:2:0	500000 book -32:a4:p:10:heur off 370:f2:p:10:heur | 2000000 book -366:a4:p:11:heur off -193:f2:p:11:heur | reversal no
+r0:hist:2:1	500000 book -527:a5:p:9:heur off -72:d2:p:9:heur | 2000000 book -117:a5:p:10:heur off -106:a5:p:11:heur | reversal no
+r0:hist:3:0	500000 book 1047:g4:p:10:heur off 967:g4:p:9:heur | 2000000 book 588:g4:p:11:heur off 1157:e2:p:10:heur | reversal yes
+r3:early:0:0	500000 book 344:d6:p:10:heur off 426:d6:p:10:heur | 2000000 book 385:d6:p:12:heur off 381:c5:p:12:heur | reversal yes
+r3:early:2:0	500000 book 863:g4:p:11:heur off 1163:f6:p:10:heur | 2000000 book 863:g4:p:11:heur off 972:f6:p:11:heur | reversal no
+r3:early:3:1	500000 book 633:f4:p:10:heur off -717:c5:p:11:heur | 2000000 book -474:g1:p:11:heur off -277:c5:p:12:heur | reversal yes
+r3:early:5:0	500000 book 298:f7:p:10:heur off 283:f3:p:10:heur | 2000000 book 0:f7:p:11:heur off 2:f3:p:11:heur | reversal yes
+r3:hist:0:0	500000 book 96:c4:p:9:heur off 740:e2:p:9:heur | 2000000 book 146:c4:p:11:heur off 976:e2:p:10:heur | reversal no
+r3:hist:0:1	500000 book -1081:g3:p:9:heur off -759:g4:p:9:heur | 2000000 book -791:g3:p:10:heur off -740:b5:p:10:heur | reversal no
+r3:hist:2:0	500000 book 106:a3:p:10:heur off -161:e6:p:9:heur | 2000000 book -350:a3:p:11:heur off -163:e6:p:11:heur | reversal yes
+r3:hist:2:1	500000 book -98:d2:p:9:heur off -72:d2:p:9:heur | 2000000 book 41:f3:p:10:heur off -106:a5:p:11:heur | reversal yes
