@@ -156,6 +156,17 @@ impl App {
         self.last_move = Some(square);
     }
 
+    /// Handles the engine's result for the current position: `spent` is the
+    /// time charged to the engine's clock.
+    fn engine_result(&mut self, found: SearchResult, spent: Duration) {
+        let engine_black = self.position.black_to_move;
+        if self.position.moves() & (1u64 << found.best) != 0 {
+            self.last_search = Some((found, spent, engine_black));
+            self.engine_moved(found.best, spent);
+            self.message = format!("Engine played {}.", name(found.best));
+        }
+    }
+
     /// Plays the engine's move and charges its thinking time to the clock.
     fn engine_moved(&mut self, square: u8, spent: Duration) {
         self.engine_clock.charge(spent);
@@ -213,12 +224,7 @@ impl App {
                 Ok((generation, found)) if generation == self.generation => {
                     let elapsed = thinking.started.elapsed();
                     self.thinking = None;
-                    let engine_black = self.position.black_to_move;
-                    if self.position.moves() & (1u64 << found.best) != 0 {
-                        self.last_search = Some((found, elapsed, engine_black));
-                        self.engine_moved(found.best, elapsed);
-                        self.message = format!("Engine played {}.", name(found.best));
-                    }
+                    self.engine_result(found, elapsed);
                 }
                 Ok(_) => self.thinking = None,
                 Err(_) => return true,
@@ -745,20 +751,88 @@ mod tests {
         );
     }
 
-    /// Engine moves are charged; undo refunds the moves it takes back, and
-    /// a new game resets the clock.
+    fn found(best: u8) -> SearchResult {
+        SearchResult {
+            best,
+            score: 0,
+            depth: 1,
+            nodes: 1,
+            status: othello::search::SearchStatus::Complete,
+            solved: false,
+        }
+    }
+
+    fn first_move(app: &App) -> u8 {
+        squares(app.position.moves()).next().unwrap()
+    }
+
+    /// Through the result handler: a charged engine move lowers the next
+    /// allocation.
+    #[test]
+    fn engine_clock_next() {
+        let mut app = App::new();
+        app.apply(19);
+        app.engine_result(found(first_move(&app)), Duration::from_millis(2500));
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS - 2500);
+        app.apply(first_move(&app));
+        let policy = othello::search::ClockPolicy::variant(othello::agents::PLAY_POLICY).unwrap();
+        let want = othello::search::allot_with(
+            app.position.board,
+            PLAY_CLOCK_MS - 2500,
+            app.threshold,
+            policy,
+        );
+        let got = app.engine_limits();
+        assert_eq!((got.start_ms, got.time_ms), (want.start_ms, want.time_ms));
+    }
+
+    /// After two charged exchanges, undo refunds only the last; a new game
+    /// resets the clock.
     #[test]
     fn engine_clock_undo() {
         let mut app = App::new();
         app.apply(19);
-        let reply = squares(app.position.moves()).next().unwrap();
-        app.engine_moved(reply, Duration::from_millis(2500));
-        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS - 2500);
+        app.engine_result(found(first_move(&app)), Duration::from_millis(2500));
+        app.apply(first_move(&app));
+        app.engine_result(found(first_move(&app)), Duration::from_millis(4000));
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS - 6500);
         app.undo();
-        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
-        app.apply(19);
-        app.engine_moved(reply, Duration::from_millis(4000));
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS - 2500);
         app.new_game(true);
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
+    }
+
+    /// A lone legal move is played at once: no worker starts and nothing is
+    /// charged.
+    #[test]
+    fn engine_lone_move() {
+        let mut app = App::new();
+        let (board, only) = (0..10_000u64)
+            .find_map(|seed| {
+                let mut rng = othello::rng::Rng::new(seed);
+                let mut board = Board::START;
+                while !is_terminal(board) {
+                    let moves = legal_moves(board.me, board.opp);
+                    if moves.count_ones() == 1 {
+                        return Some((board, moves.trailing_zeros() as u8));
+                    }
+                    board = if moves == 0 {
+                        pass(board)
+                    } else {
+                        let list: Vec<u8> = squares(moves).collect();
+                        play(board, list[(rng.next_u64() % list.len() as u64) as usize])
+                    };
+                }
+                None
+            })
+            .unwrap();
+        app.position = Position {
+            board,
+            black_to_move: !app.human_black,
+        };
+        app.start_engine();
+        assert!(app.thinking.is_none(), "no search for a lone move");
+        assert_eq!(app.last_move, Some(only));
         assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
     }
 

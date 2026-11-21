@@ -1,6 +1,6 @@
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Output, Stdio};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use othello::board::Board;
 use othello::cli::{parse, render};
@@ -283,4 +283,121 @@ fn play_complete_game() {
     println!("black passes observed: {passes}");
     assert!(start.elapsed().as_secs() < 120, "game timed out");
     assert!(child.wait().unwrap().success());
+}
+
+/// Greedy play that records each clock update it receives.
+struct Recorder(othello::agents::GreedyAgent, Vec<u64>);
+
+impl othello::agents::Agent for Recorder {
+    fn choose(&mut self, board: othello::board::Board) -> Option<u8> {
+        self.0.choose(board)
+    }
+
+    fn clock(&mut self, remaining_ms: u64) {
+        self.1.push(remaining_ms);
+    }
+}
+
+fn recorder() -> Recorder {
+    Recorder(othello::agents::greedy_agent(), Vec::new())
+}
+
+/// The engine turn gives the agent the remaining clock before each move
+/// and charges the move: 51,000 first, then 48,500 after a 2.5 s move.
+#[test]
+fn play_turn_clock() {
+    use othello::agents::{GameClock, PLAY_CLOCK_MS};
+    use othello::board::{Board, legal_moves, play};
+    use othello::cli::engine_turn;
+    let mut agent = recorder();
+    let mut clock = GameClock::new(PLAY_CLOCK_MS);
+    let step = &mut |_: Instant| Duration::from_millis(2500);
+    let first = engine_turn(&mut agent, &mut clock, Board::START, step).unwrap();
+    assert_eq!(clock.remaining_ms(), PLAY_CLOCK_MS - 2500);
+    let mut board = play(Board::START, first);
+    let reply = legal_moves(board.me, board.opp).trailing_zeros() as u8;
+    board = play(board, reply);
+    engine_turn(&mut agent, &mut clock, board, step).unwrap();
+    assert_eq!(agent.1, [PLAY_CLOCK_MS, PLAY_CLOCK_MS - 2500]);
+    assert_eq!(clock.remaining_ms(), PLAY_CLOCK_MS - 5000);
+}
+
+/// A pass calls no agent and charges nothing.
+#[test]
+fn play_turn_pass() {
+    use othello::agents::{GameClock, PLAY_CLOCK_MS};
+    use othello::cli::engine_turn;
+    let stuck = othello::board::Board { me: 1 << 1, opp: 1 };
+    let mut agent = recorder();
+    let mut clock = GameClock::new(PLAY_CLOCK_MS);
+    let step = &mut |_: Instant| Duration::from_millis(2500);
+    assert_eq!(engine_turn(&mut agent, &mut clock, stuck, step), None);
+    assert!(agent.1.is_empty());
+    assert_eq!(clock.remaining_ms(), PLAY_CLOCK_MS);
+}
+
+/// An exhausted clock does not forfeit: the agent is told 0 and still
+/// moves, and the clock stays at 0.
+#[test]
+fn play_turn_overrun() {
+    use othello::agents::{GameClock, PLAY_CLOCK_MS};
+    use othello::board::{Board, legal_moves};
+    use othello::cli::engine_turn;
+    let mut agent = recorder();
+    let mut clock = GameClock::new(PLAY_CLOCK_MS);
+    clock.charge(Duration::from_secs(60));
+    let step = &mut |_: Instant| Duration::from_millis(2500);
+    let square = engine_turn(&mut agent, &mut clock, Board::START, step).unwrap();
+    assert_ne!(
+        legal_moves(Board::START.me, Board::START.opp) & (1 << square),
+        0
+    );
+    assert_eq!(agent.1, [0]);
+    assert_eq!(clock.remaining_ms(), 0);
+}
+
+fn forbidden(_: othello::board::Board) -> i32 {
+    panic!("a forced move must not search")
+}
+
+/// The play agent's forced shortcut through the engine turn: a lone legal
+/// move is played without evaluating, and the call is still charged.
+#[test]
+fn play_turn_forced() {
+    use othello::agents::{GameClock, PLAY_CLOCK_MS, PLAY_POLICY, clock_agent};
+    use othello::board::{Board, empty_count, is_terminal, legal_moves, pass, play};
+    use othello::cli::engine_turn;
+    use othello::search::{ClockPolicy, SearchConfig, SearchLimits};
+    let (board, only) = (0..10_000u64)
+        .find_map(|seed| {
+            let mut rng = othello::rng::Rng::new(seed);
+            let mut board = Board::START;
+            while !is_terminal(board) {
+                let moves = legal_moves(board.me, board.opp);
+                if moves.count_ones() == 1 && empty_count(board) > 20 {
+                    return Some((board, moves.trailing_zeros() as u8));
+                }
+                board = if moves == 0 {
+                    pass(board)
+                } else {
+                    let squares: Vec<u8> = (0..64).filter(|s| moves & (1 << s) != 0).collect();
+                    play(
+                        board,
+                        squares[(rng.next_u64() % squares.len() as u64) as usize],
+                    )
+                };
+            }
+            None
+        })
+        .expect("a lone midgame move");
+    let config = SearchConfig {
+        eval: forbidden,
+        ..SearchConfig::standard()
+    };
+    let policy = ClockPolicy::variant(PLAY_POLICY).unwrap();
+    let mut agent = clock_agent(config, SearchLimits::new(64, 3000, 0), policy);
+    let mut clock = GameClock::new(PLAY_CLOCK_MS);
+    let step = &mut |_: Instant| Duration::from_millis(7);
+    assert_eq!(engine_turn(&mut agent, &mut clock, board, step), Some(only));
+    assert_eq!(clock.remaining_ms(), PLAY_CLOCK_MS - 7);
 }

@@ -1,7 +1,7 @@
 use std::io::{self, BufRead};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-use crate::agents::{Agent, search_agent};
+use crate::agents::{Agent, GameClock, PLAY_CLOCK_MS, search_agent};
 use crate::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use crate::perft::perft;
 use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_tt};
@@ -149,10 +149,25 @@ fn parse_move(board: Board, text: &str) -> Option<u8> {
     squares(legal_moves(board.me, board.opp)).find(|&square| square_name(square) == text)
 }
 
+/// The engine's turn in play (#167): the clock's remaining time goes to the
+/// agent before it moves, and the move's `elapsed` time is charged. With
+/// no legal move there is no call and no charge. An exhausted clock does
+/// not forfeit; the agent plays on its allocator's minimum.
+pub fn engine_turn(
+    agent: &mut dyn Agent,
+    _clock: &mut GameClock,
+    board: Board,
+    _elapsed: &mut dyn FnMut(Instant) -> Duration,
+) -> Option<u8> {
+    agent.choose(board)
+}
+
 fn play_game() -> Result<(), String> {
     let mut board = Board::START;
     let mut black_to_move = true;
     let mut agent = search_agent(SearchConfig::standard(), SearchLimits::new(64, 3000, 0));
+    let mut clock = GameClock::new(PLAY_CLOCK_MS);
+    let real = &mut |start: Instant| start.elapsed();
     let mut input = io::stdin().lock();
     loop {
         print!("{}", render(board, black_to_move));
@@ -168,7 +183,8 @@ fn play_game() -> Result<(), String> {
                 println!("White passes");
                 board = pass(board);
             } else {
-                let square = agent.choose(board).expect("search must move");
+                let square =
+                    engine_turn(&mut agent, &mut clock, board, real).expect("search must move");
                 board = play(board, square);
             }
         } else if moves == 0 {
