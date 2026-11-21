@@ -13,12 +13,13 @@
 //!
 //! A symmetry-equivalent first change ends the comparison of that game: it
 //! is reported as `equivalent` and never takes an audit slot.
-#![allow(dead_code)] // RED stubs; removed in GREEN.
-
-use othello::board::Board;
-use othello::search::SearchStatus;
-use othello_tools::journal::Record;
-use std::collections::BTreeMap;
+use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
+use othello::score::terminal_score;
+use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits, SearchStatus, search_tt};
+use othello::tt::Table;
+use othello_tools::journal::{Journal, Record};
+use othello_tools::sym::{canonical, transform};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// A decision parsed from a `book_trace` event token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,38 +71,199 @@ struct Value {
     solved: bool,
 }
 
+type Found = (String, String, Disagreement);
+
+fn moves_of(board: Board) -> impl Iterator<Item = u8> {
+    let moves = legal_moves(board.me, board.opp);
+    (0..64u8).filter(move |s| moves & (1 << s) != 0)
+}
+
+fn sym_square(square: u8, kind: u8) -> u8 {
+    transform(
+        Board {
+            me: 1 << square,
+            opp: 0,
+        },
+        kind,
+    )
+    .me
+    .trailing_zeros() as u8
+}
+
 /// The early roots: after 1 and 2 placements, every canonical position;
 /// after 3 and 4, four each by a seeded shuffle (seed 171) of the
 /// canonical positions in key order. Each as its least square sequence.
 fn early_roots() -> Vec<Vec<u8>> {
-    Vec::new()
+    // Depth-first in square order meets each position first by its least sequence.
+    fn walk(board: Board, line: &mut Vec<u8>, levels: &mut [BTreeMap<(u64, u64), Vec<u8>>]) {
+        if line.len() == levels.len() {
+            return;
+        }
+        for square in moves_of(board) {
+            line.push(square);
+            let child = play(board, square);
+            levels[line.len() - 1]
+                .entry(canonical(child))
+                .or_insert_with(|| line.clone());
+            walk(child, line, levels);
+            line.pop();
+        }
+    }
+    let mut levels = vec![BTreeMap::new(); 4];
+    walk(Board::START, &mut Vec::new(), &mut levels);
+    let mut rng = othello::rng::Rng::new(171);
+    let mut roots = Vec::new();
+    for (depth, level) in levels.into_iter().enumerate() {
+        let mut lines: Vec<Vec<u8>> = level.into_values().collect();
+        if depth >= 2 {
+            for i in (1..lines.len()).rev() {
+                lines.swap(i, (rng.next_u64() % (i as u64 + 1)) as usize);
+            }
+            lines.truncate(4);
+        }
+        roots.extend(lines);
+    }
+    roots
 }
 
 /// A 64-bit FNV-1a digest, as `book_trace` writes into its header.
-fn digest(_bytes: &[u8]) -> u64 {
-    0
+fn digest(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, &b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    })
 }
 
 /// Parses a `book_trace` events text into steps.
-fn steps(_text: &str) -> Option<Vec<Step>> {
-    None
+fn steps(text: &str) -> Option<Vec<Step>> {
+    text.split_whitespace()
+        .map(|token| {
+            let black = match token.as_bytes().first()? {
+                b'b' => true,
+                b'w' => false,
+                _ => return None,
+            };
+            if &token[1..] == "-" {
+                return Some(Step {
+                    black,
+                    square: None,
+                    book: false,
+                });
+            }
+            let f: Vec<&str> = token[1..].split(':').collect();
+            let [key, legal, source, square, depth, status, nodes] = f[..] else {
+                return None;
+            };
+            let valid = u64::from_str_radix(key, 16).is_ok()
+                && legal.parse::<u32>().is_ok()
+                && depth.parse::<u32>().is_ok()
+                && ["c", "p", "f"].contains(&status)
+                && nodes.parse::<u64>().is_ok();
+            let square = square.parse::<u8>().ok().filter(|&s| s < 64 && valid)?;
+            let book = match source {
+                "b" => true,
+                "s" => false,
+                _ => return None,
+            };
+            Some(Step {
+                black,
+                square: Some(square),
+                book,
+            })
+        })
+        .collect()
 }
 
 /// Reads a `book_trace` journal's header and records; every id must be a
 /// canonical `pair:game` and appear once.
-fn parse_trace(_header: &str, _records: &[Record]) -> Result<Trace, String> {
-    Err("parse_trace: not implemented".into())
+fn parse_trace(header: &str, records: &[Record]) -> Result<Trace, String> {
+    let f: Vec<&str> = header.split(' ').collect();
+    let bad = || format!("not a book_trace v1 header: {header}");
+    let [
+        "header",
+        "book_trace",
+        "v1",
+        "book",
+        book,
+        "asset",
+        _,
+        "nodes",
+        nodes,
+        "roots",
+        roots,
+        "engine",
+        engine,
+    ] = f[..]
+    else {
+        return Err(bad());
+    };
+    let mut games = BTreeMap::new();
+    for record in records {
+        let bad_record = || format!("bad record {}: {}", record.id, record.line);
+        let (pair, game) = record.id.split_once(':').ok_or_else(bad_record)?;
+        let key: (usize, u8) = (
+            pair.parse().map_err(|_| bad_record())?,
+            game.parse().map_err(|_| bad_record())?,
+        );
+        if record.id != format!("{}:{}", key.0, key.1) || key.1 > 1 {
+            return Err(format!("non-canonical id {}", record.id));
+        }
+        let (score, events) = record
+            .line
+            .strip_prefix("score ")
+            .and_then(|r| r.split_once(" events"))
+            .ok_or_else(bad_record)?;
+        score.parse::<i32>().map_err(|_| bad_record())?;
+        let parsed = steps(events).ok_or_else(bad_record)?;
+        if games.insert(key, parsed).is_some() {
+            return Err(format!("duplicate id {}", record.id));
+        }
+    }
+    Ok(Trace {
+        book: book.into(),
+        nodes: nodes.parse().map_err(|_| bad())?,
+        roots: u64::from_str_radix(roots, 16).map_err(|_| bad())?,
+        engine: engine.into(),
+        games,
+    })
 }
 
 /// The first change of a book trace against its reference, both from
-/// `opening`, or `None` if they agree throughout.
+/// `opening`, or `None` if they agree throughout. Replay stops at an
+/// illegal move, which a checked `book_trace` journal never holds.
 fn first_disagreement(
-    _pair: usize,
-    _game: u8,
-    _opening: &[u8],
-    _book: &[Step],
-    _off: &[Step],
+    pair: usize,
+    game: u8,
+    opening: &[u8],
+    book: &[Step],
+    off: &[Step],
 ) -> Option<Disagreement> {
+    let mut board = Board::START;
+    for &square in opening {
+        board = play(board, square);
+    }
+    for (index, (b, o)) in book.iter().zip(off).enumerate() {
+        match (b.square, o.square) {
+            (Some(x), Some(y)) if x != y => {
+                let equivalent =
+                    (1..8).any(|k| transform(board, k) == board && sym_square(x, k) == y);
+                return Some(Disagreement {
+                    pair,
+                    game,
+                    index,
+                    board,
+                    book_move: x,
+                    off_move: y,
+                    from_book: b.book,
+                    equivalent,
+                });
+            }
+            (Some(x), Some(_)) if legal_moves(board.me, board.opp) & (1 << x) != 0 => {
+                board = play(board, x)
+            }
+            (None, None) => board = pass(board),
+            _ => return None,
+        }
+    }
     None
 }
 
@@ -110,55 +272,202 @@ fn first_disagreement(
 /// node cap, engine and the roots identity of `roots_text`, and that each covers
 /// every pair of the roots once per colour.
 fn compare(
-    _book: &Trace,
-    _off: &Trace,
-    _roots: &[Vec<u8>],
-    _roots_text: &str,
+    book: &Trace,
+    off: &Trace,
+    roots: &[Vec<u8>],
+    roots_text: &str,
 ) -> Result<Vec<Disagreement>, String> {
-    Err("compare: not implemented".into())
+    if off.book != "off" {
+        return Err(format!("the reference is book {}, not off", off.book));
+    }
+    if (book.nodes, &book.engine) != (off.nodes, &off.engine) {
+        return Err("the traces differ in node cap or engine".into());
+    }
+    let identity = digest(roots_text.as_bytes());
+    if book.roots != identity || off.roots != identity {
+        return Err("a trace was not made from these roots".into());
+    }
+    let ids: Vec<(usize, u8)> = (0..roots.len()).flat_map(|p| [(p, 0), (p, 1)]).collect();
+    for trace in [book, off] {
+        if !trace.games.keys().copied().eq(ids.iter().copied()) {
+            return Err(format!(
+                "book {} does not hold every game of the roots once",
+                trace.book
+            ));
+        }
+    }
+    Ok(ids
+        .iter()
+        .filter_map(|&(p, g)| {
+            first_disagreement(p, g, &roots[p], &book.games[&(p, g)], &off.games[&(p, g)])
+        })
+        .collect())
 }
 
 /// The mover's value of playing `square` from `board`: exact for a
 /// terminal child; otherwise a fresh search at `nodes` with ProbCut off of
 /// the position the next mover faces, negated when the opponent moves next
 /// and kept when the opponent must pass.
-fn child_value(_board: Board, _square: u8, _nodes: u64) -> Value {
+fn child_value(board: Board, square: u8, nodes: u64) -> Value {
+    let child = play(board, square);
+    if is_terminal(child) {
+        let score = -terminal_score(final_score(child));
+        return Value {
+            score,
+            reply: None,
+            status: None,
+            depth: 0,
+            solved: true,
+        };
+    }
+    let passes = legal_moves(child.me, child.opp) == 0;
+    let config = SearchConfig {
+        probcut: None,
+        ..SearchConfig::standard()
+    };
+    let limits = SearchLimits::new(64, NO_DEADLINE, nodes);
+    let next = if passes { pass(child) } else { child };
+    let r = search_tt(next, limits, &config, &mut Table::new(1 << 20));
     Value {
-        score: 0,
-        reply: None,
-        status: None,
-        depth: 0,
-        solved: false,
+        score: if passes { r.score } else { -r.score },
+        reply: Some(r.best),
+        status: Some(r.status),
+        depth: r.depth,
+        solved: r.solved,
     }
 }
 
 /// Fit for a reversal decision: exact, or a completed heuristic iteration
 /// (positive depth). A W/D/L partial or a fallback is not.
-fn eligible(_value: Value) -> bool {
-    false
+fn eligible(value: Value) -> bool {
+    value.solved || (value.depth > 0 && value.status != Some(SearchStatus::Fallback))
 }
 
 /// Whether the preferred child, book or off, flips between the low and
 /// high node caps: `None` unless all four values are eligible. A tie at
 /// either cap is no reversal.
-fn reversal(_low: (Value, Value), _high: (Value, Value)) -> Option<bool> {
-    None
+fn reversal(low: (Value, Value), high: (Value, Value)) -> Option<bool> {
+    if ![low.0, low.1, high.0, high.1].into_iter().all(eligible) {
+        return None;
+    }
+    let (a, b) = (
+        low.0.score.cmp(&low.1.score),
+        high.0.score.cmp(&high.1.score),
+    );
+    Some(a.is_ne() && b == a.reverse())
 }
 
 /// Up to 16 non-equivalent disagreements, at most four per (version,
 /// group), in the given order; a board and move pair counts once, up to a
 /// symmetry applied to all three.
-fn select(_found: &[(String, String, Disagreement)]) -> Vec<(String, String, Disagreement)> {
-    Vec::new()
+fn select(found: &[Found]) -> Vec<Found> {
+    let mut seen = BTreeSet::new();
+    let mut quota: BTreeMap<(&str, &str), usize> = BTreeMap::new();
+    let mut picked = Vec::new();
+    for entry in found.iter().filter(|e| !e.2.equivalent) {
+        let d = &entry.2;
+        let case = (0..8)
+            .map(|k| {
+                let b = transform(d.board, k);
+                (
+                    b.me,
+                    b.opp,
+                    sym_square(d.book_move, k),
+                    sym_square(d.off_move, k),
+                )
+            })
+            .min();
+        let used = quota.entry((&entry.0, &entry.1)).or_default();
+        if picked.len() < 16 && *used < 4 && seen.insert(case) {
+            *used += 1;
+            picked.push(entry.clone());
+        }
+    }
+    picked
 }
 
-/// Audits `found` at each node cap into a resumable journal at `out`.
-fn audit(
-    _found: &[(String, String, Disagreement)],
-    _nodes: &[u64],
-    _out: &str,
-) -> Result<(), String> {
-    Err("audit: not implemented".into())
+fn value_text(v: Value) -> String {
+    let status = match v.status {
+        None => 't',
+        Some(SearchStatus::Complete) => 'c',
+        Some(SearchStatus::Partial) => 'p',
+        Some(SearchStatus::Fallback) => 'f',
+    };
+    let reply = v.reply.map_or("-".into(), square_name);
+    format!(
+        "{}:{reply}:{status}:{}:{}",
+        v.score,
+        v.depth,
+        if v.solved { "exact" } else { "heur" }
+    )
+}
+
+/// Audits the selection of `found` at each node cap into a resumable
+/// journal at `out`, one record per position: per cap, the book and off
+/// children's values, then whether the first and last caps reverse.
+fn audit(found: &[Found], nodes: &[u64], out: &str) -> Result<(), String> {
+    let picked = select(found);
+    let lines: Vec<String> = picked
+        .iter()
+        .map(|(v, g, d)| disagreement_line(v, g, d))
+        .collect();
+    let caps: Vec<String> = nodes.iter().map(u64::to_string).collect();
+    let header = format!(
+        "header book_diag audit v1 nodes {} found {:016x}",
+        caps.join(","),
+        digest(lines.join("\n").as_bytes())
+    );
+    let (mut journal, _) = Journal::open(std::path::Path::new(out), &header)?;
+    let ids: Vec<String> = picked
+        .iter()
+        .map(|(v, g, d)| format!("{v}:{g}:{}:{}", d.pair, d.game))
+        .collect();
+    let mut count: BTreeMap<&str, usize> = BTreeMap::new();
+    for record in journal.records() {
+        *count.entry(record.id.as_str()).or_default() += 1;
+    }
+    // Keep exactly one record per selected id; anything else is redone.
+    let stale: BTreeSet<String> = count
+        .iter()
+        .filter(|&(id, &n)| n > 1 || !ids.iter().any(|i| i == id))
+        .map(|(id, _)| id.to_string())
+        .collect();
+    let done: BTreeSet<String> = count
+        .keys()
+        .map(|id| id.to_string())
+        .filter(|id| !stale.contains(id))
+        .collect();
+    if !stale.is_empty() {
+        journal.discard(&stale)?;
+    }
+    for (id, (_, _, d)) in ids
+        .iter()
+        .zip(&picked)
+        .filter(|(id, _)| !done.contains(*id))
+    {
+        let values: Vec<(Value, Value)> = nodes
+            .iter()
+            .map(|&n| {
+                (
+                    child_value(d.board, d.book_move, n),
+                    child_value(d.board, d.off_move, n),
+                )
+            })
+            .collect();
+        let mut fields: Vec<String> = nodes
+            .iter()
+            .zip(&values)
+            .map(|(n, (b, o))| format!("{n} book {} off {}", value_text(*b), value_text(*o)))
+            .collect();
+        let verdict = match reversal(values[0], values[values.len() - 1]) {
+            Some(true) => "yes",
+            Some(false) => "no",
+            None => "ineligible",
+        };
+        fields.push(format!("reversal {verdict}"));
+        journal.append(id, &fields.join(" | "))?;
+    }
+    Ok(())
 }
 
 fn square_name(square: u8) -> String {
@@ -311,12 +620,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use othello::board::{final_score, legal_moves, pass, play};
-    use othello::score::terminal_score;
-    use othello::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_tt};
-    use othello::tt::Table;
-    use othello_tools::sym::{canonical, transform};
-    use std::collections::BTreeSet;
 
     #[test]
     fn early_roots_rule() {
@@ -400,18 +703,6 @@ mod tests {
         let e = first_disagreement(0, 0, &[19], &[mv(false, 18, true)], &[mv(false, 20, false)])
             .unwrap();
         assert!(!e.equivalent, "c3 and e3 after d3 are not symmetric");
-    }
-
-    fn sym_square(square: u8, kind: u8) -> u8 {
-        transform(
-            Board {
-                me: 1 << square,
-                opp: 0,
-            },
-            kind,
-        )
-        .me
-        .trailing_zeros() as u8
     }
 
     fn found(
