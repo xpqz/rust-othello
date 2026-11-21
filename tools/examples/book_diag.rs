@@ -53,7 +53,8 @@ struct Trace {
     nodes: u64,
     roots: u64,
     engine: String,
-    games: BTreeMap<(usize, u8), Vec<Step>>,
+    /// Each game's recorded final Black score and its steps.
+    games: BTreeMap<(usize, u8), (i32, Vec<Step>)>,
 }
 
 /// One child's audit value, from the mover's side.
@@ -212,9 +213,9 @@ fn parse_trace(header: &str, records: &[Record]) -> Result<Trace, String> {
             .strip_prefix("score ")
             .and_then(|r| r.split_once(" events"))
             .ok_or_else(bad_record)?;
-        score.parse::<i32>().map_err(|_| bad_record())?;
+        let score = score.parse::<i32>().map_err(|_| bad_record())?;
         let parsed = steps(events).ok_or_else(bad_record)?;
-        if games.insert(key, parsed).is_some() {
+        if games.insert(key, (score, parsed)).is_some() {
             return Err(format!("duplicate id {}", record.id));
         }
     }
@@ -225,6 +226,34 @@ fn parse_trace(header: &str, records: &[Record]) -> Result<Trace, String> {
         engine: engine.into(),
         games,
     })
+}
+
+/// Whether `steps` replay from `opening` with the right side to move, legal
+/// moves and forced passes only, to a finished game whose final Black score
+/// in centidiscs is `score`.
+fn finished(opening: &[u8], score: i32, steps: &[Step]) -> bool {
+    let mut board = Board::START;
+    for &square in opening {
+        if legal_moves(board.me, board.opp) & (1 << square) == 0 {
+            return false;
+        }
+        board = play(board, square);
+    }
+    let mut black = opening.len().is_multiple_of(2);
+    for step in steps {
+        let moves = legal_moves(board.me, board.opp);
+        if step.black != black || is_terminal(board) {
+            return false;
+        }
+        board = match step.square {
+            None if moves == 0 => pass(board),
+            Some(square) if moves & (1 << square) != 0 => play(board, square),
+            _ => return false,
+        };
+        black = !black;
+    }
+    let value = terminal_score(final_score(board));
+    is_terminal(board) && score == if black { value } else { -value }
 }
 
 /// The first change of a book trace against its reference, both from
@@ -269,8 +298,8 @@ fn first_disagreement(
 
 /// Every game's first change, in numeric pair and colour order, after
 /// checking that the reference is book-off, that both traces have the same
-/// node cap, engine and the roots identity of `roots_text`, and that each covers
-/// every pair of the roots once per colour.
+/// node cap, engine and the roots identity of `roots_text`, and that each
+/// holds every game of the roots once, finished with its recorded score.
 fn compare(
     book: &Trace,
     off: &Trace,
@@ -295,11 +324,26 @@ fn compare(
                 trace.book
             ));
         }
+        for &(p, g) in &ids {
+            let (score, steps) = &trace.games[&(p, g)];
+            if !finished(&roots[p], *score, steps) {
+                return Err(format!(
+                    "book {} game {p}:{g} is not a finished game from its root with its score",
+                    trace.book
+                ));
+            }
+        }
     }
     Ok(ids
         .iter()
         .filter_map(|&(p, g)| {
-            first_disagreement(p, g, &roots[p], &book.games[&(p, g)], &off.games[&(p, g)])
+            first_disagreement(
+                p,
+                g,
+                &roots[p],
+                &book.games[&(p, g)].1,
+                &off.games[&(p, g)].1,
+            )
         })
         .collect())
 }
@@ -402,9 +446,69 @@ fn value_text(v: Value) -> String {
     )
 }
 
+fn parse_value(text: &str) -> Option<Value> {
+    let f: Vec<&str> = text.split(':').collect();
+    let [score, reply, status, depth, kind] = f[..] else {
+        return None;
+    };
+    let status = match status {
+        "t" => None,
+        "c" => Some(SearchStatus::Complete),
+        "p" => Some(SearchStatus::Partial),
+        "f" => Some(SearchStatus::Fallback),
+        _ => return None,
+    };
+    Some(Value {
+        score: score.parse().ok()?,
+        reply: if reply == "-" {
+            None
+        } else {
+            Some(parse_square(reply)?)
+        },
+        status,
+        depth: depth.parse().ok()?,
+        solved: match kind {
+            "exact" => true,
+            "heur" => false,
+            _ => return None,
+        },
+    })
+}
+
+/// An audit record: per cap, the book and off children's values, then
+/// whether the first and last caps reverse.
+fn audit_line(nodes: &[u64], values: &[(Value, Value)]) -> String {
+    let mut fields: Vec<String> = nodes
+        .iter()
+        .zip(values)
+        .map(|(n, (b, o))| format!("{n} book {} off {}", value_text(*b), value_text(*o)))
+        .collect();
+    let verdict = match reversal(values[0], values[values.len() - 1]) {
+        Some(true) => "yes",
+        Some(false) => "no",
+        None => "ineligible",
+    };
+    fields.push(format!("reversal {verdict}"));
+    fields.join(" | ")
+}
+
+/// Whether a saved audit record is well formed for `nodes`: its values,
+/// rewritten with these caps, reproduce it exactly.
+fn audit_valid(line: &str, nodes: &[u64]) -> bool {
+    let fields: Vec<&str> = line.split(" | ").collect();
+    let values: Option<Vec<(Value, Value)>> = fields[..fields.len() - 1]
+        .iter()
+        .map(|f| match f.split(' ').collect::<Vec<_>>()[..] {
+            [_, "book", b, "off", o] => Some((parse_value(b)?, parse_value(o)?)),
+            _ => None,
+        })
+        .collect();
+    values.is_some_and(|v| v.len() == nodes.len() && audit_line(nodes, &v) == line)
+}
+
 /// Audits the selection of `found` at each node cap into a resumable
-/// journal at `out`, one record per position: per cap, the book and off
-/// children's values, then whether the first and last caps reverse.
+/// journal at `out`, one `audit_line` record per position, bound to the
+/// caps, the selection and the engine.
 fn audit(found: &[Found], nodes: &[u64], out: &str) -> Result<(), String> {
     let picked = select(found);
     let lines: Vec<String> = picked
@@ -413,9 +517,10 @@ fn audit(found: &[Found], nodes: &[u64], out: &str) -> Result<(), String> {
         .collect();
     let caps: Vec<String> = nodes.iter().map(u64::to_string).collect();
     let header = format!(
-        "header book_diag audit v1 nodes {} found {:016x}",
+        "header book_diag audit v1 nodes {} found {:016x} engine {}",
         caps.join(","),
-        digest(lines.join("\n").as_bytes())
+        digest(lines.join("\n").as_bytes()),
+        othello_tools::provenance::git_commit()
     );
     let (mut journal, _) = Journal::open(std::path::Path::new(out), &header)?;
     let ids: Vec<String> = picked
@@ -423,13 +528,17 @@ fn audit(found: &[Found], nodes: &[u64], out: &str) -> Result<(), String> {
         .map(|(v, g, d)| format!("{v}:{g}:{}:{}", d.pair, d.game))
         .collect();
     let mut count: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut invalid = BTreeSet::new();
     for record in journal.records() {
         *count.entry(record.id.as_str()).or_default() += 1;
+        if !audit_valid(&record.line, nodes) {
+            invalid.insert(record.id.as_str());
+        }
     }
-    // Keep exactly one record per selected id; anything else is redone.
+    // Keep exactly one valid record per selected id; anything else is redone.
     let stale: BTreeSet<String> = count
         .iter()
-        .filter(|&(id, &n)| n > 1 || !ids.iter().any(|i| i == id))
+        .filter(|&(id, &n)| n > 1 || invalid.contains(id) || !ids.iter().any(|i| i == id))
         .map(|(id, _)| id.to_string())
         .collect();
     let done: BTreeSet<String> = count
@@ -454,18 +563,7 @@ fn audit(found: &[Found], nodes: &[u64], out: &str) -> Result<(), String> {
                 )
             })
             .collect();
-        let mut fields: Vec<String> = nodes
-            .iter()
-            .zip(&values)
-            .map(|(n, (b, o))| format!("{n} book {} off {}", value_text(*b), value_text(*o)))
-            .collect();
-        let verdict = match reversal(values[0], values[values.len() - 1]) {
-            Some(true) => "yes",
-            Some(false) => "no",
-            None => "ineligible",
-        };
-        fields.push(format!("reversal {verdict}"));
-        journal.append(id, &fields.join(" | "))?;
+        journal.append(id, &audit_line(nodes, &values))?;
     }
     Ok(())
 }
@@ -921,14 +1019,37 @@ mod tests {
         )
     }
 
-    /// One game record from `d3`: white plays `square`.
+    /// A finished game from `d3` as `book_trace` events: white plays
+    /// `square`, then each side its least legal move; and Black's score.
+    fn game(square: u8) -> (i32, Vec<String>) {
+        let (mut board, mut black, mut tokens) = (play(Board::START, 19), false, Vec::new());
+        let mut next = Some(square);
+        while !is_terminal(board) {
+            let side = if black { 'b' } else { 'w' };
+            let moves = legal_moves(board.me, board.opp);
+            if moves == 0 {
+                tokens.push(format!("{side}-"));
+                board = pass(board);
+            } else {
+                let sq = next.take().unwrap_or(moves.trailing_zeros() as u8);
+                let key = othello::tt::zobrist(board);
+                tokens.push(format!(
+                    "{side}{key:016x}:{}:s:{sq}:1:c:10",
+                    moves.count_ones()
+                ));
+                board = play(board, sq);
+            }
+            black = !black;
+        }
+        let value = terminal_score(final_score(board));
+        (if black { value } else { -value }, tokens)
+    }
+
     fn record(id: &str, square: u8) -> Record {
-        let board = play(Board::START, 19);
-        let key = othello::tt::zobrist(board);
-        let legal = legal_moves(board.me, board.opp).count_ones();
+        let (score, tokens) = game(square);
         Record {
             id: id.into(),
-            line: format!("score 0 events w{key:016x}:{legal}:s:{square}:1:c:10"),
+            line: format!("score {score} events {}", tokens.join(" ")),
         }
     }
 
@@ -1011,6 +1132,58 @@ mod tests {
         );
     }
 
+    /// `diverge` refuses a trace whose complete, newline-terminated record
+    /// holds an unfinished game, an empty game, or a wrong score.
+    #[test]
+    fn diverge_refuses_unfinished() {
+        let dir = std::env::temp_dir().join(format!("book_diag_{}_diverge", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = |name: &str| dir.join(name).to_str().unwrap().to_string();
+        std::fs::write(path("roots"), "d3\n").unwrap();
+        let roots = digest(b"d3\n");
+        let write = |name: &str, book: &str, lines: [String; 2]| {
+            let text = format!(
+                "{}\n0:0\t{}\n0:1\t{}\n",
+                header(book, 1000, roots),
+                lines[0],
+                lines[1]
+            );
+            std::fs::write(path(name), text).unwrap();
+        };
+        let line = |square| record("0:0", square).line;
+        write("off", "off", [line(18), line(18)]);
+        let diverge = |book: &str| {
+            let args = [
+                "diverge",
+                "--book",
+                book,
+                "--off",
+                &path("off"),
+                "--roots",
+                &path("roots"),
+                "--version",
+                "r3",
+                "--group",
+                "g",
+            ];
+            run(&args.map(String::from))
+        };
+        write("book", "embedded", [line(20), line(18)]);
+        assert!(diverge(&path("book")).is_ok(), "a valid fixture");
+        let (score, mut tokens) = game(20);
+        tokens.pop();
+        let cases = [
+            format!("score {score} events {}", tokens.join(" ")),
+            format!("score {score} events "),
+            format!("score {} events {}", score + 100, game(20).1.join(" ")),
+        ];
+        for (k, bad) in cases.into_iter().enumerate() {
+            write("book", "embedded", [bad, line(18)]);
+            assert!(diverge(&path("book")).is_err(), "case {k} must be refused");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// An interrupted audit resumes: completed positions are kept, and the
     /// result equals an uninterrupted audit.
     #[test]
@@ -1032,6 +1205,28 @@ mod tests {
         std::fs::write(&cut, format!("{head}\n{}\t{}\n", all[0].id, all[0].line)).unwrap();
         audit(&list, &[1000, 2000], cut.to_str().unwrap()).unwrap();
         assert_eq!(othello_tools::journal::read(&cut).unwrap().1, all);
+        assert!(
+            head.contains(" engine "),
+            "the audit header names the engine"
+        );
+        // A known id with an invalid payload or another cap is recomputed;
+        // the valid record is kept.
+        let sorted = |mut r: Vec<Record>| {
+            r.sort_by(|a, b| a.id.cmp(&b.id));
+            r
+        };
+        let other_cap = all[0].line.replacen("1000 book", "1500 book", 1);
+        for bad in ["bad payload", other_cap.as_str()] {
+            let text = format!(
+                "{head}\n{}\t{bad}\n{}\t{}\n",
+                all[0].id, all[1].id, all[1].line
+            );
+            std::fs::write(&cut, text).unwrap();
+            audit(&list, &[1000, 2000], cut.to_str().unwrap()).unwrap();
+            let records = othello_tools::journal::read(&cut).unwrap().1;
+            assert_eq!(records[0], all[1], "the valid record is kept in place");
+            assert_eq!(sorted(records), sorted(all.clone()));
+        }
         assert!(
             audit(&list, &[1000, 3000], cut.to_str().unwrap()).is_err(),
             "other caps: header mismatch"
