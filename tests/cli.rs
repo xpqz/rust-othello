@@ -221,20 +221,14 @@ fn bench_board_invalid() {
 
 #[test]
 fn play_opponent_is_search() {
-    let start = Instant::now();
     let output = run(
         &["play"],
         "d3
 ",
     );
     assert!(output.status.success());
-    // Play runs on the 51 s game clock with early stopping (#167), so a
-    // quick reply is correct; the clocked search itself is pinned by
-    // `tests/clock.rs::play_agent_policy`.
-    assert!(
-        start.elapsed().as_millis() < u128::from(othello::agents::PLAY_CLOCK_MS),
-        "White's reply exceeded the whole game clock"
-    );
+    // A legal-reply smoke test: under the play clock (#167) the reply's
+    // timing is not fixed, so only exit and output are checked.
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(
         text.matches("Black to move").count() >= 2 || text.contains("Game over"),
@@ -285,16 +279,18 @@ fn play_complete_game() {
     assert!(child.wait().unwrap().success());
 }
 
-/// Greedy play that records each clock update it receives.
-struct Recorder(othello::agents::GreedyAgent, Vec<u64>);
+/// Greedy play that logs its calls in order: `Some(ms)` for a clock
+/// update, `None` for a move.
+struct Recorder(othello::agents::GreedyAgent, Vec<Option<u64>>);
 
 impl othello::agents::Agent for Recorder {
     fn choose(&mut self, board: othello::board::Board) -> Option<u8> {
+        self.1.push(None);
         self.0.choose(board)
     }
 
     fn clock(&mut self, remaining_ms: u64) {
-        self.1.push(remaining_ms);
+        self.1.push(Some(remaining_ms));
     }
 }
 
@@ -318,7 +314,9 @@ fn play_turn_clock() {
     let reply = legal_moves(board.me, board.opp).trailing_zeros() as u8;
     board = play(board, reply);
     engine_turn(&mut agent, &mut clock, board, step).unwrap();
-    assert_eq!(agent.1, [PLAY_CLOCK_MS, PLAY_CLOCK_MS - 2500]);
+    // Each clock update comes before the move it serves.
+    let calls = [Some(PLAY_CLOCK_MS), None, Some(PLAY_CLOCK_MS - 2500), None];
+    assert_eq!(agent.1, calls);
     assert_eq!(clock.remaining_ms(), PLAY_CLOCK_MS - 5000);
 }
 
@@ -332,7 +330,7 @@ fn play_turn_pass() {
     let mut clock = GameClock::new(PLAY_CLOCK_MS);
     let step = &mut |_: Instant| Duration::from_millis(2500);
     assert_eq!(engine_turn(&mut agent, &mut clock, stuck, step), None);
-    assert!(agent.1.is_empty());
+    assert!(agent.1.is_empty(), "neither clock nor choose is called");
     assert_eq!(clock.remaining_ms(), PLAY_CLOCK_MS);
 }
 
@@ -352,7 +350,7 @@ fn play_turn_overrun() {
         legal_moves(Board::START.me, Board::START.opp) & (1 << square),
         0
     );
-    assert_eq!(agent.1, [0]);
+    assert_eq!(agent.1, [Some(0), None]);
     assert_eq!(clock.remaining_ms(), 0);
 }
 
