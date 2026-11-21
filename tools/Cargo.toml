@@ -17,3 +17,8 @@ codegen-units = 1
 [[example]]
 name = "clock_time"
 test = true
+
+# The book diagnostic tracer carries unit tests as well.
+[[example]]
+name = "book_trace"
+test = true
