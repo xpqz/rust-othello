@@ -21,6 +21,13 @@ use othello::score::terminal_score;
 use othello::search::{SearchConfig, SearchLimits, SearchStatus, search_tt};
 use othello::tt::{Table, zobrist};
 
+/// The stored move for `board` in a book asset, as the retired engine
+/// module `othello::book` answered it, and its value.
+#[allow(dead_code)] // RED stub; replaces `othello::book::lookup` in GREEN.
+fn book_lookup(_asset: &[u8], _board: Board) -> Option<(u8, i32)> {
+    None
+}
+
 /// Which book a tracer consults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Book<'a> {
@@ -457,6 +464,149 @@ mod tests {
     use othello_tools::journal::read;
 
     const NODES: u64 = 20_000;
+    /// The archived three-round asset, byte-identical to the retired
+    /// embedded book.
+    const R3: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../docs/tuning/book_ext/book.bin"
+    );
+    const MANIFEST: &str = include_str!("../../docs/tuning/book_manifest.txt");
+    /// `start` traced with `--book embedded` at 20,000 nodes before removal.
+    const FIXTURE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../docs/tuning/book_diag/embedded_start_20k.journal"
+    );
+
+    /// An asset record for `board`: the zobrist key of its canonical
+    /// image, the canonical square and the value, little-endian.
+    fn record(board: Board, square: u8, value: i16) -> Vec<u8> {
+        let (me, opp) = othello_tools::sym::canonical(board);
+        let mut bytes = zobrist(Board { me, opp }).to_le_bytes().to_vec();
+        bytes.push(square);
+        bytes.extend(value.to_le_bytes());
+        bytes
+    }
+
+    /// (canonical board, canonical square, value) per manifest record.
+    fn manifest() -> Vec<(Board, u8, i16)> {
+        let lines = MANIFEST.lines().filter(|l| !l.starts_with('#'));
+        lines
+            .map(|line| {
+                let f: Vec<&str> = line.split(' ').collect();
+                let (me, opp) = f[0].split_once(':').unwrap();
+                let board = Board {
+                    me: u64::from_str_radix(me, 16).unwrap(),
+                    opp: u64::from_str_radix(opp, 16).unwrap(),
+                };
+                let value: i32 = f[2].parse().unwrap();
+                (
+                    board,
+                    f[1].parse().unwrap(),
+                    value.clamp(i16::MIN.into(), i16::MAX.into()) as i16,
+                )
+            })
+            .collect()
+    }
+
+    fn sym_square(square: u8, kind: u8) -> u8 {
+        let bit = othello_tools::sym::transform(
+            Board {
+                me: 1 << square,
+                opp: 0,
+            },
+            kind,
+        );
+        bit.me.trailing_zeros() as u8
+    }
+
+    /// The archived asset is the manifest's encoding, sorted by key, and
+    /// the lookup answers every record in all eight orientations with its
+    /// value and an image of its move under a symmetry taking the stored
+    /// board to the asked one.
+    #[test]
+    fn lookup_manifest() {
+        let asset = std::fs::read(R3).unwrap();
+        let records = manifest();
+        assert_eq!(records.len(), 7729);
+        let mut rows: Vec<Vec<u8>> = records.iter().map(|&(b, s, v)| record(b, s, v)).collect();
+        rows.sort_by_key(|r| u64::from_le_bytes(r[..8].try_into().unwrap()));
+        assert_eq!(asset, rows.concat());
+        for &(board, square, value) in &records {
+            for kind in 0..8 {
+                let image = othello_tools::sym::transform(board, kind);
+                let (found, v) = book_lookup(&asset, image).expect("a stored position");
+                assert_eq!(v, i32::from(value));
+                let mapped = (0..8).any(|j| {
+                    othello_tools::sym::transform(board, j) == image
+                        && sym_square(square, j) == found
+                });
+                assert!(mapped, "{board:?} kind {kind}: {found}");
+            }
+        }
+    }
+
+    /// No answer from an empty or ragged asset, for a board without a
+    /// legal move, for an out-of-range or illegal stored square, or for a
+    /// position not stored.
+    #[test]
+    fn lookup_misses() {
+        let asset = std::fs::read(R3).unwrap();
+        assert!(book_lookup(&asset, Board::START).is_some());
+        assert_eq!(book_lookup(&[], Board::START), None);
+        assert_eq!(book_lookup(&asset[..asset.len() - 1], Board::START), None);
+        let stuck = Board { me: 1, opp: 0 };
+        assert_eq!(book_lookup(&record(stuck, 1, 0), stuck), None);
+        assert_eq!(
+            book_lookup(&record(Board::START, 64, 0), Board::START),
+            None
+        );
+        assert_eq!(
+            book_lookup(&record(Board::START, 0, 0), Board::START),
+            None,
+            "a1 is illegal"
+        );
+        let (me, opp) = othello_tools::sym::canonical(Board::START);
+        let canonical = Board { me, opp };
+        let legal = legal_moves(canonical.me, canonical.opp).trailing_zeros() as u8;
+        let hit = book_lookup(&record(Board::START, legal, 7), Board::START);
+        assert_eq!(hit.map(|(_, v)| v), Some(7), "a synthetic hit");
+        let mut deep = Board::START;
+        for _ in 0..30 {
+            let moves = legal_moves(deep.me, deep.opp);
+            deep = if moves == 0 {
+                pass(deep)
+            } else {
+                play(deep, moves.trailing_zeros() as u8)
+            };
+        }
+        assert_eq!(book_lookup(&asset, deep), None, "not stored");
+    }
+
+    /// `--book embedded` is retired: refused before any journal exists.
+    #[test]
+    fn command_embedded_retired() {
+        let (roots, out) = (temp("embedded_roots"), temp("embedded_out"));
+        std::fs::write(&roots, "d3\n").unwrap();
+        let _ = std::fs::remove_file(&out);
+        assert!(run(&args(&roots, "embedded", "20000", &out)).is_err());
+        assert!(!out.exists(), "no journal for a refused run");
+        let _ = std::fs::remove_file(&roots);
+    }
+
+    /// The archived asset as a file reproduces the game records traced
+    /// with the embedded book before its removal.
+    #[test]
+    fn archived_reproduces_embedded() {
+        let (roots, out) = (temp("archived_roots"), temp("archived_out"));
+        std::fs::write(&roots, "start\n").unwrap();
+        let _ = std::fs::remove_file(&out);
+        run(&args(&roots, R3, "20000", &out)).unwrap();
+        let fixture = read(std::path::Path::new(FIXTURE)).unwrap().1;
+        assert_eq!(read(&out).unwrap().1, fixture);
+        for path in [&roots, &out] {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 
     fn booked(book: bool) -> SearchConfig {
         SearchConfig {

@@ -243,10 +243,7 @@ fn clock_grammar() {
         ("phase2:c7", Some(7)),
         ("classic:c9", Some(9)),
         ("ab:2:c10", Some(10)),
-        ("pc:80:c5000+book", Some(5000)),
         ("pc:80:3000", None),
-        ("pc:80:3000+book", None),
-        ("ab:2+book", None),
         ("greedy", None),
     ] {
         assert_eq!(clock(name), Ok(want), "{name}");
@@ -267,6 +264,10 @@ fn clock_grammar() {
         "random+book",
         "greedy+book",
         "pc:80:3000+bok",
+        "pc:80:c5000+book",
+        "pc:80:3000+book",
+        "ab:2+book",
+        "pc:80:c13000v3+book",
     ] {
         assert!(
             parse_name(bad).is_err() || clock(bad).is_err(),
@@ -277,9 +278,9 @@ fn clock_grammar() {
         config("ab:2:c100", 20000, true).is_err(),
         "clock with --nodes"
     );
-    assert!(config("pc:80:3000+book", 0, true).unwrap().0.book);
-    assert!(config("pc:80:c5000+book", 0, true).unwrap().0.book);
-    assert!(!config("pc:80:c5000", 0, true).unwrap().0.book);
+    // `+book` is retired with the engine's book.
+    assert!(config("pc:80:3000+book", 0, true).is_err());
+    assert!(config("pc:80:c5000+book", 0, true).is_err());
 }
 
 /// The agent built from a clocked name follows each clock update; a flat
@@ -766,7 +767,6 @@ fn variant_grammar() {
     for (name, ms, k) in [
         ("pc:80:c13000v2", 13_000, 2),
         ("pc:80:c13000v0", 13_000, 0),
-        ("pc:80:c13000v3+book", 13_000, 3),
         ("ab:2:c50v1", 50, 1),
         ("pc:80:c13000", 13_000, 0),
     ] {
