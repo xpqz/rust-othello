@@ -11,25 +11,26 @@
 //! --out JOURNAL [--pair-range A..B]`. A roots line is a move sequence of
 //! any length, or `start` for the standard start. For each root the book
 //! side plays black, then white, against book-off, with fresh tracers per
-//! game. A pair is journalled game by game and kept only when complete.
+//! game. A pair is journalled game by game and kept only when both games
+//! replay to a finished position with the recorded score.
 
 use othello::agents::Agent;
-use othello::board::Board;
-use othello::search::{SearchConfig, SearchLimits, SearchStatus};
-use othello::tt::Table;
+use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
+use othello::book::{BOOK, lookup};
+use othello::score::terminal_score;
+use othello::search::{SearchConfig, SearchLimits, SearchStatus, search_tt};
+use othello::tt::{Table, zobrist};
 
 /// Which book a tracer consults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Book<'a> {
     Off,
-    /// The asset embedded in the engine, through `book::play`.
+    /// The asset embedded in the engine, as `book::play` reads it.
     Embedded,
     /// Another asset's bytes, through `book::lookup`.
     Asset(&'a [u8]),
 }
 
-// RED scaffolding: constructed by `Tracer::choose`, removed in GREEN.
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Source {
     Book,
@@ -51,8 +52,6 @@ struct Decision {
 }
 
 /// One event of a game in play order; `black` names the side.
-// RED scaffolding: constructed by `trace_game`, removed in GREEN.
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Event {
     Move { black: bool, decision: Decision },
@@ -79,15 +78,34 @@ fn tracer(book: Book<'_>, nodes: u64) -> Tracer<'_> {
 }
 
 impl Agent for Tracer<'_> {
-    fn choose(&mut self, _board: Board) -> Option<u8> {
-        let _ = (
-            &self.config,
-            &self.limits,
-            &mut self.table,
-            self.book,
-            &mut self.log,
-        );
-        None
+    fn choose(&mut self, board: Board) -> Option<u8> {
+        let moves = legal_moves(board.me, board.opp);
+        if moves == 0 {
+            return None;
+        }
+        // `book::play` answers from the embedded asset, so `Embedded` is it.
+        let hit = match self.book {
+            Book::Off => None,
+            Book::Embedded => lookup(BOOK, board),
+            Book::Asset(bytes) => lookup(bytes, board),
+        };
+        let (source, square, depth, status, nodes) = match hit {
+            Some((square, _)) => (Source::Book, square, 0, SearchStatus::Complete, 0),
+            None => {
+                let r = search_tt(board, self.limits, &self.config, &mut self.table);
+                (Source::Search, r.best, r.depth, r.status, r.nodes)
+            }
+        };
+        self.log.push(Decision {
+            key: zobrist(board),
+            legal: moves.count_ones(),
+            source,
+            square,
+            depth,
+            status,
+            nodes,
+        });
+        Some(square)
     }
 
     fn reset(&mut self) {
@@ -98,68 +116,229 @@ impl Agent for Tracer<'_> {
 impl Decision {
     /// `key:legal:source:square:depth:status:nodes`, key in hex, source `b`
     /// or `s`, status `c`, `p` or `f`.
-    // RED scaffolding: used by `events_line`, removed in GREEN.
-    #[allow(dead_code)]
     fn line(&self) -> String {
-        String::new()
+        let source = if self.source == Source::Book {
+            'b'
+        } else {
+            's'
+        };
+        let status = match self.status {
+            SearchStatus::Complete => 'c',
+            SearchStatus::Partial => 'p',
+            SearchStatus::Fallback => 'f',
+        };
+        let Decision {
+            key,
+            legal,
+            square,
+            depth,
+            nodes,
+            ..
+        } = *self;
+        format!("{key:016x}:{legal}:{source}:{square}:{depth}:{status}:{nodes}")
     }
 
-    // RED scaffolding: used by the trace parser, removed in GREEN.
-    #[allow(dead_code)]
-    fn parse(_text: &str) -> Option<Decision> {
-        None
+    fn parse(text: &str) -> Option<Decision> {
+        let fields: Vec<&str> = text.split(':').collect();
+        let [key, legal, source, square, depth, status, nodes] = fields[..] else {
+            return None;
+        };
+        Some(Decision {
+            key: u64::from_str_radix(key, 16).ok()?,
+            legal: legal.parse().ok()?,
+            source: match source {
+                "b" => Source::Book,
+                "s" => Source::Search,
+                _ => return None,
+            },
+            square: square.parse().ok().filter(|&s: &u8| s < 64)?,
+            depth: depth.parse().ok()?,
+            status: match status {
+                "c" => SearchStatus::Complete,
+                "p" => SearchStatus::Partial,
+                "f" => SearchStatus::Fallback,
+                _ => return None,
+            },
+            nodes: nodes.parse().ok()?,
+        })
     }
+}
+
+/// The board after `opening` and whether black is to move.
+fn opened(opening: &[u8]) -> Result<(Board, bool), String> {
+    let mut board = Board::START;
+    for &square in opening {
+        if square >= 64 || legal_moves(board.me, board.opp) & (1 << square) == 0 {
+            return Err(format!("illegal opening move {square}"));
+        }
+        board = play(board, square);
+    }
+    Ok((board, opening.len().is_multiple_of(2)))
+}
+
+/// Black's terminal score in centidiscs.
+fn score_for_black(board: Board, black_to_move: bool) -> i32 {
+    let value = terminal_score(final_score(board));
+    if black_to_move { value } else { -value }
 }
 
 /// A game from `opening` between two tracers, with every event in order,
 /// and black's final score in centidiscs.
-fn trace_game(
-    _opening: &[u8],
-    black: &mut Tracer,
-    white: &mut Tracer,
+fn trace_game<'a>(
+    opening: &[u8],
+    black: &mut Tracer<'a>,
+    white: &mut Tracer<'a>,
 ) -> Result<(i32, Vec<Event>), String> {
-    let _ = (&mut black.log, &mut white.log);
-    Err("trace_game: not implemented".into())
+    let (mut board, mut black_to_move) = opened(opening)?;
+    let mut events = Vec::new();
+    loop {
+        let moves = legal_moves(board.me, board.opp);
+        if moves == 0 {
+            if legal_moves(board.opp, board.me) == 0 {
+                return Ok((score_for_black(board, black_to_move), events));
+            }
+            events.push(Event::Pass {
+                black: black_to_move,
+            });
+            board = pass(board);
+            black_to_move = !black_to_move;
+            continue;
+        }
+        let agent = if black_to_move {
+            &mut *black
+        } else {
+            &mut *white
+        };
+        let square = agent.choose(board).ok_or("agent returned no move")?;
+        if moves & (1 << square) == 0 {
+            return Err(format!("illegal move {square}"));
+        }
+        let decision = *agent.log.last().ok_or("no decision logged")?;
+        events.push(Event::Move {
+            black: black_to_move,
+            decision,
+        });
+        board = play(board, square);
+        black_to_move = !black_to_move;
+    }
 }
 
 /// Events as journal text: `b<decision>` or `w<decision>` for moves,
 /// `b-` or `w-` for passes.
-fn events_line(_events: &[Event]) -> String {
-    String::new()
+fn events_line(events: &[Event]) -> String {
+    let side = |black: bool| if black { 'b' } else { 'w' };
+    let tokens: Vec<String> = events
+        .iter()
+        .map(|e| match *e {
+            Event::Move { black, decision } => format!("{}{}", side(black), decision.line()),
+            Event::Pass { black } => format!("{}-", side(black)),
+        })
+        .collect();
+    tokens.join(" ")
 }
 
 /// Parses `events_line`'s text and replays it from `opening`, checking each
 /// decision's key, legal count and move, and that each pass was forced.
-// RED scaffolding: used by the resume check, removed in GREEN.
-#[allow(dead_code)]
-fn replay_events(_opening: &[u8], _text: &str) -> Result<Vec<Event>, String> {
-    Err("replay_events: not implemented".into())
+fn replay_events(opening: &[u8], text: &str) -> Result<Vec<Event>, String> {
+    let (mut board, mut black_to_move) = opened(opening)?;
+    let mut events = Vec::new();
+    for token in text.split(' ').filter(|t| !t.is_empty()) {
+        let turn = if black_to_move { "b" } else { "w" };
+        let Some(rest) = token.strip_prefix(turn) else {
+            return Err(format!("event {token} out of turn"));
+        };
+        let moves = legal_moves(board.me, board.opp);
+        if rest == "-" {
+            if moves != 0 || legal_moves(board.opp, board.me) == 0 {
+                return Err(format!("unforced pass {token}"));
+            }
+            events.push(Event::Pass {
+                black: black_to_move,
+            });
+            board = pass(board);
+        } else {
+            let d = Decision::parse(rest).ok_or(format!("bad decision {token}"))?;
+            let fits = d.key == zobrist(board) && d.legal == moves.count_ones();
+            if !fits || moves & (1 << d.square) == 0 {
+                return Err(format!("decision {token} does not match the position"));
+            }
+            events.push(Event::Move {
+                black: black_to_move,
+                decision: d,
+            });
+            board = play(board, d.square);
+        }
+        black_to_move = !black_to_move;
+    }
+    Ok(events)
+}
+
+/// The board after `events` from `opening`, and whether black is to move.
+fn after(opening: &[u8], events: &[Event]) -> Option<(Board, bool)> {
+    let (mut board, mut black_to_move) = opened(opening).ok()?;
+    for event in events {
+        board = match *event {
+            Event::Move { decision, .. } => play(board, decision.square),
+            Event::Pass { .. } => pass(board),
+        };
+        black_to_move = !black_to_move;
+    }
+    Some((board, black_to_move))
 }
 
 /// Whether `events` from `opening` end at a terminal position.
-// RED scaffolding: used by the resume check, removed in GREEN.
-#[allow(dead_code)]
-fn finished(_opening: &[u8], _events: &[Event]) -> bool {
-    false
+fn finished(opening: &[u8], events: &[Event]) -> bool {
+    after(opening, events).is_some_and(|(board, _)| is_terminal(board))
 }
 
 /// Black's final score in centidiscs after `events` from `opening`, which
 /// must have finished.
-// RED scaffolding: used by the resume check, removed in GREEN.
-#[allow(dead_code)]
-fn final_black(_opening: &[u8], _events: &[Event]) -> i32 {
-    0
+fn final_black(opening: &[u8], events: &[Event]) -> i32 {
+    after(opening, events).map_or(0, |(board, black)| score_for_black(board, black))
+}
+
+/// Whether a saved record is a finished game from `root` whose score is
+/// the replayed final score.
+fn trusted(root: &[u8], line: &str) -> bool {
+    let Some((score, text)) = line
+        .strip_prefix("score ")
+        .and_then(|l| l.split_once(" events "))
+    else {
+        return false;
+    };
+    let Ok(events) = replay_events(root, text) else {
+        return false;
+    };
+    finished(root, &events) && score.parse() == Ok(final_black(root, &events))
 }
 
 /// A roots file: one move sequence per line, of any length, or `start`;
 /// `#` lines are comments. Every sequence must be legal.
-fn load_roots(_text: &str) -> Result<Vec<Vec<u8>>, String> {
-    Err("load_roots: not implemented".into())
+fn load_roots(text: &str) -> Result<Vec<Vec<u8>>, String> {
+    let mut roots = Vec::new();
+    let lines = text.lines().map(str::trim);
+    for line in lines.filter(|l| !l.is_empty() && !l.starts_with('#')) {
+        let mut squares = Vec::new();
+        for name in line.split_whitespace().filter(|_| line != "start") {
+            let b = name.as_bytes();
+            let valid =
+                b.len() == 2 && (b'a'..=b'h').contains(&b[0]) && (b'1'..=b'8').contains(&b[1]);
+            if !valid {
+                return Err(format!("bad square {name} in root {line}"));
+            }
+            squares.push((b[1] - b'1') * 8 + (b[0] - b'a'));
+        }
+        opened(&squares).map_err(|e| format!("root {line}: {e}"))?;
+        roots.push(squares);
+    }
+    Ok(roots)
 }
 
 /// A 64-bit FNV-1a digest of a book's bytes, for the journal header.
-fn digest(_bytes: &[u8]) -> u64 {
-    0
+fn digest(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, &b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    })
 }
 
 /// Runs the trace command; see the module documentation.
@@ -172,6 +351,12 @@ fn run(args: &[String]) -> Result<(), String> {
     let roots_path = option("--roots").ok_or(usage)?;
     let text = std::fs::read_to_string(&roots_path).map_err(|e| format!("{roots_path}: {e}"))?;
     let roots = load_roots(&text)?;
+    let nodes: u64 = option("--nodes")
+        .and_then(|n| n.parse().ok())
+        .ok_or(usage)?;
+    if nodes == 0 {
+        return Err("the node cap must be positive: 0 would remove the bound on work".into());
+    }
     let name = option("--book").ok_or(usage)?;
     let bytes = match name.as_str() {
         "off" | "embedded" => Vec::new(),
@@ -182,9 +367,6 @@ fn run(args: &[String]) -> Result<(), String> {
         "embedded" => Book::Embedded,
         _ => Book::Asset(&bytes),
     };
-    let nodes: u64 = option("--nodes")
-        .and_then(|n| n.parse().ok())
-        .ok_or(usage)?;
     let out = option("--out").ok_or(usage)?;
     let (first, past) = match option("--pair-range") {
         Some(range) => {
@@ -193,16 +375,41 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         None => (0, roots.len()),
     };
+    let asset = if name == "embedded" { BOOK } else { &bytes };
     let header = format!(
         "header book_trace v1 book {name} asset {:016x} nodes {nodes} roots {:016x} engine {}",
-        digest(&bytes),
+        digest(asset),
         digest(text.as_bytes()),
         othello_tools::provenance::git_commit()
     );
     let path = std::path::Path::new(&out);
-    let (mut journal, done) = othello_tools::journal::Journal::open(path, &header)?;
+    let (mut journal, _) = othello_tools::journal::Journal::open(path, &header)?;
+    // A pair counts only when both games are finished and their scores
+    // check out; anything else of it is discarded and replayed.
+    let saved: std::collections::BTreeMap<String, String> = journal
+        .records()
+        .iter()
+        .map(|r| (r.id.clone(), r.line.clone()))
+        .collect();
+    let complete = |pair: usize| {
+        let root = &roots[pair];
+        (0..2).all(|g| {
+            saved
+                .get(&format!("{pair}:{g}"))
+                .is_some_and(|l| trusted(root, l))
+        })
+    };
+    let stale: std::collections::BTreeSet<String> = saved
+        .keys()
+        .filter(|id| {
+            let pair = id.split(':').next().and_then(|p| p.parse::<usize>().ok());
+            pair.is_none_or(|p| p >= roots.len() || !complete(p))
+        })
+        .cloned()
+        .collect();
+    journal.discard(&stale)?;
     for (pair, root) in roots.iter().enumerate().take(past).skip(first) {
-        if done.contains(&format!("{pair}:1")) {
+        if (0..2).all(|g| !stale.contains(&format!("{pair}:{g}"))) && complete(pair) {
             continue;
         }
         for game in 0..2 {
@@ -233,9 +440,6 @@ fn main() {
 mod tests {
     use super::*;
     use othello::agents::search_agent;
-    use othello::board::{legal_moves, pass, play};
-    use othello::book::BOOK;
-    use othello::tt::zobrist;
     use othello_tools::journal::read;
 
     const NODES: u64 = 20_000;
@@ -419,7 +623,10 @@ mod tests {
         for event in events {
             if let Event::Move { decision, .. } = event {
                 assert_eq!(decision.source, Source::Search);
-                assert!(decision.nodes > 0);
+                // A fallback after a node-capped solve reports no nodes:
+                // the aborted solve's work is not counted.
+                let fallback = decision.status == SearchStatus::Fallback;
+                assert!(fallback || decision.nodes > 0, "{decision:?}");
             }
         }
     }
