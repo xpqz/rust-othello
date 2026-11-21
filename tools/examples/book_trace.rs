@@ -136,6 +136,21 @@ fn replay_events(_opening: &[u8], _text: &str) -> Result<Vec<Event>, String> {
     Err("replay_events: not implemented".into())
 }
 
+/// Whether `events` from `opening` end at a terminal position.
+// RED scaffolding: used by the resume check, removed in GREEN.
+#[allow(dead_code)]
+fn finished(_opening: &[u8], _events: &[Event]) -> bool {
+    false
+}
+
+/// Black's final score in centidiscs after `events` from `opening`, which
+/// must have finished.
+// RED scaffolding: used by the resume check, removed in GREEN.
+#[allow(dead_code)]
+fn final_black(_opening: &[u8], _events: &[Event]) -> i32 {
+    0
+}
+
 /// A roots file: one move sequence per line, of any length, or `start`;
 /// `#` lines are comments. Every sequence must be legal.
 fn load_roots(_text: &str) -> Result<Vec<Vec<u8>>, String> {
@@ -225,10 +240,6 @@ mod tests {
 
     const NODES: u64 = 20_000;
 
-    fn limits() -> SearchLimits {
-        SearchLimits::new(64, othello::search::NO_DEADLINE, NODES)
-    }
-
     fn booked(book: bool) -> SearchConfig {
         SearchConfig {
             book,
@@ -248,9 +259,10 @@ mod tests {
     }
 
     /// The moves and colours of a production game, in play order.
-    fn production(opening: &[u8], book: bool) -> (i32, Vec<(bool, u8)>) {
-        let mut black = Recorder(search_agent(booked(book), limits()), Vec::new());
-        let mut white = Recorder(search_agent(booked(false), limits()), Vec::new());
+    fn production(opening: &[u8], book: bool, nodes: u64) -> (i32, Vec<(bool, u8)>) {
+        let cap = SearchLimits::new(64, othello::search::NO_DEADLINE, nodes);
+        let mut black = Recorder(search_agent(booked(book), cap), Vec::new());
+        let mut white = Recorder(search_agent(booked(false), cap), Vec::new());
         let game = othello_tools::harness::play_game(opening, &mut black, &mut white).unwrap();
         // Rebuild the colour order by replaying the two move lists.
         let mut board = Board::START;
@@ -293,7 +305,7 @@ mod tests {
             let (score, events) = trace_game(&opening, &mut a, &mut b).unwrap();
             assert_eq!(
                 (score, moves(&events)),
-                production(&opening, book),
+                production(&opening, book, NODES),
                 "book {book}"
             );
         }
@@ -337,6 +349,33 @@ mod tests {
         }
     }
 
+    /// A lone legal move: book-off logs it as a search with one legal move,
+    /// and plays the production node-limited agent's game, that move
+    /// included.
+    #[test]
+    fn lone_move_searched() {
+        let found = (0..300u64).find_map(|k| {
+            let opening = [19, [18, 20, 34][(k % 3) as usize]];
+            let nodes = 2_000 + k;
+            let (mut a, mut b) = (tracer(Book::Off, nodes), tracer(Book::Off, nodes));
+            let (score, events) = trace_game(&opening, &mut a, &mut b).ok()?;
+            let lone = events
+                .iter()
+                .any(|e| matches!(e, Event::Move { decision, .. } if decision.legal == 1));
+            lone.then_some((opening, nodes, score, events))
+        });
+        let (opening, nodes, score, events) = found.expect("a game with a lone move");
+        for event in &events {
+            if let Event::Move { decision, .. } = event
+                && decision.legal == 1
+            {
+                assert_eq!(decision.source, Source::Search);
+                assert!(decision.nodes > 0, "node mode searches lone moves");
+            }
+        }
+        assert_eq!((score, moves(&events)), production(&opening, false, nodes));
+    }
+
     #[test]
     fn replay_rejects_tampering() {
         let (mut a, mut b) = (tracer(Book::Off, NODES), tracer(Book::Off, NODES));
@@ -349,6 +388,14 @@ mod tests {
             replay_events(&[19, 18], &text.replacen(&first, "b-", 1)).is_err(),
             "unforced pass"
         );
+        let tokens: Vec<&str> = text.split(' ').collect();
+        let short = tokens[..tokens.len() - 2].join(" ");
+        let partial = replay_events(&[19, 18], &short).unwrap();
+        assert!(
+            !finished(&[19, 18], &partial),
+            "a legal prefix is not a finished game"
+        );
+        assert!(finished(&[19, 18], &events));
     }
 
     /// The embedded bytes through `book::lookup` give the same events as
@@ -491,6 +538,44 @@ mod tests {
         unique.dedup();
         assert_eq!(ids.len(), unique.len(), "one record per colour");
         for path in [&roots, &whole, &cut] {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    /// Fully written records that cannot be trusted are replayed: a legal
+    /// but unfinished trace, and a wrong final score. Valid pairs are kept.
+    #[test]
+    fn command_resume_validates() {
+        let (roots, whole, bad) = (temp("valid_roots"), temp("valid_whole"), temp("valid_bad"));
+        std::fs::write(&roots, "d3\nd3 c3\nd3 c5\n").unwrap();
+        for path in [&whole, &bad] {
+            let _ = std::fs::remove_file(path);
+        }
+        run(&args(&roots, "off", "20000", &whole)).unwrap();
+        let (head, all) = read(&whole).unwrap();
+        let body: String = all
+            .iter()
+            .map(|r| {
+                let line = match r.id.as_str() {
+                    "1:0" => {
+                        let tokens: Vec<&str> = r.line.split(' ').collect();
+                        tokens[..tokens.len() - 2].join(" ")
+                    }
+                    "2:1" => {
+                        let score = r.line.split(' ').nth(1).unwrap();
+                        let changed = score.parse::<i32>().unwrap() + 200;
+                        r.line
+                            .replacen(&format!("score {score} "), &format!("score {changed} "), 1)
+                    }
+                    _ => r.line.clone(),
+                };
+                format!("{}\t{line}\n", r.id)
+            })
+            .collect();
+        std::fs::write(&bad, format!("{head}\n{body}")).unwrap();
+        run(&args(&roots, "off", "20000", &bad)).unwrap();
+        assert_eq!(records(&bad), records(&whole));
+        for path in [&roots, &whole, &bad] {
             let _ = std::fs::remove_file(path);
         }
     }
