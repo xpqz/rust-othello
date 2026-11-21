@@ -409,7 +409,6 @@ pub fn policy() -> SearchConfig {
         endgame_threshold: 18,
         ordering: true,
         probcut: Some(ProbCut::FITTED),
-        book: false,
     }
 }
 

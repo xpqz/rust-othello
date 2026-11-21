@@ -471,6 +471,13 @@ record was scored under.
 
 ## Engine
 
+> **Removed in #173.** After #171 the book's runtime path was taken out of
+> the shipping engine: `src/book.rs`, `assets/book.bin` and
+> `SearchConfig::book` are gone, and the match tool no longer accepts
+> `+book`. The lookup below survives verbatim as `book_lookup` in
+> `tools/examples/book_trace.rs`, reading the archived asset
+> `docs/tuning/book_ext/book.bin`. The trainer is unchanged.
+
 ### Lookup
 
 - `src/book.rs`, `pub fn book_move(board: Board) -> Option<(u8, i32)>`:

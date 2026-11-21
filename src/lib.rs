@@ -30,7 +30,6 @@
 
 pub mod agents;
 pub mod board;
-pub mod book;
 pub mod cli;
 pub mod pattern;
 pub mod perft;

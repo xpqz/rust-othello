@@ -7,10 +7,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use othello::agents::{Agent, greedy_agent, random_agent, search_agent};
+use othello::agents::{Agent, greedy_agent, random_agent};
 use othello::board::{Board, disc_count, legal_moves, pass, play};
-use othello::book::book_move;
-use othello::search::{ClockPolicy, MAX_CLOCK_MS, SearchConfig, SearchLimits, allot, allot_with};
+use othello::search::{ClockPolicy, MAX_CLOCK_MS, SearchConfig, allot, allot_with};
 use othello_tools::agents::{clock, config, parse_name, policy, search};
 use othello_tools::harness::{Clocked, clocked_points, play_clocked};
 use othello_tools::journal::read;
@@ -219,21 +218,6 @@ fn passes_free() {
         return;
     }
     panic!("no game with a pass in 1,000 seeds");
-}
-
-/// A book hit is a `choose` call like any other and is charged in full.
-#[test]
-fn book_charged() {
-    let booked = SearchConfig {
-        book: true,
-        ..SearchConfig::standard()
-    };
-    let mut black = record(search_agent(booked, SearchLimits::depth(1)));
-    let mut white = record(greedy_agent());
-    let mut elapsed = |_: Instant| ms(7);
-    let game = play_clocked(&[], &mut black, &mut white, [None, None], &mut elapsed).unwrap();
-    assert_eq!(black.first, Some(book_move(Board::START).unwrap().0));
-    assert_eq!(game.used[0], ms(7) * black.moves as u32);
 }
 
 #[test]

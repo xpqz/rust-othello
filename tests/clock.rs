@@ -8,7 +8,6 @@ use othello::agents::{
     Agent, GameClock, PLAY_CLOCK_MS, PLAY_POLICY, clock_agent, play_agent, search_agent,
 };
 use othello::board::{Board, empty_count, final_score, is_terminal, legal_moves, pass, play};
-use othello::book::book_move;
 use othello::rng::Rng;
 use othello::score::terminal_score;
 use othello::search::{
@@ -316,24 +315,6 @@ fn clock_choose_uses() {
         optimum,
         "clocked move {chosen} is not optimal"
     );
-}
-
-fn forbidden(_: Board) -> i32 {
-    panic!("a book hit must not search")
-}
-
-/// A clocked agent answers from the book without evaluating anything.
-#[test]
-fn clock_book_hit() {
-    let booked = SearchConfig {
-        book: true,
-        eval: forbidden,
-        ..SearchConfig::standard()
-    };
-    let mut agent = clock_agent(booked, SearchLimits::new(64, 3000, 0), &CLOCK_POLICIES[0]);
-    agent.clock(50_000);
-    let start = book_move(Board::START).unwrap().0;
-    assert_eq!(agent.choose(Board::START), Some(start));
 }
 
 /// Play uses the gate's clock and policy: fixed limits until the first

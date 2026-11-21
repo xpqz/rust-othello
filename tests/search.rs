@@ -34,7 +34,6 @@ fn config() -> SearchConfig {
         endgame_threshold: 12,
         ordering: true,
         probcut: None,
-        book: false,
     }
 }
 
@@ -163,7 +162,6 @@ fn window_equivalence() {
         endgame_threshold: 8,
         ordering: true,
         probcut: None,
-        book: false,
     };
     let mut rng = Rng::new(0x135);
     let mut table = Table::new(1 << 16);
@@ -220,7 +218,6 @@ fn window_bounds() {
         endgame_threshold: 0,
         ordering: true,
         probcut: None,
-        book: false,
     };
     let mut rng = Rng::new(0xB0);
     let (mut visited, mut count) = (0, 0);

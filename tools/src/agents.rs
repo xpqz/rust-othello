@@ -8,12 +8,6 @@ fn unknown(name: &str) -> String {
     format!("unknown agent: {name}")
 }
 
-/// The name without an optional `+book` suffix, and whether it had one.
-fn book(name: &str) -> (&str, bool) {
-    name.strip_suffix("+book")
-        .map_or((name, false), |base| (base, true))
-}
-
 /// A `c<ms>[v<k>]` field: a game clock in 1..=`MAX_CLOCK_MS` and a
 /// registered clock policy variant, 0 by default.
 fn clock_field(text: &str) -> Option<(u64, usize)> {
@@ -43,12 +37,8 @@ fn time_field(name: &str, text: &str) -> Result<u64, String> {
 }
 
 pub fn parse_name(name: &str) -> Result<(&str, u32, Option<u64>), String> {
-    let (base, book) = book(name);
-    let mut parts = base.split(':');
+    let mut parts = name.split(':');
     let kind = parts.next().unwrap();
-    if book && matches!(kind, "random" | "greedy") {
-        return Err(unknown(name));
-    }
     let time =
         |parts: &mut std::str::Split<char>| parts.next().map(|t| time_field(name, t)).transpose();
     let (depth, time) = match kind {
@@ -102,7 +92,7 @@ pub fn clock(name: &str) -> Result<Option<u64>, String> {
 
 fn clock_spec(name: &str) -> Result<Option<(u64, usize)>, String> {
     parse_name(name)?;
-    Ok(book(name).0.split(':').skip(1).last().and_then(clock_field))
+    Ok(name.split(':').skip(1).last().and_then(clock_field))
 }
 
 /// The clock policy variant of a `c<ms>v<k>` field; 0 without one.
@@ -129,12 +119,11 @@ pub fn config(
     let (depth, time) = effective(depth, time, nodes)?;
     let limits = SearchLimits::new(depth, time, nodes);
     // `pc:<t>`: the fitted model with margin `t`; `pc:off`: none.
-    let margin = book(name).0.split(':').nth(1).and_then(|t| t.parse().ok());
+    let margin = name.split(':').nth(1).and_then(|t| t.parse().ok());
     let base = match kind {
         "phase2" => phase2_config(),
         "classic" => classic_config(),
         "pc" => SearchConfig {
-            book: false,
             probcut: margin.map(|t| ProbCut {
                 t,
                 ..ProbCut::FITTED
@@ -143,11 +132,7 @@ pub fn config(
         },
         _ => SearchConfig::standard(),
     };
-    let config = SearchConfig {
-        ordering,
-        book: book(name).1,
-        ..base
-    };
+    let config = SearchConfig { ordering, ..base };
     Ok((config, limits))
 }
 

@@ -1,5 +1,9 @@
 # Opening book: what was built, what it measured, what was tried
 
+> **Update (#173):** the book's runtime path has been removed from the
+> engine. The archived asset `docs/tuning/book_ext/book.bin` and the
+> `book_trace` example keep it available for research.
+
 Nov 21, 2026. Epic #150, closed with the book switched off. This report
 draws together the design (`docs/design/book.md`), the issue notes
 (`docs/prs/152.md` to `158.md` and `156.md`) and the committed run data

@@ -638,7 +638,7 @@ fn think(
     thread::spawn(move || {
         let mut table = table.lock().unwrap();
         let start = Instant::now();
-        let found = othello::book::play(board, limits, &config, &mut table);
+        let found = othello::search::search_tt(board, limits, &config, &mut table);
         let _ = sender.send((generation, found, start.elapsed()));
     });
     result
@@ -752,14 +752,6 @@ mod tests {
         assert!(!stored(&app), "a changed threshold clears the table");
     }
 
-    /// The GUI plays the shipped book policy, which stays off until the gate.
-    #[test]
-    fn engine_book_policy() {
-        let mut app = App::new();
-        assert_eq!(app.engine_config().book, SearchConfig::standard().book);
-        assert!(!app.engine_config().book);
-    }
-
     /// The engine starts each game with the full play clock, allocated
     /// under the play policy.
     #[test]
@@ -865,40 +857,5 @@ mod tests {
             Some(earlier),
             "no fabricated search result"
         );
-    }
-
-    /// The engine call answers from the book when the configuration enables
-    /// it, and searches on a miss. The stored board is one where the search
-    /// plays another move (square 12, not the stored 37).
-    #[test]
-    fn engine_book_path() {
-        let booked = SearchConfig {
-            book: true,
-            ..SearchConfig::standard()
-        };
-        let limits = SearchLimits::depth(3);
-        let fresh = || Arc::new(Mutex::new(Table::new(1 << 16)));
-        let searched = |board, config: &SearchConfig| {
-            othello::search::search_tt(board, limits, config, &mut Table::new(1 << 16))
-        };
-        let stored = Board {
-            me: 0x0000_0301_352b_0100,
-            opp: 0x0000_1c1e_0a14_2000,
-        };
-        assert_ne!(searched(stored, &SearchConfig::standard()).best, 37);
-        let (generation, hit, _) = think(stored, limits, booked, fresh(), 7).recv().unwrap();
-        assert_eq!(generation, 7);
-        assert_eq!((hit.best, hit.score, hit.depth, hit.nodes), (37, 553, 0, 0));
-        let mut deep = Board::START;
-        for _ in 0..46 {
-            let moves = legal_moves(deep.me, deep.opp);
-            deep = if moves == 0 {
-                pass(deep)
-            } else {
-                play(deep, moves.trailing_zeros() as u8)
-            };
-        }
-        let (_, miss, _) = think(deep, limits, booked, fresh(), 8).recv().unwrap();
-        assert_eq!(miss, searched(deep, &booked));
     }
 }

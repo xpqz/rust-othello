@@ -12,8 +12,6 @@ pub struct SearchConfig {
     pub endgame_threshold: u32,
     pub ordering: bool,
     pub probcut: Option<ProbCut>,
-    /// Read only by `book::play`; `search_tt` ignores it.
-    pub book: bool,
 }
 
 impl SearchConfig {
@@ -23,7 +21,6 @@ impl SearchConfig {
             endgame_threshold: 18,
             ordering: true,
             probcut: Some(ProbCut::FITTED),
-            book: false,
         }
     }
 }

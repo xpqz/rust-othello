@@ -1,13 +1,12 @@
 //! Book diagnostic traces (`docs/design/opening-book-v2.md` § First
-//! experiment): node-capped games with the book off, the embedded book, or
-//! another book asset, recording every engine decision in play order.
+//! experiment): node-capped games with the book off or a book asset, recording every engine decision in play order.
 //!
 //! A `Tracer` plays exactly as the production search agent would with the
 //! same configuration. Each decision logs the board key, the number of
 //! legal moves, the source (book or search), the move, and the search's
 //! depth, status and reported nodes. Passes are logged as events too.
 //!
-//! Usage: `book_trace --roots FILE --book off|embedded|PATH --nodes N
+//! Usage: `book_trace --roots FILE --book off|PATH --nodes N
 //! --out JOURNAL [--pair-range A..B]`. A roots line is a move sequence of
 //! any length, or `start` for the standard start. For each root the book
 //! side plays black, then white, against book-off, with fresh tracers per
@@ -16,25 +15,77 @@
 
 use othello::agents::Agent;
 use othello::board::{Board, final_score, is_terminal, legal_moves, pass, play};
-use othello::book::{BOOK, lookup};
 use othello::score::terminal_score;
 use othello::search::{SearchConfig, SearchLimits, SearchStatus, search_tt};
 use othello::tt::{Table, zobrist};
 
-/// The stored move for `board` in a book asset, as the retired engine
-/// module `othello::book` answered it, and its value.
-#[allow(dead_code)] // RED stub; replaces `othello::book::lookup` in GREEN.
-fn book_lookup(_asset: &[u8], _board: Board) -> Option<(u8, i32)> {
-    None
+/// Bytes per asset record: `tt::zobrist` of the canonical board, the move
+/// as a canonical square, and the value as i16, little-endian, sorted by key.
+const RECORD: usize = 11;
+
+/// Swaps file and rank: (f, r) -> (r, f).
+fn transpose(mut x: u64) -> u64 {
+    for (shift, mask) in [
+        (28, 0x0f0f_0f0f_0000_0000u64),
+        (14, 0x3333_0000_3333_0000),
+        (7, 0x5500_5500_5500_5500),
+    ] {
+        let t = mask & (x ^ (x << shift));
+        x ^= t ^ (t >> shift);
+    }
+    x
+}
+
+/// The image of `bits` under symmetry `kind`, numbered as in the engine's `pattern.rs`.
+fn image(bits: u64, kind: u8) -> u64 {
+    let mirror = |x: u64| x.reverse_bits().swap_bytes();
+    match kind {
+        0 => bits,
+        1 => mirror(transpose(bits)),
+        2 => bits.reverse_bits(),
+        3 => transpose(bits).swap_bytes(),
+        4 => mirror(bits),
+        5 => bits.swap_bytes(),
+        6 => transpose(bits),
+        _ => transpose(bits).reverse_bits(),
+    }
+}
+
+/// The stored move, mapped back to `board`'s orientation, and its value,
+/// exactly as the retired engine module `othello::book` answered it.
+/// The canonical board is the least `(me, opp)` over the eight images, as
+/// in the builder. A board without a legal move is never answered.
+fn book_lookup(asset: &[u8], board: Board) -> Option<(u8, i32)> {
+    let moves = legal_moves(board.me, board.opp);
+    let (records, rest) = asset.as_chunks::<RECORD>();
+    if moves == 0 || !rest.is_empty() {
+        return None;
+    }
+    let (kind, key) = (0..8)
+        .map(|k| (k, (image(board.me, k), image(board.opp, k))))
+        .min_by_key(|&(_, key)| key)?;
+    let target = zobrist(Board {
+        me: key.0,
+        opp: key.1,
+    });
+    let index = records
+        .binary_search_by_key(&target, |r| u64::from_le_bytes(r[..8].try_into().unwrap()))
+        .ok()?;
+    let record = records[index];
+    if record[8] >= 64 {
+        return None;
+    }
+    let inverse = [0, 3, 2, 1, 4, 5, 6, 7][kind as usize];
+    let square = image(1 << record[8], inverse).trailing_zeros() as u8;
+    let value = i16::from_le_bytes([record[9], record[10]]).into();
+    (moves & (1 << square) != 0).then_some((square, value))
 }
 
 /// Which book a tracer consults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Book<'a> {
     Off,
-    /// The asset embedded in the engine, as `book::play` reads it.
-    Embedded,
-    /// Another asset's bytes, through `book::lookup`.
+    /// An asset's bytes, through `book_lookup`.
     Asset(&'a [u8]),
 }
 
@@ -90,11 +141,9 @@ impl Agent for Tracer<'_> {
         if moves == 0 {
             return None;
         }
-        // `book::play` answers from the embedded asset, so `Embedded` is it.
         let hit = match self.book {
             Book::Off => None,
-            Book::Embedded => lookup(BOOK, board),
-            Book::Asset(bytes) => lookup(bytes, board),
+            Book::Asset(bytes) => book_lookup(bytes, board),
         };
         let (source, square, depth, status, nodes) = match hit {
             Some((square, _)) => (Source::Book, square, 0, SearchStatus::Complete, 0),
@@ -354,7 +403,7 @@ fn run(args: &[String]) -> Result<(), String> {
         let index = args.iter().position(|arg| arg == flag)?;
         args.get(index + 1).cloned()
     };
-    let usage = "usage: book_trace --roots FILE --book off|embedded|PATH --nodes N --out JOURNAL [--pair-range A..B]";
+    let usage = "usage: book_trace --roots FILE --book off|PATH --nodes N --out JOURNAL [--pair-range A..B]";
     let roots_path = option("--roots").ok_or(usage)?;
     let text = std::fs::read_to_string(&roots_path).map_err(|e| format!("{roots_path}: {e}"))?;
     let roots = load_roots(&text)?;
@@ -366,12 +415,11 @@ fn run(args: &[String]) -> Result<(), String> {
     }
     let name = option("--book").ok_or(usage)?;
     let bytes = match name.as_str() {
-        "off" | "embedded" => Vec::new(),
+        "off" => Vec::new(),
         path => std::fs::read(path).map_err(|e| format!("{path}: {e}"))?,
     };
     let book = match name.as_str() {
         "off" => Book::Off,
-        "embedded" => Book::Embedded,
         _ => Book::Asset(&bytes),
     };
     let out = option("--out").ok_or(usage)?;
@@ -388,10 +436,9 @@ fn run(args: &[String]) -> Result<(), String> {
             roots.len()
         ));
     }
-    let asset = if name == "embedded" { BOOK } else { &bytes };
     let header = format!(
         "header book_trace v1 book {name} asset {:016x} nodes {nodes} roots {:016x} engine {}",
-        digest(asset),
+        digest(&bytes),
         digest(text.as_bytes()),
         othello_tools::provenance::git_commit()
     );
@@ -608,13 +655,6 @@ mod tests {
         }
     }
 
-    fn booked(book: bool) -> SearchConfig {
-        SearchConfig {
-            book,
-            ..SearchConfig::standard()
-        }
-    }
-
     /// A production agent that records the moves it plays.
     struct Recorder<A: Agent>(A, Vec<u8>);
 
@@ -627,10 +667,10 @@ mod tests {
     }
 
     /// The moves and colours of a production game, in play order.
-    fn production(opening: &[u8], book: bool, nodes: u64) -> (i32, Vec<(bool, u8)>) {
+    fn production(opening: &[u8], nodes: u64) -> (i32, Vec<(bool, u8)>) {
         let cap = SearchLimits::new(64, othello::search::NO_DEADLINE, nodes);
-        let mut black = Recorder(search_agent(booked(book), cap), Vec::new());
-        let mut white = Recorder(search_agent(booked(false), cap), Vec::new());
+        let mut black = Recorder(search_agent(SearchConfig::standard(), cap), Vec::new());
+        let mut white = Recorder(search_agent(SearchConfig::standard(), cap), Vec::new());
         let game = othello_tools::harness::play_game(opening, &mut black, &mut white).unwrap();
         // Rebuild the colour order by replaying the two move lists.
         let mut board = Board::START;
@@ -664,18 +704,14 @@ mod tests {
             .collect()
     }
 
-    /// The trace's moves and colours equal a production game's, in order.
+    /// A book-off trace's moves and colours equal a production game's, in
+    /// order; `archived_reproduces_embedded` covers the book side.
     #[test]
     fn trace_matches_production() {
-        for (opening, book) in [(vec![19, 18], false), (vec![], true)] {
-            let mode = if book { Book::Embedded } else { Book::Off };
-            let (mut a, mut b) = (tracer(mode, NODES), tracer(Book::Off, NODES));
+        for opening in [vec![19, 18], vec![]] {
+            let (mut a, mut b) = (tracer(Book::Off, NODES), tracer(Book::Off, NODES));
             let (score, events) = trace_game(&opening, &mut a, &mut b).unwrap();
-            assert_eq!(
-                (score, moves(&events)),
-                production(&opening, book, NODES),
-                "book {book}"
-            );
+            assert_eq!((score, moves(&events)), production(&opening, NODES));
         }
     }
 
@@ -741,7 +777,7 @@ mod tests {
                 assert!(decision.nodes > 0, "node mode searches lone moves");
             }
         }
-        assert_eq!((score, moves(&events)), production(&opening, false, nodes));
+        assert_eq!((score, moves(&events)), production(&opening, nodes));
     }
 
     #[test]
@@ -766,14 +802,13 @@ mod tests {
         assert!(finished(&[19, 18], &events));
     }
 
-    /// The embedded bytes through `book::lookup` give the same events as
-    /// `book::play`; an empty asset never hits.
+    /// A book hit is logged as a complete depth-0 decision with no nodes;
+    /// an empty asset never hits.
     #[test]
     fn asset_paths() {
-        let (mut a, mut b) = (tracer(Book::Asset(BOOK), NODES), tracer(Book::Off, NODES));
+        let asset = std::fs::read(R3).unwrap();
+        let (mut a, mut b) = (tracer(Book::Asset(&asset), NODES), tracer(Book::Off, NODES));
         let via_lookup = trace_game(&[], &mut a, &mut b).unwrap();
-        let (mut x, mut y) = (tracer(Book::Embedded, NODES), tracer(Book::Off, NODES));
-        assert_eq!(via_lookup, trace_game(&[], &mut x, &mut y).unwrap());
         let Event::Move { decision, .. } = via_lookup.1[0] else {
             panic!("first event")
         };
@@ -833,7 +868,7 @@ mod tests {
     fn digest_distinguishes() {
         assert_ne!(digest(b"abcd"), digest(b"abce"));
         assert_eq!(digest(b"abcd"), digest(b"abcd"));
-        assert_ne!(digest(&[]), digest(BOOK));
+        assert_ne!(digest(&[]), digest(&std::fs::read(R3).unwrap()));
     }
 
     fn temp(label: &str) -> std::path::PathBuf {
@@ -867,7 +902,7 @@ mod tests {
         let (roots, out) = (temp("early_roots"), temp("early_out"));
         std::fs::write(&roots, "start\nd3\nd3 c3 c4\n").unwrap();
         let _ = std::fs::remove_file(&out);
-        run(&args(&roots, "embedded", "20000", &out)).unwrap();
+        run(&args(&roots, R3, "20000", &out)).unwrap();
         let saved = records(&out);
         assert_eq!(saved.len(), 6);
         let openings: [&[u8]; 3] = [&[], &[19], &[19, 18, 26]];
@@ -1000,10 +1035,11 @@ mod tests {
     fn command_asset_bound() {
         let (roots, asset, out) = (temp("bound_roots"), temp("bound_asset"), temp("bound_out"));
         std::fs::write(&roots, "d3\n").unwrap();
-        std::fs::write(&asset, &BOOK[..BOOK.len() - 11]).unwrap();
+        let book = std::fs::read(R3).unwrap();
+        std::fs::write(&asset, &book[..book.len() - 11]).unwrap();
         let _ = std::fs::remove_file(&out);
         run(&args(&roots, asset.to_str().unwrap(), "20000", &out)).unwrap();
-        let mut changed = BOOK[..BOOK.len() - 11].to_vec();
+        let mut changed = book[..book.len() - 11].to_vec();
         changed[0] ^= 1;
         std::fs::write(&asset, &changed).unwrap();
         let refused = run(&args(&roots, asset.to_str().unwrap(), "20000", &out));
