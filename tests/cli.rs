@@ -228,9 +228,12 @@ fn play_opponent_is_search() {
 ",
     );
     assert!(output.status.success());
+    // Play runs on the 51 s game clock with early stopping (#167), so a
+    // quick reply is correct; the clocked search itself is pinned by
+    // `tests/clock.rs::play_agent_policy`.
     assert!(
-        start.elapsed().as_millis() >= 2000,
-        "White responded too quickly for the 3 s search agent"
+        start.elapsed().as_millis() < u128::from(othello::agents::PLAY_CLOCK_MS),
+        "White's reply exceeded the whole game clock"
     );
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(

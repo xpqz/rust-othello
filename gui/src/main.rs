@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, FontId, Pos2, Rect, RichText, Sense, Stroke, Vec2,
 };
+use othello::agents::{GameClock, PLAY_CLOCK_MS};
 use othello::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use othello::search::{SearchConfig, SearchLimits, SearchResult};
 use othello::tt::{MAX_ENTRIES, Table};
@@ -82,6 +83,8 @@ struct App {
     history: Vec<(Position, Option<u8>)>,
     last_move: Option<u8>,
     think_seconds: f32,
+    /// The engine's game clock for this game.
+    engine_clock: GameClock,
     threshold: u32,
     table: Arc<Mutex<Table>>,
     /// The solve threshold the table's entries were searched with.
@@ -103,6 +106,7 @@ impl App {
             history: Vec::new(),
             last_move: None,
             think_seconds: 3.0,
+            engine_clock: GameClock::new(PLAY_CLOCK_MS),
             threshold: SearchConfig::standard().endgame_threshold,
             table: Arc::new(Mutex::new(Table::new(MAX_ENTRIES))),
             served: None,
@@ -152,6 +156,17 @@ impl App {
         self.last_move = Some(square);
     }
 
+    /// Plays the engine's move and charges its thinking time to the clock.
+    fn engine_moved(&mut self, square: u8, spent: Duration) {
+        self.engine_clock.charge(spent);
+        self.apply(square);
+    }
+
+    /// The engine's limits for the current position.
+    fn engine_limits(&self) -> SearchLimits {
+        SearchLimits::new(64, (self.think_seconds * 1000.0) as u64, 0)
+    }
+
     fn undo(&mut self) {
         // Step back to the human's previous turn, skipping engine moves and passes.
         while let Some((position, last)) = self.history.pop() {
@@ -182,7 +197,7 @@ impl App {
 
     fn start_engine(&mut self) {
         let config = self.engine_config();
-        let limits = SearchLimits::new(64, (self.think_seconds * 1000.0) as u64, 0);
+        let limits = self.engine_limits();
         let table = Arc::clone(&self.table);
         let result = think(self.position.board, limits, config, table, self.generation);
         self.thinking = Some(Thinking {
@@ -201,7 +216,7 @@ impl App {
                     let engine_black = self.position.black_to_move;
                     if self.position.moves() & (1u64 << found.best) != 0 {
                         self.last_search = Some((found, elapsed, engine_black));
-                        self.apply(found.best);
+                        self.engine_moved(found.best, elapsed);
                         self.message = format!("Engine played {}.", name(found.best));
                     }
                 }
@@ -713,6 +728,38 @@ mod tests {
         let mut app = App::new();
         assert_eq!(app.engine_config().book, SearchConfig::standard().book);
         assert!(!app.engine_config().book);
+    }
+
+    /// The engine starts each game with the full play clock, allocated
+    /// under the play policy.
+    #[test]
+    fn engine_clock_default() {
+        let app = App::new();
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
+        let policy = othello::search::ClockPolicy::variant(othello::agents::PLAY_POLICY).unwrap();
+        let want = othello::search::allot_with(Board::START, PLAY_CLOCK_MS, app.threshold, policy);
+        let got = app.engine_limits();
+        assert_eq!(
+            (got.start_ms, got.time_ms, got.early),
+            (want.start_ms, want.time_ms, want.early)
+        );
+    }
+
+    /// Engine moves are charged; undo refunds the moves it takes back, and
+    /// a new game resets the clock.
+    #[test]
+    fn engine_clock_undo() {
+        let mut app = App::new();
+        app.apply(19);
+        let reply = squares(app.position.moves()).next().unwrap();
+        app.engine_moved(reply, Duration::from_millis(2500));
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS - 2500);
+        app.undo();
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
+        app.apply(19);
+        app.engine_moved(reply, Duration::from_millis(4000));
+        app.new_game(true);
+        assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
     }
 
     /// The engine call answers from the book when the configuration enables

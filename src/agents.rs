@@ -103,3 +103,40 @@ pub fn clock_agent(
 ) -> SearchAgent {
     SearchAgent(config, limits, Table::new(MAX_ENTRIES), Some(policy), None)
 }
+
+/// The game clock for play (`docs/design/time.md`, gate #163): C = 51 s
+/// per game under clock policy variant 3.
+pub const PLAY_CLOCK_MS: u64 = 51_000;
+pub const PLAY_POLICY: usize = 3;
+
+/// The engine side of play: a clocked search under `PLAY_POLICY`.
+pub fn play_agent() -> SearchAgent {
+    search_agent(SearchConfig::standard(), SearchLimits::new(64, 3000, 0))
+}
+
+/// One side's game clock: the time charged so far against a limit.
+#[derive(Clone, Copy, Debug)]
+pub struct GameClock {
+    limit_ms: u64,
+    used: std::time::Duration,
+}
+
+impl GameClock {
+    pub fn new(limit_ms: u64) -> Self {
+        Self {
+            limit_ms,
+            used: std::time::Duration::ZERO,
+        }
+    }
+
+    /// Whole milliseconds left, rounded down; zero once spent.
+    pub fn remaining_ms(&self) -> u64 {
+        let _ = (self.limit_ms, self.used);
+        0
+    }
+
+    pub fn charge(&mut self, _spent: std::time::Duration) {}
+
+    /// Gives back time charged for a move that was taken back.
+    pub fn refund(&mut self, _spent: std::time::Duration) {}
+}

@@ -4,7 +4,9 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use othello::agents::{Agent, clock_agent, search_agent};
+use othello::agents::{
+    Agent, GameClock, PLAY_CLOCK_MS, PLAY_POLICY, clock_agent, play_agent, search_agent,
+};
 use othello::board::{Board, empty_count, final_score, is_terminal, legal_moves, pass, play};
 use othello::book::book_move;
 use othello::rng::Rng;
@@ -332,4 +334,37 @@ fn clock_book_hit() {
     agent.clock(50_000);
     let start = book_move(Board::START).unwrap().0;
     assert_eq!(agent.choose(Board::START), Some(start));
+}
+
+/// Play uses the gate's clock and policy: fixed limits until the first
+/// clock, then variant 3's allocation from the remaining time.
+#[test]
+fn play_agent_policy() {
+    assert_eq!((PLAY_CLOCK_MS, PLAY_POLICY), (51_000, 3));
+    let board = line(59);
+    let mut agent = play_agent();
+    agent.clock(PLAY_CLOCK_MS);
+    let policy = othello::search::ClockPolicy::variant(PLAY_POLICY).unwrap();
+    let want = othello::search::allot_with(board, PLAY_CLOCK_MS, T, policy);
+    let got = agent.limits(board);
+    assert_eq!(
+        (got.start_ms, got.time_ms, got.early),
+        (want.start_ms, want.time_ms, want.early)
+    );
+}
+
+/// The play clock charges time, rounds the remainder down, never goes
+/// below zero, and refunds taken-back moves.
+#[test]
+fn game_clock_charges() {
+    let mut clock = GameClock::new(PLAY_CLOCK_MS);
+    assert_eq!(clock.remaining_ms(), 51_000);
+    clock.charge(Duration::from_micros(1_500_500));
+    assert_eq!(clock.remaining_ms(), 49_499);
+    clock.refund(Duration::from_micros(1_500_500));
+    assert_eq!(clock.remaining_ms(), 51_000);
+    clock.charge(Duration::from_secs(60));
+    assert_eq!(clock.remaining_ms(), 0);
+    clock.refund(Duration::from_secs(10));
+    assert_eq!(clock.remaining_ms(), 1_000);
 }
