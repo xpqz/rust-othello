@@ -375,6 +375,12 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         None => (0, roots.len()),
     };
+    if first >= past || past > roots.len() {
+        return Err(format!(
+            "invalid pair range {first}..{past} for {} roots",
+            roots.len()
+        ));
+    }
     let asset = if name == "embedded" { BOOK } else { &bytes };
     let header = format!(
         "header book_trace v1 book {name} asset {:016x} nodes {nodes} roots {:016x} engine {}",
@@ -384,32 +390,37 @@ fn run(args: &[String]) -> Result<(), String> {
     );
     let path = std::path::Path::new(&out);
     let (mut journal, _) = othello_tools::journal::Journal::open(path, &header)?;
-    // A pair counts only when both games are finished and their scores
-    // check out; anything else of it is discarded and replayed.
-    let saved: std::collections::BTreeMap<String, String> = journal
-        .records()
-        .iter()
-        .map(|r| (r.id.clone(), r.line.clone()))
-        .collect();
+    // A pair counts only when each of its two games has exactly one record,
+    // finished, with its score checked; any other record (a duplicate, a
+    // foreign id, or part of an incomplete pair) is discarded and replayed.
+    let mut copies: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for record in journal.records() {
+        copies
+            .entry(record.id.clone())
+            .or_default()
+            .push(record.line.clone());
+    }
     let complete = |pair: usize| {
-        let root = &roots[pair];
-        (0..2).all(|g| {
-            saved
-                .get(&format!("{pair}:{g}"))
-                .is_some_and(|l| trusted(root, l))
-        })
+        (0..2).all(
+            |g| match copies.get(&format!("{pair}:{g}")).map(Vec::as_slice) {
+                Some([line]) => trusted(&roots[pair], line),
+                _ => false,
+            },
+        )
     };
-    let stale: std::collections::BTreeSet<String> = saved
+    let stale: std::collections::BTreeSet<String> = copies
         .keys()
         .filter(|id| {
-            let pair = id.split(':').next().and_then(|p| p.parse::<usize>().ok());
-            pair.is_none_or(|p| p >= roots.len() || !complete(p))
+            let parsed = id
+                .split_once(':')
+                .and_then(|(p, g)| Some((p.parse::<usize>().ok()?, g.parse::<u8>().ok()?)));
+            parsed.is_none_or(|(p, g)| g > 1 || p >= roots.len() || !complete(p))
         })
         .cloned()
         .collect();
     journal.discard(&stale)?;
     for (pair, root) in roots.iter().enumerate().take(past).skip(first) {
-        if (0..2).all(|g| !stale.contains(&format!("{pair}:{g}"))) && complete(pair) {
+        if complete(pair) {
             continue;
         }
         for game in 0..2 {
@@ -785,6 +796,49 @@ mod tests {
         for path in [&roots, &whole, &bad] {
             let _ = std::fs::remove_file(path);
         }
+    }
+
+    /// Duplicate and foreign records cannot make a pair complete: they are
+    /// removed, and the journal ends with exactly one record per game.
+    #[test]
+    fn command_resume_strays() {
+        let (roots, whole, extra) = (
+            temp("stray_roots"),
+            temp("stray_whole"),
+            temp("stray_extra"),
+        );
+        std::fs::write(&roots, "d3\nd3 c3\n").unwrap();
+        for path in [&whole, &extra] {
+            let _ = std::fs::remove_file(path);
+        }
+        run(&args(&roots, "off", "20000", &whole)).unwrap();
+        let text = std::fs::read_to_string(&whole).unwrap();
+        let first = text.lines().nth(1).unwrap().to_string();
+        let foreign = first.replacen("0:0\t", "0:2\t", 1);
+        std::fs::write(&extra, format!("{text}{first}\n{foreign}\n")).unwrap();
+        run(&args(&roots, "off", "20000", &extra)).unwrap();
+        let mut ids: Vec<String> = read(&extra).unwrap().1.into_iter().map(|r| r.id).collect();
+        ids.sort();
+        assert_eq!(ids, ["0:0", "0:1", "1:0", "1:1"]);
+        assert_eq!(records(&extra), records(&whole));
+        for path in [&roots, &whole, &extra] {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    /// A pair range must lie within the roots: refused before any journal.
+    #[test]
+    fn command_bad_range() {
+        let (roots, out) = (temp("range_roots"), temp("range_out"));
+        std::fs::write(&roots, "d3\nd3 c3\n").unwrap();
+        for range in ["2..3", "0..3", "1..1", "x..2"] {
+            let _ = std::fs::remove_file(&out);
+            let mut command = args(&roots, "off", "20000", &out);
+            command.extend(["--pair-range".into(), range.into()]);
+            assert!(run(&command).is_err(), "{range} accepted");
+            assert!(!out.exists(), "{range}: journal created");
+        }
+        let _ = std::fs::remove_file(&roots);
     }
 
     /// A different asset of the same size cannot resume a journal.
