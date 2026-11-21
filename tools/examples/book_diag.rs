@@ -51,6 +51,7 @@ struct Trace {
     book: String,
     nodes: u64,
     roots: u64,
+    engine: String,
     games: BTreeMap<(usize, u8), Vec<Step>>,
 }
 
@@ -62,6 +63,9 @@ struct Value {
     reply: Option<u8>,
     /// The child search's status; `None` for a terminal child.
     status: Option<SearchStatus>,
+    /// The completed heuristic iteration's depth; 0 for a terminal child,
+    /// an exact solve, a W/D/L partial or a fallback.
+    depth: u32,
     /// Exact: a terminal child or a solved search.
     solved: bool,
 }
@@ -103,7 +107,7 @@ fn first_disagreement(
 
 /// Every game's first change, in numeric pair and colour order, after
 /// checking that the reference is book-off, that both traces have the same
-/// node cap and the roots identity of `roots_text`, and that each covers
+/// node cap, engine and the roots identity of `roots_text`, and that each covers
 /// every pair of the roots once per colour.
 fn compare(
     _book: &Trace,
@@ -123,8 +127,22 @@ fn child_value(_board: Board, _square: u8, _nodes: u64) -> Value {
         score: 0,
         reply: None,
         status: None,
+        depth: 0,
         solved: false,
     }
+}
+
+/// Fit for a reversal decision: exact, or a completed heuristic iteration
+/// (positive depth). A W/D/L partial or a fallback is not.
+fn eligible(_value: Value) -> bool {
+    false
+}
+
+/// Whether the preferred child, book or off, flips between the low and
+/// high node caps: `None` unless all four values are eligible. A tie at
+/// either cap is no reversal.
+fn reversal(_low: (Value, Value), _high: (Value, Value)) -> Option<bool> {
+    None
 }
 
 /// Up to 16 non-equivalent disagreements, at most four per (version,
@@ -484,8 +502,8 @@ mod tests {
         let value = child_value(board, 63, 1000);
         assert_eq!(value.score, -terminal_score(final_score(child)));
         assert_eq!(
-            (value.reply, value.status, value.solved),
-            (None, None, true)
+            (value.reply, value.status, value.depth, value.solved),
+            (None, None, 0, true)
         );
     }
 
@@ -510,6 +528,7 @@ mod tests {
                 score: -r.score,
                 reply: Some(r.best),
                 status: Some(r.status),
+                depth: r.depth,
                 solved: r.solved
             }
         );
@@ -551,7 +570,58 @@ mod tests {
             Some(r.best),
             "the reply is the mover's next move"
         );
-        assert_eq!((value.status, value.solved), (Some(r.status), r.solved));
+        assert_eq!(
+            (value.status, value.depth, value.solved),
+            (Some(r.status), r.depth, r.solved)
+        );
+    }
+
+    fn value(score: i32, status: Option<SearchStatus>, depth: u32, solved: bool) -> Value {
+        Value {
+            score,
+            reply: None,
+            status,
+            depth,
+            solved,
+        }
+    }
+
+    /// Reversals use completed heuristic iterations, which a node-capped
+    /// search reports as `Partial` at positive depth, and exact values; a
+    /// W/D/L partial or a fallback makes the decision unavailable.
+    #[test]
+    fn reversal_rule() {
+        use SearchStatus::{Complete, Fallback, Partial};
+        let p = |score, depth| value(score, Some(Partial), depth, false);
+        let (wdl, fallback) = (
+            value(64, Some(Partial), 0, false),
+            value(5, Some(Fallback), 0, false),
+        );
+        let (exact, terminal) = (
+            value(-128, Some(Complete), 0, true),
+            value(256, None, 0, true),
+        );
+        assert!(eligible(p(30, 9)) && eligible(exact) && eligible(terminal));
+        assert!(!eligible(wdl) && !eligible(fallback));
+        assert_eq!(
+            reversal((p(30, 9), p(10, 9)), (p(5, 11), p(20, 11))),
+            Some(true)
+        );
+        assert_eq!(
+            reversal((p(30, 9), p(10, 9)), (p(40, 11), p(20, 11))),
+            Some(false)
+        );
+        assert_eq!(
+            reversal((p(30, 9), p(10, 9)), (p(20, 11), p(20, 11))),
+            Some(false),
+            "a tie"
+        );
+        assert_eq!(
+            reversal((p(30, 9), p(10, 9)), (exact, terminal)),
+            Some(true)
+        );
+        assert_eq!(reversal((p(30, 9), wdl), (p(5, 11), p(20, 11))), None);
+        assert_eq!(reversal((p(30, 9), p(10, 9)), (fallback, p(20, 11))), None);
     }
 
     fn header(book: &str, nodes: u64, roots: u64) -> String {
@@ -608,6 +678,16 @@ mod tests {
         assert!(
             compare(&other_nodes, &off, &roots, &roots_text).is_err(),
             "node caps differ"
+        );
+        let other_engine = parse_trace(
+            &header("embedded", 1000, digest(roots_text.as_bytes()))
+                .replace("engine x", "engine y"),
+            &full(&[]),
+        )
+        .unwrap();
+        assert!(
+            compare(&other_engine, &off, &roots, &roots_text).is_err(),
+            "engines differ"
         );
         let other_roots = trace("embedded", 1000, "d3\n", full(&[])).unwrap();
         assert!(
