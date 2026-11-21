@@ -111,7 +111,12 @@ pub const PLAY_POLICY: usize = 3;
 
 /// The engine side of play: a clocked search under `PLAY_POLICY`.
 pub fn play_agent() -> SearchAgent {
-    search_agent(SearchConfig::standard(), SearchLimits::new(64, 3000, 0))
+    let policy = &crate::search::CLOCK_POLICIES[PLAY_POLICY];
+    clock_agent(
+        SearchConfig::standard(),
+        SearchLimits::new(64, 3000, 0),
+        policy,
+    )
 }
 
 /// One side's game clock: the time charged so far against a limit.
@@ -131,12 +136,16 @@ impl GameClock {
 
     /// Whole milliseconds left, rounded down; zero once spent.
     pub fn remaining_ms(&self) -> u64 {
-        let _ = (self.limit_ms, self.used);
-        0
+        let left = std::time::Duration::from_millis(self.limit_ms).saturating_sub(self.used);
+        left.as_millis() as u64
     }
 
-    pub fn charge(&mut self, _spent: std::time::Duration) {}
+    pub fn charge(&mut self, spent: std::time::Duration) {
+        self.used = self.used.saturating_add(spent);
+    }
 
     /// Gives back time charged for a move that was taken back.
-    pub fn refund(&mut self, _spent: std::time::Duration) {}
+    pub fn refund(&mut self, spent: std::time::Duration) {
+        self.used = self.used.saturating_sub(spent);
+    }
 }

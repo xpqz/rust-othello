@@ -1,7 +1,7 @@
 use std::io::{self, BufRead};
 use std::time::{Duration, Instant};
 
-use crate::agents::{Agent, GameClock, PLAY_CLOCK_MS, search_agent};
+use crate::agents::{Agent, GameClock, PLAY_CLOCK_MS, play_agent};
 use crate::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use crate::perft::perft;
 use crate::search::{NO_DEADLINE, SearchConfig, SearchLimits, search_tt};
@@ -155,17 +155,24 @@ fn parse_move(board: Board, text: &str) -> Option<u8> {
 /// not forfeit; the agent plays on its allocator's minimum.
 pub fn engine_turn(
     agent: &mut dyn Agent,
-    _clock: &mut GameClock,
+    clock: &mut GameClock,
     board: Board,
-    _elapsed: &mut dyn FnMut(Instant) -> Duration,
+    elapsed: &mut dyn FnMut(Instant) -> Duration,
 ) -> Option<u8> {
-    agent.choose(board)
+    if legal_moves(board.me, board.opp) == 0 {
+        return None;
+    }
+    agent.clock(clock.remaining_ms());
+    let start = Instant::now();
+    let square = agent.choose(board);
+    clock.charge(elapsed(start));
+    square
 }
 
 fn play_game() -> Result<(), String> {
     let mut board = Board::START;
     let mut black_to_move = true;
-    let mut agent = search_agent(SearchConfig::standard(), SearchLimits::new(64, 3000, 0));
+    let mut agent = play_agent();
     let mut clock = GameClock::new(PLAY_CLOCK_MS);
     let real = &mut |start: Instant| start.elapsed();
     let mut input = io::stdin().lock();

@@ -10,9 +10,11 @@ use std::time::{Duration, Instant};
 use eframe::egui::{
     self, Align2, Color32, CornerRadius, FontId, Pos2, Rect, RichText, Sense, Stroke, Vec2,
 };
-use othello::agents::{GameClock, PLAY_CLOCK_MS};
+use othello::agents::{GameClock, PLAY_CLOCK_MS, PLAY_POLICY};
 use othello::board::{Board, is_terminal, legal_moves, pass, play, squares};
-use othello::search::{SearchConfig, SearchLimits, SearchResult};
+use othello::search::{
+    ClockPolicy, SearchConfig, SearchLimits, SearchResult, SearchStatus, allot_with,
+};
 use othello::tt::{MAX_ENTRIES, Table};
 use othello_gui::overlays::{NO_MOVE, frontier, opponent_move_counts};
 
@@ -69,7 +71,8 @@ impl Position {
 
 struct Thinking {
     started: Instant,
-    result: Receiver<(u64, SearchResult)>,
+    /// The generation, the result, and the worker's own search time.
+    result: Receiver<(u64, SearchResult, Duration)>,
 }
 
 struct Flip {
@@ -80,9 +83,12 @@ struct Flip {
 struct App {
     position: Position,
     human_black: bool,
-    history: Vec<(Position, Option<u8>)>,
+    /// Each earlier position, its last move, and the engine time charged
+    /// for the move played from it.
+    history: Vec<(Position, Option<u8>, Duration)>,
     last_move: Option<u8>,
-    think_seconds: f32,
+    /// The engine's game clock for new games, in seconds.
+    clock_seconds: f32,
     /// The engine's game clock for this game.
     engine_clock: GameClock,
     threshold: u32,
@@ -105,7 +111,7 @@ impl App {
             human_black: true,
             history: Vec::new(),
             last_move: None,
-            think_seconds: 3.0,
+            clock_seconds: PLAY_CLOCK_MS as f32 / 1000.0,
             engine_clock: GameClock::new(PLAY_CLOCK_MS),
             threshold: SearchConfig::standard().endgame_threshold,
             table: Arc::new(Mutex::new(Table::new(MAX_ENTRIES))),
@@ -125,6 +131,7 @@ impl App {
         self.position = Position::START;
         self.human_black = human_black;
         self.history.clear();
+        self.engine_clock = GameClock::new((self.clock_seconds * 1000.0) as u64);
         self.last_move = None;
         self.thinking = None;
         self.last_search = None;
@@ -142,8 +149,12 @@ impl App {
     }
 
     fn apply(&mut self, square: u8) {
+        self.apply_charged(square, Duration::ZERO);
+    }
+
+    fn apply_charged(&mut self, square: u8, spent: Duration) {
         let before = self.position;
-        self.history.push((before, self.last_move));
+        self.history.push((before, self.last_move, spent));
         let after = play(before.board, square);
         self.flip = Some(Flip {
             squares: before.board.opp & after.opp,
@@ -170,17 +181,20 @@ impl App {
     /// Plays the engine's move and charges its thinking time to the clock.
     fn engine_moved(&mut self, square: u8, spent: Duration) {
         self.engine_clock.charge(spent);
-        self.apply(square);
+        self.apply_charged(square, spent);
     }
 
     /// The engine's limits for the current position.
     fn engine_limits(&self) -> SearchLimits {
-        SearchLimits::new(64, (self.think_seconds * 1000.0) as u64, 0)
+        let policy = ClockPolicy::variant(PLAY_POLICY).expect("registered play policy");
+        let remaining = self.engine_clock.remaining_ms();
+        allot_with(self.position.board, remaining, self.threshold, policy)
     }
 
     fn undo(&mut self) {
         // Step back to the human's previous turn, skipping engine moves and passes.
-        while let Some((position, last)) = self.history.pop() {
+        while let Some((position, last, spent)) = self.history.pop() {
+            self.engine_clock.refund(spent);
             self.position = position;
             self.last_move = last;
             if self.human_to_move() && position.moves() != 0 {
@@ -207,6 +221,19 @@ impl App {
     }
 
     fn start_engine(&mut self) {
+        // A lone legal move is played at once, without search or charge.
+        let moves = self.position.moves();
+        if moves.count_ones() == 1 {
+            let found = SearchResult {
+                best: moves.trailing_zeros() as u8,
+                score: 0,
+                depth: 0,
+                nodes: 0,
+                status: SearchStatus::Complete,
+                solved: false,
+            };
+            return self.engine_result(found, Duration::ZERO);
+        }
         let config = self.engine_config();
         let limits = self.engine_limits();
         let table = Arc::clone(&self.table);
@@ -221,10 +248,9 @@ impl App {
     fn step(&mut self) -> bool {
         if let Some(thinking) = &self.thinking {
             match thinking.result.try_recv() {
-                Ok((generation, found)) if generation == self.generation => {
-                    let elapsed = thinking.started.elapsed();
+                Ok((generation, found, spent)) if generation == self.generation => {
                     self.thinking = None;
-                    self.engine_result(found, elapsed);
+                    self.engine_result(found, spent);
                 }
                 Ok(_) => self.thinking = None,
                 Err(_) => return true,
@@ -248,7 +274,8 @@ impl App {
                 "The engine has"
             };
             self.message = format!("{who} no legal move — pass.");
-            self.history.push((self.position, self.last_move));
+            self.history
+                .push((self.position, self.last_move, Duration::ZERO));
             self.position = Position {
                 board: pass(self.position.board),
                 black_to_move: !self.position.black_to_move,
@@ -526,10 +553,10 @@ impl App {
         ui.separator();
         ui.label(RichText::new("Engine strength").strong());
         ui.add(
-            egui::Slider::new(&mut self.think_seconds, 0.1..=10.0)
+            egui::Slider::new(&mut self.clock_seconds, 5.0..=600.0)
                 .logarithmic(true)
-                .suffix(" s / move")
-                .text("think time"),
+                .suffix(" s / game")
+                .text("engine clock (next game)"),
         );
         ui.add(egui::Slider::new(&mut self.threshold, 8..=20).text("solve at empties"));
         if self.threshold > SearchConfig::standard().endgame_threshold {
@@ -562,7 +589,7 @@ impl App {
         let can_undo = self
             .history
             .iter()
-            .any(|(p, _)| p.black_to_move == self.human_black);
+            .any(|(p, _, _)| p.black_to_move == self.human_black);
         if ui
             .add_enabled(can_undo, egui::Button::new("Take back move"))
             .clicked()
@@ -604,18 +631,21 @@ impl eframe::App for App {
     }
 }
 
-/// The engine's move on a worker thread, tagged with the position's generation.
+/// The engine's move on a worker thread, tagged with the position's
+/// generation, with the worker's own search time: the play clock's charge.
 fn think(
     board: Board,
     limits: SearchLimits,
     config: SearchConfig,
     table: Arc<Mutex<Table>>,
     generation: u64,
-) -> Receiver<(u64, SearchResult)> {
+) -> Receiver<(u64, SearchResult, Duration)> {
     let (sender, result) = channel();
     thread::spawn(move || {
-        let found = othello::book::play(board, limits, &config, &mut table.lock().unwrap());
-        let _ = sender.send((generation, found));
+        let mut table = table.lock().unwrap();
+        let start = Instant::now();
+        let found = othello::book::play(board, limits, &config, &mut table);
+        let _ = sender.send((generation, found, start.elapsed()));
     });
     result
 }
@@ -855,7 +885,7 @@ mod tests {
             opp: 0x0000_1c1e_0a14_2000,
         };
         assert_ne!(searched(stored, &SearchConfig::standard()).best, 37);
-        let (generation, hit) = think(stored, limits, booked, fresh(), 7).recv().unwrap();
+        let (generation, hit, _) = think(stored, limits, booked, fresh(), 7).recv().unwrap();
         assert_eq!(generation, 7);
         assert_eq!((hit.best, hit.score, hit.depth, hit.nodes), (37, 553, 0, 0));
         let mut deep = Board::START;
@@ -867,7 +897,7 @@ mod tests {
                 play(deep, moves.trailing_zeros() as u8)
             };
         }
-        let (_, miss) = think(deep, limits, booked, fresh(), 8).recv().unwrap();
+        let (_, miss, _) = think(deep, limits, booked, fresh(), 8).recv().unwrap();
         assert_eq!(miss, searched(deep, &booked));
     }
 }
