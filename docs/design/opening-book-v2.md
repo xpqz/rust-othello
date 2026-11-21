@@ -97,6 +97,12 @@ Report the observed game scores as descriptive data.
 
 ### Instrumentation
 
+> **After #173:** the engine's `book::play` and `book::lookup` are gone.
+> To reproduce, use `book_trace --book PATH`, where PATH is
+> `docs/tuning/book_ext/book.bin` (r3, formerly embedded) or
+> `docs/tuning/book_diag/book_r0.bin`. The example carries the lookup
+> verbatim as `book_lookup`.
+
 Add a dedicated experiment example using the existing board traversal,
 seeded pair harness and journal where practical. A trace agent can call
 `book::play` with the embedded asset and `book::lookup` with the original
