@@ -12,9 +12,7 @@ use eframe::egui::{
 };
 use othello::agents::{GameClock, PLAY_CLOCK_MS, PLAY_POLICY};
 use othello::board::{Board, is_terminal, legal_moves, pass, play, squares};
-use othello::search::{
-    ClockPolicy, SearchConfig, SearchLimits, SearchResult, SearchStatus, allot_with,
-};
+use othello::search::{ClockPolicy, SearchConfig, SearchLimits, SearchResult, allot_with};
 use othello::tt::{MAX_ENTRIES, Table};
 use othello_gui::overlays::{NO_MOVE, frontier, opponent_move_counts};
 
@@ -221,18 +219,14 @@ impl App {
     }
 
     fn start_engine(&mut self) {
-        // A lone legal move is played at once, without search or charge.
+        // A lone legal move is played at once, without search or charge;
+        // the last search's diagnostics stay as they were.
         let moves = self.position.moves();
         if moves.count_ones() == 1 {
-            let found = SearchResult {
-                best: moves.trailing_zeros() as u8,
-                score: 0,
-                depth: 0,
-                nodes: 0,
-                status: SearchStatus::Complete,
-                solved: false,
-            };
-            return self.engine_result(found, Duration::ZERO);
+            let square = moves.trailing_zeros() as u8;
+            self.engine_moved(square, Duration::ZERO);
+            self.message = format!("Engine played {} (forced).", name(square));
+            return;
         }
         let config = self.engine_config();
         let limits = self.engine_limits();
@@ -860,10 +854,17 @@ mod tests {
             board,
             black_to_move: !app.human_black,
         };
+        let earlier = (found(19), Duration::from_millis(1234), false);
+        app.last_search = Some(earlier);
         app.start_engine();
         assert!(app.thinking.is_none(), "no search for a lone move");
         assert_eq!(app.last_move, Some(only));
         assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
+        assert_eq!(
+            app.last_search,
+            Some(earlier),
+            "no fabricated search result"
+        );
     }
 
     /// The engine call answers from the book when the configuration enables
