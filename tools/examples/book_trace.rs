@@ -414,7 +414,10 @@ fn run(args: &[String]) -> Result<(), String> {
             let parsed = id
                 .split_once(':')
                 .and_then(|(p, g)| Some((p.parse::<usize>().ok()?, g.parse::<u8>().ok()?)));
-            parsed.is_none_or(|(p, g)| g > 1 || p >= roots.len() || !complete(p))
+            // Only the canonical spelling `{pair}:{game}` counts.
+            parsed.is_none_or(|(p, g)| {
+                **id != format!("{p}:{g}") || g > 1 || p >= roots.len() || !complete(p)
+            })
         })
         .cloned()
         .collect();
@@ -815,7 +818,8 @@ mod tests {
         let text = std::fs::read_to_string(&whole).unwrap();
         let first = text.lines().nth(1).unwrap().to_string();
         let foreign = first.replacen("0:0\t", "0:2\t", 1);
-        std::fs::write(&extra, format!("{text}{first}\n{foreign}\n")).unwrap();
+        let alias = first.replacen("0:0\t", "00:0\t", 1);
+        std::fs::write(&extra, format!("{text}{first}\n{foreign}\n{alias}\n")).unwrap();
         run(&args(&roots, "off", "20000", &extra)).unwrap();
         let mut ids: Vec<String> = read(&extra).unwrap().1.into_iter().map(|r| r.id).collect();
         ids.sort();
