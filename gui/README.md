@@ -9,6 +9,10 @@ cargo run --release --manifest-path gui/Cargo.toml
 ```
 
 - Click a highlighted square to move; hovering previews the disc.
+- Engine strength has four levels, applied from the engine's next move:
+  0 plays a random legal move, 1 the greedy move (most discs), 2 the move
+  with the best static evaluation one ply ahead, all at once and without
+  search; 3, the default, is the full timed search below.
 - The engine searches on a background thread with the shared 64 MiB TT,
   iterative deepening to the think-time budget, and the exact endgame solver
   at or below the "solve at empties" threshold.

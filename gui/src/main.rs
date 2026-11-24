@@ -15,7 +15,7 @@ use othello::board::{Board, is_terminal, legal_moves, pass, play, squares};
 use othello::rng::Rng;
 use othello::search::{ClockPolicy, SearchConfig, SearchLimits, SearchResult, allot_with};
 use othello::tt::{MAX_ENTRIES, Table};
-use othello_gui::levels::Level;
+use othello_gui::levels::{Level, quick_move};
 use othello_gui::overlays::{NO_MOVE, frontier, opponent_move_counts};
 
 const FELT: Color32 = Color32::from_rgb(30, 110, 72);
@@ -102,10 +102,8 @@ struct App {
     show_move_counts: bool,
     show_frontier: bool,
     message: String,
-    #[allow(dead_code)] // RED stub
     level: Level,
     /// Level 0's random source, seeded from the clock.
-    #[allow(dead_code)] // RED stub
     rng: Rng,
 }
 
@@ -232,6 +230,13 @@ impl App {
     }
 
     fn start_engine(&mut self) {
+        // Levels 0 to 2 move at once, without search or charge.
+        if let Some(square) = quick_move(self.level, self.position.board, &mut self.rng) {
+            self.last_search = None;
+            self.engine_moved(square, Duration::ZERO);
+            self.message = format!("Engine played {}.", name(square));
+            return;
+        }
         // A lone legal move is played at once, without search or charge;
         // the last search's diagnostics stay as they were.
         let moves = self.position.moves();
@@ -559,21 +564,26 @@ impl App {
 
         ui.separator();
         ui.label(RichText::new("Engine strength").strong());
-        ui.label("Engine clock (next game)");
-        ui.add(
-            egui::Slider::new(&mut self.clock_seconds, 5.0..=600.0)
-                .logarithmic(true)
-                .suffix(" s / game"),
-        );
-        ui.label("Solve at empties");
-        ui.add(egui::Slider::new(&mut self.threshold, 8..=20));
-        if self.threshold > SearchConfig::standard().endgame_threshold {
-            ui.label(
-                RichText::new("High solve thresholds need generous think time.")
-                    .small()
-                    .weak(),
-            );
+        for level in Level::ALL {
+            ui.radio_value(&mut self.level, level, level.label());
         }
+        ui.add_enabled_ui(self.level == Level::Search, |ui| {
+            ui.label("Engine clock (next game)");
+            ui.add(
+                egui::Slider::new(&mut self.clock_seconds, 5.0..=600.0)
+                    .logarithmic(true)
+                    .suffix(" s / game"),
+            );
+            ui.label("Solve at empties");
+            ui.add(egui::Slider::new(&mut self.threshold, 8..=20));
+            if self.threshold > SearchConfig::standard().endgame_threshold {
+                ui.label(
+                    RichText::new("High solve thresholds need generous think time.")
+                        .small()
+                        .weak(),
+                );
+            }
+        });
         ui.add_space(10.0);
         ui.separator();
         ui.label(RichText::new("Learning aids").strong());
@@ -633,11 +643,15 @@ impl App {
             )
             .exact_size(320.0)
             .show(ui, |ui| {
-                egui::Frame::new()
-                    .inner_margin(egui::Margin::symmetric(18, 12))
+                egui::ScrollArea::vertical()
                     .show(ui, |ui| {
-                        self.panel_ui(ui);
-                        ui.min_rect()
+                        egui::Frame::new()
+                            .inner_margin(egui::Margin::symmetric(18, 12))
+                            .show(ui, |ui| {
+                                self.panel_ui(ui);
+                                ui.min_rect()
+                            })
+                            .inner
                     })
                     .inner
             })
@@ -752,7 +766,6 @@ fn score_chip(ui: &mut egui::Ui, black: bool, count: u32, you: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use othello_gui::levels::quick_move;
 
     /// Rendering the settings without input must not move the default threshold.
     #[test]
