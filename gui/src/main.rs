@@ -546,13 +546,14 @@ impl App {
 
         ui.separator();
         ui.label(RichText::new("Engine strength").strong());
+        ui.label("Engine clock (next game)");
         ui.add(
             egui::Slider::new(&mut self.clock_seconds, 5.0..=600.0)
                 .logarithmic(true)
-                .suffix(" s / game")
-                .text("engine clock (next game)"),
+                .suffix(" s / game"),
         );
-        ui.add(egui::Slider::new(&mut self.threshold, 8..=20).text("solve at empties"));
+        ui.label("Solve at empties");
+        ui.add(egui::Slider::new(&mut self.threshold, 8..=20));
         if self.threshold > SearchConfig::standard().endgame_threshold {
             ui.label(
                 RichText::new("High solve thresholds need generous think time.")
@@ -572,7 +573,7 @@ impl App {
         );
         ui.add_space(10.0);
         ui.separator();
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui.button("New game as Black").clicked() {
                 self.new_game(true);
             }
