@@ -602,7 +602,15 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::Panel::right("panel")
+        self.layout(ui);
+    }
+}
+
+impl App {
+    /// Lays out the side panel and board; returns the panel's content
+    /// rect and the central panel's rect.
+    fn layout(&mut self, ui: &mut egui::Ui) -> [Rect; 2] {
+        let content = egui::Panel::right("panel")
             .resizable(false)
             .frame(
                 egui::Frame::new()
@@ -613,15 +621,23 @@ impl eframe::App for App {
             .show(ui, |ui| {
                 egui::Frame::new()
                     .inner_margin(egui::Margin::symmetric(18, 12))
-                    .show(ui, |ui| self.panel_ui(ui));
-            });
-        egui::CentralPanel::default()
+                    .show(ui, |ui| {
+                        self.panel_ui(ui);
+                        ui.min_rect()
+                    })
+                    .inner
+            })
+            .inner;
+        let central = egui::CentralPanel::default()
             .frame(
                 egui::Frame::new()
                     .fill(Color32::from_rgb(24, 28, 32))
                     .inner_margin(16.0),
             )
-            .show(ui, |ui| ui.centered_and_justified(|ui| self.board_ui(ui)));
+            .show(ui, |ui| ui.centered_and_justified(|ui| self.board_ui(ui)))
+            .response
+            .rect;
+        [content, central]
     }
 }
 
@@ -731,6 +747,47 @@ mod tests {
         let mut output = ctx.run_ui(egui::RawInput::default(), |ui| app.panel_ui(ui));
         output.textures_delta.clear();
         assert_eq!(app.threshold, SearchConfig::standard().endgame_threshold);
+    }
+
+    /// At the default and minimum window sizes, with a search report shown,
+    /// the panel content fits its 320 pt panel and the board stays clear of it.
+    #[test]
+    fn panel_not_covered() {
+        for (width, height) in [(960.0, 700.0), (720.0, 520.0)] {
+            let mut app = App::new();
+            app.last_search = Some((
+                SearchResult {
+                    best: 19,
+                    score: -1234,
+                    depth: 14,
+                    nodes: 123_456_789,
+                    solved: false,
+                    status: othello::search::SearchStatus::Partial,
+                },
+                Duration::from_secs_f32(12.5),
+                false,
+            ));
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(width, height))),
+                ..Default::default()
+            };
+            let ctx = egui::Context::default();
+            let mut rects = [Rect::NOTHING; 2];
+            for _ in 0..2 {
+                let mut output = ctx.run_ui(input.clone(), |ui| rects = app.layout(ui));
+                output.textures_delta.clear();
+            }
+            let [content, central] = rects;
+            let panel = width - 320.0;
+            assert!(
+                central.max.x <= panel,
+                "{width}x{height}: board area {central:?} enters the panel at {panel}"
+            );
+            assert!(
+                panel <= content.min.x && content.max.x <= width,
+                "{width}x{height}: panel content {content:?} outside {panel}..{width}"
+            );
+        }
     }
 
     /// The table serves one search policy: a changed setting clears it.
