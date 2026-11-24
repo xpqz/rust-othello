@@ -12,8 +12,10 @@ use eframe::egui::{
 };
 use othello::agents::{GameClock, PLAY_CLOCK_MS, PLAY_POLICY};
 use othello::board::{Board, is_terminal, legal_moves, pass, play, squares};
+use othello::rng::Rng;
 use othello::search::{ClockPolicy, SearchConfig, SearchLimits, SearchResult, allot_with};
 use othello::tt::{MAX_ENTRIES, Table};
+use othello_gui::levels::Level;
 use othello_gui::overlays::{NO_MOVE, frontier, opponent_move_counts};
 
 const FELT: Color32 = Color32::from_rgb(30, 110, 72);
@@ -100,6 +102,11 @@ struct App {
     show_move_counts: bool,
     show_frontier: bool,
     message: String,
+    #[allow(dead_code)] // RED stub
+    level: Level,
+    /// Level 0's random source, seeded from the clock.
+    #[allow(dead_code)] // RED stub
+    rng: Rng,
 }
 
 impl App {
@@ -121,6 +128,12 @@ impl App {
             show_move_counts: false,
             show_frontier: false,
             message: "Your move — you play Black.".into(),
+            level: Level::Search,
+            rng: Rng::new(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |t| t.as_nanos() as u64),
+            ),
         }
     }
 
@@ -739,6 +752,7 @@ fn score_chip(ui: &mut egui::Ui, black: bool, count: u32, you: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use othello_gui::levels::quick_move;
 
     /// Rendering the settings without input must not move the default threshold.
     #[test]
@@ -789,6 +803,45 @@ mod tests {
                 "{width}x{height}: panel content {content:?} outside {panel}..{width}"
             );
         }
+    }
+
+    /// The GUI keeps the full search as its default level.
+    #[test]
+    fn level_default_search() {
+        assert_eq!(App::new().level, Level::Search);
+    }
+
+    /// Levels 0 to 2 move at once, without a search, a clock charge or a
+    /// search report; levels 1 and 2 play their level's move.
+    #[test]
+    fn quick_levels_move() {
+        for level in [Level::Random, Level::Greedy, Level::Static] {
+            let mut app = App::new();
+            app.level = level;
+            app.new_game(false);
+            app.step();
+            assert!(app.thinking.is_none(), "{level:?} started a search");
+            let square = app.last_move.expect("the engine moved");
+            assert!(Position::START.moves() & (1u64 << square) != 0);
+            if level != Level::Random {
+                let want = quick_move(level, Board::START, &mut Rng::new(1));
+                assert_eq!(Some(square), want, "{level:?}");
+            }
+            assert_eq!(app.engine_clock.remaining_ms(), PLAY_CLOCK_MS);
+            assert!(app.last_search.is_none());
+            assert!(app.human_to_move());
+        }
+    }
+
+    /// Level 3 starts the timed search as before.
+    #[test]
+    fn search_level_thinks() {
+        let mut app = App::new();
+        app.clock_seconds = 5.0;
+        app.new_game(false);
+        app.step();
+        assert!(app.thinking.is_some());
+        assert_eq!(app.last_move, None);
     }
 
     /// The table serves one search policy: a changed setting clears it.
